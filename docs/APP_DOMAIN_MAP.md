@@ -1,9 +1,9 @@
-# 앱 도메인 지도 — `app/parts/`
+# 앱 도메인 지도 — `apps/desktop/app/parts/`
 
 앱(Electron 렌더러) 코드를 **도메인**(무슨 기능 묶음인가)으로 나눈 지도다. 어디에 무엇이 있는지 찾을 때, 그리고 폴더를 나눌 때 기준으로 쓴다.
 
 - 앱 구조 정리 순서: ① FSD 옮기기(끝 — `docs/APP_FSD_MAP.md`) → **② 도메인 지도(이 문서)** → ③ 도메인 폴더로 나누기 → ④ 컨벤션 → ⑤ 설정 · 비즈니스 로직은 서버 · 관리자로.
-- 지금(2026-10-14)은 모든 파일이 `app/parts/` 한 층(관리자만 `app/parts/admin/`)에 있다. 아래 «폴더» 칸은 ③에서 옮길 자리다.
+- 지금(2026-10-14)은 모든 파일이 `apps/desktop/app/parts/` 한 층(관리자만 `apps/desktop/app/parts/admin/`)에 있다. 아래 «폴더» 칸은 ③에서 옮길 자리다.
 - 줄 수는 2026-10-14 main 기준(대략). 「서버」 칸: `fb` = `firebaseAPI.*` 를 직접 부르는 수, `api` = 자체 서버 API(t-w-server) 통로, `ws` = 방 서버 웹소켓.
 
 ## 0. 한눈에
@@ -14,8 +14,8 @@
 | `room/` ✅ | 🛰 방(워킹룸 · 투게더룸) — 입장 · 동기화 · 방 서버 · 방 안 놀이 | 21 | 7,200 |
 | `chat/` ✅ | 💬 채팅 — 대화창 · 기록 · 설정 · 이모티콘 | 8 | 2,600 |
 | `myhome/` ✅ | 🏠 마이홈 — 페이지 · 편집 · 스티커 · 친구 · 우편 · 방명록 · 바탕화면 앱 | 19 | 13,900 |
-| `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 길 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 3 | 180 |
-| `realtime/` | 🔌 realtime 서버 웹소켓 연결 공통부(열기 · hello · 토큰 · 백오프 · rid 요청) — 방 연결(`room/room-server-net.js`)과 친구 접속 상태 연결이 같이 쓴다 | 1 | 270 |
+| `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 경로 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 3 | 180 |
+| `realtime/` | 🔌 realtime 서버 웹소켓 연결 공통부(열기 · hello · 토큰 · 백오프 · rid 요청) — realtime 연결 하나(`realtime/rt-hub.js` pv 2 — 방 · 대화 · 사진 · 친구 접속이 같은 연결) | 1 | 270 |
 | `character/` ✅ | 🧍 캐릭터 · 꾸미기 — 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 | 19 | 10,500 |
 | `creator/` ✅ | 🎨 생성기 — 그리기 도구 · 단계 길잡이 (+ app.js 에 남은 생성기 묶음을 여기로) | 6 | 650 (+ 약 3,500) |
 | `focus/` ✅ | ⭐ 집중 · 레벨 — 포커스 기록 · 레벨 · 경험치 · 달성표 · 뽀모도로 | 9 | 2,700 |
@@ -27,7 +27,7 @@
 | `admin/` | 🛠️ 관리자(이미 폴더) | 11 | 2,600 |
 | `shared/` ✅ | 🧰 공용 도구 · 공용 통로 — 창 겹침 · 프롬프트 · 효과음 · 테마 · API · 원격 설정 | 16 | 1,800 |
 
-## 1. 🚀 입구 · 3D 핵심 — 폴더를 만들지 않고 `app/parts/` 에 둔다
+## 1. 🚀 입구 · 3D 핵심 — 폴더를 만들지 않고 `apps/desktop/app/parts/` 에 둔다
 
 | 파일 | 하는 일 | 줄 | 서버 |
 |---|---|---:|---|
@@ -51,9 +51,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `ride-bench.js` · `interaction-desk.js` | 올라타기(탑) · 벤치 · 상호작용 책상 · 춤 목록 · 재주 상수 | — |
 | `tricks.js` · `dice-games.js` · `roulette.js` · `floaters.js` | 깜짝쇼 · 때리기 · 주사위 · 하루 횟수 · 러시안룰렛 · 이모지 떠오르기 | fb 2 · 2 |
 | `overhead.js` · `away-pic.js` | 머리 위 말풍선 · 이름표 · 공지 배너 · 자리비움 그림 | fb 2 |
-| `room-server-net.js` (ES) | 방 서버 웹소켓 provider(PROTOCOL v1) — 연결 공통부는 `realtime/realtime-link.js` | ws |
-| `room-server-gate.js` (ES) | 이 방을 방 서버로 열지 · 어느 서버로 갈지 | api 2 |
-| `room-alive.js` · `room-ghost-heal.js` · `room-index.js` · `room-channel.js` · `room-stats.js` (ES) | 살아 있음 판정 · 사라진 멤버 다시 등록 · roomIndex · 채널 값 · roomStats 읽기 | (firebase-init 이 연결) |
+| `room-rt.js` | 방 포트 — realtime 연결 하나 위의 방 provider(서버 통신 규약 pv 2 · 탭 s1↔S1 · random · peek) | ws(rt-hub) |
 
 ## 3. 💬 `chat/` — 채팅 ✅ 옮김(폴더 3번)
 
@@ -79,15 +77,19 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `guestbook.js` · `scheduler.js` | 방명록 · 스케줄러 · 일정 알림 | fb 15 · 24 |
 | `myhome-desktop.js` · `folder-free.js` · `bookmark.js` · `mallang.js` | 마이홈 바탕화면 · 폴더 자유배치 · 북마크 책장 · 말랑이 | fb 98 · 27 |
 | `myhome-links.js` · `myhome-diag.js` | 본문 링크 · 클릭 진단(콘솔) | — |
-| `broadcast-cache.js` (ES) | 공용 공지(inboxBroadcast) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
+| `inbox-api.js` · `mail-feed.js` | 📩 내 우편 — 서버 endpoint(`/v2/me/notifications`) · 받아 들고 있는 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기). 사용법은 `README.md` | 서버 |
+| `gift-api.js` | 🧸 말랑이 · 🎁 선물 서버 endpoint(`/v2/me/mallangs` · `/v2/me/gifts` · `/v2/gifts/{code}`) provider — 만드는 곳은 말랑이 칸(`mallang-store.js`) · 선물 상태 주인(`gift-box.js`). 사용법은 `README.md` | 서버 |
+| `gift-box.js` | 🎁 선물 상태 주인 — 내 선물함(받기 · ⭐ · 치움 · 지우기 · 봤음 · 신호 `gifts`) · 그 집에 나온 선물 받기. 사용법은 `README.md` | 서버 |
+| `launcher/notice-api.js` · `launcher/notice-feed.js` | 📢 공지 한 판(`/v2/notices` — 소식 · 업데이트 공지 · 런처 배너) + 관리자 소식 쓰기. 확성기는 realtime `announce`(`room/overhead.js`). 사용법은 `launcher/README.md` | 서버 |
 
-### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `app/parts/friends/README.md`)
+### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `apps/desktop/app/parts/friends/README.md`)
 
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
 | `friends-port.js` | 포트 — 친구 목록 받기 · 목록 듣기 · 접속 상태 듣기. friends-sub.js(마이홈)가 부른다 | — |
-| `friends-firebase.js` | 옛 길 provider — 상시 구독은 목록 하나 · 카드는 열 때 한 번 · 접속 상태는 목록이 열려 있는 동안만(나중에 걷음) | fb 0(deps 로) |
-| `friends-api.js` | api provider — GET /v1/me/friends · 요청 규칙(5초 · 서버 문제면 두 번 더 · 401 · 400 은 바로 옛 길) | api(로그인) |
+| `friends-api.js` | 서버 provider — social-api 위 목록 + 명함 → 친구 칸 · 알림(friends · card)을 받으면 다시 받기 · 끊기 | api(로그인) · realtime 알림 |
+| `social-api.js` | 👥 친구 · 친구 요청 · 명함 서버 endpoint(`/v2/me/friends` · `/v2/me/friend-requests` · `/v2/myhomes/cards`) provider — friends-api.js · friend-requests-api.js 가 부름. 사용법은 `README.md` | 서버 |
+| `friend-requests-port.js` · `friend-requests-api.js` | 👋 친구 요청 포트 · 서버 provider(받은 요청 · 이름 · 알림 friendRequests · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기) | api(로그인) · realtime 알림 |
 
 ## 5. 🧍 `character/` — 캐릭터 · 꾸미기 ✅ 옮김(폴더 10번)
 
@@ -101,7 +103,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `char-code.js` · `code-crypto.js` · `asset-code.js` · `commission.js` | 복제 코드 · 암호화 · 에셋 코드 · 커미션 zip · 저장 책상 / 아이템 | — |
 | `face-heal.js` · `def-size.js` · `seat-slot.js` | 얼굴 자동 복구 · def 용량 상한 · 좌석 안 파츠 가두기 | — |
 | `gacha.js` | 파츠 가챠 · 보관함 · 뽑기 창 | fb 5 |
-| `catalog-cache.js` (ES) | 카탈로그(parts · gachaParts · items · desks) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
+| `catalog-api.js` (classic) | 카탈로그(파츠 · 책상 · 아이템)를 로그인 뒤 서버 한 벌 `GET /v2/catalog`(ETag · realtime catalog · license 알림 · 서버 `locked` 그대로)에서 받아 앱 모양으로 펼침 · GLB 받기 | app.js 가 만든다 |
 
 ## 6. 🎨 `creator/` — 생성기 ✅ 옮김(폴더 12번)
 
@@ -137,10 +139,9 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `account.js` · `my-info.js` | 로그인 · 로그아웃 · 신원 지우기 · 내 정보(보관함 · 휴지통 · 계정 탭) | fb 44 · 16 |
 | `license-gate.js` | 초대장 — 앱 접근 제한 | fb 60 |
-| `license-ui.js` · `license-key.js` · `license-request.js` | 라이선스 화면 · 키 등록 / 해제 · 요청 | fb 6 |
-| `device-lost.js` · `name-guard.js` | 한 계정 한 기기 · 운영진처럼 보이는 이름 막기 | fb 4 |
-| `invite-account.js` · `invite-revoke.js` (ES) | 초대 게이트용 계정 읽기 · 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
-| `group-invite.js` (ES) | 여러 명이 쓰는 초대 코드(관리자가 웹 관리자에서 만든 코드) 소진 · 가입 마무리 — 한 명짜리 `invites/` 에 없을 때만 | (firebase-init 이 연결) |
+| `license-ui.js` · `license-key.js` | 라이선스 화면 · 키 등록 / 해제 | fb 6 |
+| `device-lost.js` · `name-guard.js` | 이 PC 연결이 끊긴 뒤(계정마다 PC 는 서버가 정한 상한까지) · 운영진처럼 보이는 이름 막기 | fb 4 |
+| `invite-revoke.js` (ES) | 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
 
 ## 10. 🖥️ `launcher/` — 런처 · 앱 껍데기 ✅ 옮김(폴더 7번)
 
@@ -149,7 +150,8 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `settings-panel.js` · `program-settings.js` | 설정 패널 · 캐릭터 탭 · 닉네임 · 프로그램 설정(회사원 · 피규어 모드) | fb 2 |
 | `desktop-run.js` | 데스크탑 실행 화면 — 업데이트 배너 · 활성 앱 · 전역 입력 · 클릭 통과 · 하트비트 | — |
 | `heartbeat.js` · `run-diag-minute.js` | 0.1초 하트비트(`setCharBounds`) · 1분 진단 줄(`[비용]` · `[프레임]`) | — |
-| `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` | 런처 타이틀바 · 함수키 · 광고 배너 · 게임 설정 구독 | fb 5 |
+| `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` | 런처 타이틀바 · 함수키 · 광고 배너(공지 한 판에서 그림) · 게임 설정 구독 | fb 5 |
+| `app-boot.js` | 🚀 켜는 순서 한 곳 — 계정 확인 뒤 옛 값 옮기기 → 계정 칸 열기 → realtime → 계정 기능 열다섯 시작(차례 표 `STEPS`). 사용법은 `launcher/README.md` | — |
 
 ## 11. 🐞 `support/` — 제보 · 신고 ✅ 옮김(폴더 2번)
 
@@ -157,14 +159,16 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `bug-board-ui.js` | 버그 제보 게시판 화면 | fb 8 |
 | `report.js` | 신고하기 · 신고 창 도우미(관리자 목록은 `admin/admin-report.js`) | — |
+| `report-api.js` | 🚩 신고 서버 endpoint(`POST /v2/reports`) provider — 사유 이름 → 서버 종류 이름. 사용법은 `README.md` | 서버 |
 | `bug-board.js` (ES) | 버그 게시판 데이터 | (firebase-init 이 연결) |
 
 ## 12. 📷 `purikura/` — 스티커사진 ✅ 옮김(폴더 1번)
 
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
-| `purikura-ui.js` | 촬영 창 · 로비 · 전용 씬 · 촬영 · 꾸미기 | fb 10 |
-| `purikura-net.js` | 하루 정원 · 방 통신(`window.Purikura`) | fb 7 |
+| `purikura-ui.js` | 촬영 창 · 로비 · 전용 씬 · 촬영 · 꾸미기 | fb 1 (프레임 Storage 올리기 `pkUploadFrame`) |
+| `purikura-rt.js` | 세션 포트 — 자리 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터(realtime `photo*`) · 하루 정원(`GET /v1/rooms/photo-quota`) (`window.TwPurikuraRt`) | realtime + API |
+| `purikura-net.js` | 순수 계산 — 시트 기하 · 필터 · 좌표 인코딩 · 하루 경계 문구(`window.Purikura`) | 없음 |
 
 ## 13. 🛠️ `admin/` — 관리자 (이미 폴더)
 
@@ -178,14 +182,14 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `win-stack.js` · `outside-close.js` · `async-prompt.js` · `key-input.js` | 창 겹침 · ESC · 팝업 바깥 닫기 · 인앱 프롬프트 · 키 입력 공통 |
 | `rich-text.js` · `sfx.js` · `frame-budget.js` · `gl-recover.js` | 리치 텍스트 sanitize · 효과음 공장 · 프레임 예산 · 3D 연결 끊김 복구 |
 | `theme.js` · `theme-ui.js` | 디자인 테마 · 자식 창 테마 |
-| `api-client.js` · `remote-config.js` | 자체 서버 API 통로 · 원격 설정 (api) |
-| `api-public-reads.js` · `app-version.js` · `app-version-gate.js` · `visit-ping.js` (ES) | 공개 읽기 API 먼저 · 앱 버전 싣기 · 최소 버전 막기 · 방문 집계 |
+| `api-client.js` · `remote-config.js` · `api-errors.js` · `request-id.js` · `device-id.js` | 서버 API 통로 · 원격 설정(GET /v2/config) · 오류 번역 · 요청 번호 · 기기 id (api) |
+| `api-public-reads.js` (classic) · `app-version.js` · `visit-ping.js` (ES) | 플레이리스트 명함 읽기(서버 명함 묶음) · 앱 버전 싣기 · 방문 집계 (최소 버전 막기 → 업데이트 흐름은 classic `shared/update-flow.js`) |
 
 ## 15. ③ 폴더로 나눌 때 — 같이 고칠 곳과 함정
 
-- **HTML `<script src>`**(`app/desk-companion-prototype.html`): 경로만 바꾸고 **싣는 순서는 그대로**(classic script 는 순서가 곧 의존).
-- **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`broadcast-cache.js → catalog-cache.js` · `room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
-- **⚠️ 검사가 못 잡는 자리**(→ `sim-parts-paths.js` 로 막음 · 폴더 1번): 검사 러너(`checks/run.js`)는 `app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
+- **HTML `<script src>`**(`apps/desktop/app/desk-companion-prototype.html`): 경로만 바꾸고 **싣는 순서는 그대로**(classic script 는 순서가 곧 의존).
+- **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
+- **⚠️ 검사가 못 잡는 자리**(→ `sim-parts-paths.js` 로 막음 · 폴더 1번): 검사 러너(`checks/run.js`)는 `apps/desktop/app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
 - **파일 이름은 폴더가 달라도 겹치면 안 된다** — 러너가 이름으로 찾는다(겹치면 `flatDup` 로 알린다).
 - **소리 · 그림 파일**(`parts/click.mp3` 등)은 옮기지 않는다 — 코드 안 경로(`'parts/click.mp3'`)가 그대로 맞게.
 - **CLAUDE.md 구조 표**의 경로, `checks/CHECKS.md` 메모의 경로, `audit.py` 검사 8 목록은 이름만 보므로 그대로.

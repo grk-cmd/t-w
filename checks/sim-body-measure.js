@@ -10,7 +10,7 @@
    ・두 번째 묶음(1-b · 2-b · 3-b): 런처 미리보기 _lcBodyBox · 머리 공간 진단 _measureBodyBoxInLocal · 머리 여유 _headTopAboveBone ·
            책상 바닥 맞춤 _boxExcluding · 올라타기 머리 파츠 · 귀 박스 · 검증 로그 — 옵션 partTest · skipBranch · frame · 'skinned'
            (2-b 는 115afe0 원문과 지금 글을 떼어 무작위 트리 300벌 대조 · 진단 _floorSnapProbe 는 뺀 판정만 대조)
-   ・5절: 일부러 깨 보기
+   ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
 const fs = require('fs');
@@ -19,7 +19,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('character/body-measure.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('character/body-measure.js'), APP = read('app.js') + '\n' + (read('character/part-xf.js') || ''),   // 머리 공간 진단 · 머리 여유는 app.js 분리 T5 에서 part-xf.js 로 옮겼다(0.13 글 그대로)
+  HTML = read('desk-companion-prototype.html');
 const TRICKS = read('room/tricks.js'), CHIP = read('status/status-chip.js'), AWAY = read('room/away-pic.js'), CM = read('character/char-measure.js');
 const LCP = read('launcher/launcher-preview.js'), RIDE = read('room/ride-bench.js'), FSD = read('character/floor-snap-diag.js');
 if(!MOD || !APP || !HTML || !TRICKS || !CHIP || !AWAY || !CM || !LCP || !RIDE || !FSD){ say('  ? 원본 못 찾음 — body-measure.js · app.js · html · tricks.js · status-chip.js · away-pic.js · char-measure.js · launcher-preview.js · ride-bench.js · floor-snap-diag.js'); process.exit(2); }
@@ -471,7 +472,7 @@ function equivalence2(mod, app, lcp, ride, cm = CM, fsd = FSD){
   const N = 300, bad = { lc: 0, local: 0, localRoot: 0, headTop: 0, excl: 0, wrap: 0, ear: 0, diag: 0, probe: 0 };
   const skipPin = o => o.name === PIN;
   for(let i = 1; i <= N; i++){
-    const mk = () => randTree2(i * 104729);   // 같은 씨앗 = 같은 트리 두 벌(옛 · 새 글이 서로의 행렬 갱신에 기대지 않게)
+    const mk = () => randTree2(i * 104729);   // 같은 seed = 같은 트리 두 벌(옛 · 새 글이 서로의 행렬 갱신에 기대지 않게)
     let s = mk(), s2 = mk();
     if(!sameBox(OLD2._lcBodyBox(s.root), lc(s2.root))) bad.lc++;
     s = mk(); s2 = mk();
@@ -523,7 +524,7 @@ function wiring(app, html, tricks, chip, away, files, cm){
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   t(/const bodyMeasureMod = TwBodyMeasure\.createBodyMeasure\(\{\n\}\);/.test(app), 'app.js 가 만든다(빈 deps)');
-  t(A.indexOf('const bodyMeasureMod') >= 0 && A.indexOf('const bodyMeasureMod') < A.indexOf('function _myPanHalfFrac('), '만드는 줄이 맨 앞(쓰는 함수들보다 먼저 — 부팅 중에 불려도 TDZ 없음)');
+  t(A.indexOf('const bodyMeasureMod') >= 0 && A.indexOf('const bodyMeasureMod') < A.indexOf('const charPlaceMod'), '만드는 줄이 맨 앞(쓰는 모듈 — _myPanHalfFrac 가 든 char-place — 보다 먼저 — 부팅 중에 불려도 TDZ 없음)');
   const iM = html.indexOf('<script src="parts/character/body-measure.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — body-measure.js 를 app.js 보다 먼저 싣는다');
   const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; const j = src.indexOf('\n}\n', i); return src.slice(i, j < 0 ? undefined : j); };
@@ -533,7 +534,8 @@ function wiring(app, html, tricks, chip, away, files, cm){
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: true, visibleOnly: true, skipMeshes: headDecorMeshSet\(meshHost\)/.test(fnBody(C, 'measureHeadBoxNoParts')), 'measureHeadBoxNoParts → 파츠 · 숨김 · 장식 빼기');
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: true \}\)/.test(fnBody(C, 'measureCharBox')) && !/\.traverse\(/.test(fnBody(C, 'measureCharBox')), 'measureCharBox → 파츠만 빼기');
   t(/(?:^|[^.\w])measureBodyBox\(root, \{ excludeParts: 'rigged', visibleOnly: true \}\)/.test(fnBody(C, 'measureUnderfootDepth')), "measureUnderfootDepth → 리깅만 빼기 · 숨김 빼기");
-  const pan = fnBody(A, '_myPanHalfFrac');
+  const CP = strip(files[Object.keys(files).find(f => /char-place\.js$/.test(f))] || '');   // _myPanHalfFrac 는 room/char-place.js(app.js 분리 M7)
+  const pan = fnBody(CP, '_myPanHalfFrac');
   t(/bodyMeasureMod\.measureBodyBox\(me\.group, \{[^}]*visibleOnly: true[^}]*\}\)/.test(pan) && !/\.traverse\(/.test(pan), '_myPanHalfFrac → measureBodyBox(손으로 도는 traverse 없음)');
   const glue = (name) => { const m = app.match(new RegExp('const ' + name + ' = [\\s\\S]*?\\n\\}\\);')); return m ? m[0] : ''; };
   const T = strip(tricks), probe = fnBody(T, '_flyProbeY');
@@ -623,7 +625,7 @@ wiring(APP, HTML, TRICKS, CHIP, AWAY, FILES, CM).forEach(([ok, msg]) => chk(ok, 
 say('── 3-b. 두 번째 묶음 연결 · 손으로 거르기 금지');
 wiring2(APP, LCP, RIDE, FILES).forEach(([ok, msg]) => chk(ok, msg));
 
-say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 5. mutation test — 하나라도 못 잡으면 빨강');
 const allOk = (rows) => rows.every(([ok]) => ok);
 const breaks = [
   ['파츠 이름 판정 빠짐', () => !allOk(behave(MOD.replace("return typeof p.name === 'string' && p.name.indexOf(PART_WRAP_PREFIX) === 0;", 'return false;')).concat(equivalence(MOD.replace("return typeof p.name === 'string' && p.name.indexOf(PART_WRAP_PREFIX) === 0;", 'return false;'))))],

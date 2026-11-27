@@ -108,6 +108,7 @@ const probe = `
   renderLauncher = ()=>{};
   saveSlots = ()=>{};
   saveCurSlot = ()=>{};
+  globalThis.premiumKnown = true;   // 서버가 프리미엄을 확인해 준 뒤(account-state.js) — 모름은 아래 (ㅁ) 에서 따로 본다
   decryptCode = async (code)=>{
     if(!/^DCC1\\./.test(code)) throw new Error('format');
     return { type:'creator', skin:0, face:{}, blink:{}, top:'#fff', bot:'#fff' };
@@ -118,6 +119,7 @@ const probe = `
     setCur:(v)=>{ curSlot = v; },
     getCur:()=>curSlot,
     setRaceTarget:(v)=>{ _raceTargetSlot = v; },
+    setKnown:(v)=>{ globalThis.premiumKnown = v; },
     importCloneCode,
     decryptCommission,
     commGo: document.getElementById('commImpGo').onclick,
@@ -208,6 +210,16 @@ const lastToast = () => K.toasts[K.toasts.length - 1] || '(없음)';
   K.setCommFields(DCM, 'pw');
   await K.commGo();
   chk(!/형식이 아니에요/.test(lastToast()), 'DCM1 은 여전히 커미션 경로로 내려간다 (' + lastToast() + ')');
+
+  /* ── (ㅁ) 프리미엄 «모름» 동안엔 불러오지 않는다 — 가챠 아닌 파츠를 지우고 저장하는 되돌릴 수 없는 손실 막기 ── */
+  reset(1);
+  K.setKnown(false);
+  K.setCommFields(DCC, 'pw');
+  await K.commGo();
+  chk(!K.slots[1] && K.slots.filter(Boolean).length === 0 && /확인 중/.test(lastToast()), '★ 모름이면 칸에 넣지 않고 «확인 중» 으로 멈춘다 (' + lastToast() + ')');
+  K.setKnown(true);
+  await K.commGo();
+  chk(!!K.slots[1], '  ↳ 확인이 오면 같은 코드가 그대로 들어간다');
 
   say('');
   if (fail) { say('문제 ' + fail + '건'); process.exit(1); }

@@ -1,11 +1,16 @@
 /* ═══ 🌐 sim-api-client.js — 앱 공통 API 통로(api-client.js · window.TwApi) ═══════════════
-   [왜] 읽기 사본이 있는 것은 우리 API(t-w-server)에서 먼저 읽고, 못 받으면 Firebase 길로 간다. 시간 제한 · 봉투 · 실패 모양 · 쉬기를 한 곳에서.
+   [왜] 서버 API(t-w-server) 읽기 · 쓰기를 한 통로로. 실패해도 Firebase 경로로 넘어가지 않는다. 시간 제한 · 봉투 · 실패 모양 · 쉬기를 한 곳에서.
    1. 주소 — 운영 앱은 운영 API · dev 앱은 dev API(tw.apiBaseUrl 은 dev 만 · CSP 묶음 안 · 운영 API 아님) · 환경은 companion.firebaseEnv
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
-   3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 404 · 봉투 아님 → unavailable · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · shouldFallback
-   4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 성공은 쉬지 않음
-   5. 캐시 · 같은 요청 하나로 · 주소 없음
-   6. 모듈 — Firebase 모름 · window.TwApi · 앱 한 벌(client) 주소 · html 차례
+   3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 봉투 아님 → unavailable · 길 없는 404(NOT_FOUND) → noRoute(앱 버그 · console.error) · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · 넘어가기 장치(shouldFallback) 없음
+   4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 길 없는 404 · 성공은 쉬지 않음(그 요청만 실패 — 같은 통로의 /v2/config 는 계속 간다)
+   4-2. 멈춤 gate(로그인 통로) — 503 · 5xx · 시간 초과 · 네트워크 · notReady 뒤 다음 요청은 흩은 기다림(jitter) 뒤에 · 연달아 실패하면 늘고 8초에서 멈춤 · 동시 실패는 한 번 ·
+        성공하면 풀림 · 429 Retry-After 는 그 endpoint(method + path)만 그때까지 보내지 않고 429 · 계정을 놓으면(forgetSession) 비움 · gate 없는 통로는 그대로
+   5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
+   6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
+   7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
+   8. ETag — 기억 · If-None-Match · 304 면 기억 값 · 계정이 다르면 따로 · 계정을 놓을 때(forgetSession) 진행 중 로그인 읽기 · 기억을 뗌 · 상한 · 오류 봉투(items · Retry-After · 자원 없음 404)
+   9. 모듈 — Firebase 모름 · window.TwApi · 앱 한 벌(client · authed · bindToken) 주소 · html 차례
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const fs = require('fs');
@@ -26,9 +31,107 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
 const A = require(path.resolve(where('api-client.js')));
 const memStore = (o) => ({ getItem: (k) => (k in (o || {}) ? o[k] : null) });
 const PROD = 'https://api.together-working.com', DEV = 'https://api-dev.together-working.com';
-const res = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => { if(body instanceof Error) throw body; return body; } });
+const res = (status, body, hdr) => ({ ok: status >= 200 && status < 300, status, headers: { get: (k) => { const h = hdr || {}; const f = Object.keys(h).find((x) => x.toLowerCase() === String(k).toLowerCase()); return f ? h[f] : null; } }, json: async () => { if(body instanceof Error) throw body; return body; } });
+const jwt = (sub) => 'h.' + Buffer.from(JSON.stringify({ sub })).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_') + '.s';
 const mkFetch = (fn) => { const calls = []; const f = async (url, init) => { calls.push({ url, init }); return fn(url, init, calls.length); }; f.calls = calls; return f; };
 const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
+const settle = async () => { for(let i = 0; i < 30; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
+
+/* 멈춤 gate 경우들 — 4-2절(chk)과 mutation test(probe)가 같이 쓴다. [ok, 글] 목록을 돌려준다 */
+async function gateCases(M){
+  const out = [];
+  const ok = (c, msg) => out.push([!!c, msg]);
+  const mkGate = (fn, extra) => {
+    const clk = { t: 1000, q: [] };
+    clk.setTimeout = (f, ms) => { clk.q.push({ at: clk.t + ms, f }); };
+    clk.run = async (ms) => { clk.t += ms; const due = clk.q.filter((h) => h.at <= clk.t); clk.q = clk.q.filter((h) => h.at > clk.t); due.forEach((h) => h.f()); await settle(); };
+    const f = mkFetch(fn);
+    const c = M.createApiClient(Object.assign({ baseUrl: PROD, fetch: f, getToken: async () => 't', backoffMs: 0, gate: true, random: () => 0.5, now: () => clk.t, setTimeout: clk.setTimeout }, extra || {}));
+    return { c, f, clk };
+  };
+  {
+    let mode = 503;
+    const { c, f, clk } = mkGate(() => (mode === 503 ? res(503, { success: false, code: 'UNAVAILABLE' }) : res(200, { success: true, data: 1 })));
+    const e1 = await err(c.post('/v2/me/devices', {}));
+    ok(e1 && e1.status === 503 && c.gateLeftMs() === 750, '★ 503 뒤 멈춤 — 흩은 기다림 [0.5s, 1s](random 0.5 → 750ms) · ' + c.gateLeftMs());
+    mode = 200;
+    let got = null; c.get('/v2/me', { auth: true }).then((d) => { got = d; }, () => { got = 'err'; });
+    await settle();
+    ok(f.calls.length === 1 && got === null, '  ↳ 멈춤 동안 다시 묻기(retryNow 등)는 바로 보내지 않는다');
+    await clk.run(749);
+    ok(f.calls.length === 1, '  ↳ 기다림이 끝나기 전엔 보내지 않는다');
+    await clk.run(1);
+    ok(f.calls.length === 2 && got === 1 && c.gateLeftMs() === 0, '  ↳ 기다림 뒤 보내고 · 성공하면 멈춤이 풀린다');
+    mode = 503;
+    await err(c.post('/v2/x', {}));
+    ok(c.gateLeftMs() === 750, '  ↳ 성공이 연속 실패 수도 놓는다(다음 실패는 다시 첫 기다림)');
+  }
+  {
+    const { c, clk } = mkGate(() => res(502, { success: false }), { random: () => 0 });
+    const seen = [];
+    for(let i = 0; i < 6; i++){ await err(c.post('/v2/x', {})); seen.push(c.gateLeftMs()); await clk.run(c.gateLeftMs()); }
+    ok(seen.join() === '1000,2000,4000,8000,8000,8000', '★ 연달아 실패하면 기다림이 늘고 8초에서 멈춘다 — ' + seen.join());
+  }
+  {
+    const rel = [];
+    const { c } = mkGate(() => new Promise((r) => rel.push(() => r(res(503, { success: false })))));
+    const a = err(c.get('/v2/a', { auth: true })), b = err(c.get('/v2/b', { auth: true }));
+    await settle(); rel.forEach((r) => r()); await a; await b;
+    ok(c.gateLeftMs() === 750, '  ↳ 동시에 나간 요청이 같이 실패하면 한 번으로 센다(750 · 1500 아님) — ' + c.gateLeftMs());
+  }
+  {
+    const kinds = [
+      ['네트워크', () => { throw new TypeError('x'); }, true],
+      ['notReady', () => res(503, { success: false, code: 'CONFIG_NOT_READY' }), true],
+      ['봉투 아님 200', () => res(200, new SyntaxError('html')), true],
+      ['400', () => res(400, { success: false, code: 'INVALID_REQUEST' }), false],
+      ['401', () => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }), false],
+      ['429 Retry-After 없음', () => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }), true],
+    ];
+    const bad = [];
+    for(const [n, fn, want] of kinds){ const { c } = mkGate(fn); await err(c.get('/v2/me', { auth: true })); if((c.gateLeftMs() > 0) !== want) bad.push(n); }
+    const tm = mkGate(() => new Promise(() => {}), { timeoutMs: 20 });
+    await err(tm.c.get('/v2/me', { auth: true }));
+    if(!(tm.c.gateLeftMs() > 0)) bad.push('시간 초과');
+    ok(!bad.length, '★ 멈춤을 거는 실패 — 네트워크 · 시간 초과 · notReady · 봉투 아님 · 5xx · Retry-After 없는 429(4xx · 401 은 안 검)' + (bad.length ? ' — 틀림: ' + bad.join(' · ') : ''));
+  }
+  {
+    const { c, f, clk } = mkGate((url) => (/users$/.test(url) ? res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '7' }) : res(200, { success: true, data: 2 })));
+    const e1 = await err(c.post('/v2/users', {}, { auth: false }));
+    const e2 = await err(c.post('/v2/users', {}, { auth: false }));
+    ok(e1 && e1.retryAfterMs === 7000 && e2 && e2.status === 429 && e2.code === 'TOO_MANY_REQUESTS' && e2.retryAfterMs === 7000 && f.calls.length === 1,
+      '★ 429 Retry-After — 그 endpoint(method + path)는 Retry-After 가 지날 때까지 보내지 않고 곧장 429(retryAfterMs = 남은 시간)');
+    ok((await c.post('/v2/other', {})) === 2 && f.calls.length === 2 && c.gateLeftMs() === 0, '  ↳ 다른 endpoint 는 막지 않는다(서버 요청 제한은 endpoint 마다) · 멈춤 gate 도 안 건다');
+    await clk.run(3000);
+    const e3 = await err(c.post('/v2/users', {}, { auth: false }));
+    ok(e3 && e3.retryAfterMs === 4000 && f.calls.length === 2, '  ↳ 남은 시간이 줄어든다(3초 뒤 4000ms)');
+    await clk.run(4000);
+    await err(c.post('/v2/users', {}, { auth: false }));
+    ok(f.calls.length === 3, '  ↳ Retry-After 가 지나면 다시 보낸다');
+    const big = mkGate(() => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '99999' }));
+    await err(big.c.post('/v2/y', {}));
+    const eb = await err(big.c.post('/v2/y', {}));
+    ok(eb && eb.retryAfterMs === M.RETRY_AFTER_MAX_MS, '  ↳ Retry-After 상한(' + M.RETRY_AFTER_MAX_MS + 'ms) — 이상한 값 하나로 그 endpoint 가 끝없이 막히지 않게');
+  }
+  {
+    const { c, f } = mkGate((url) => (/users$/.test(url) ? res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '600' }) : res(503, { success: false })));
+    await err(c.post('/v2/users', {}, { auth: false })); await err(c.post('/v2/me/x', {}));
+    const before = c.gateLeftMs() > 0;
+    c.forgetSession();
+    await err(c.post('/v2/users', {}, { auth: false }));
+    ok(before && c.gateLeftMs() === 0 && f.calls.length === 3, '★ 계정을 놓으면(forgetSession) 멈춤 · 429 막힘을 비운다 — 다음 계정에 앞 계정의 막힘(최대 10분)이 남지 않게');
+  }
+  {
+    const f = mkFetch((url, init, n) => (n === 1 ? res(503, { success: false }) : res(200, { success: true, data: 3 })));
+    const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => 't', backoffMs: 0 });
+    await err(c.post('/v2/x', {}));
+    const d = await c.post('/v2/x', {});
+    ok(d === 3 && f.calls.length === 2 && c.gateLeftMs() === 0, 'gate 없는 통로(공용 읽기 client)는 그대로 — 기다림 없이 바로 보낸다(가짜 시계 타이머 없이 끝남)');
+  }
+  ok(M.gatePauseMs(1, 0) === 1000 && M.gatePauseMs(1, 1) === 500 && M.gatePauseMs(4, 0) === 8000 && M.gatePauseMs(99, 0) === 8000 && M.gatePauseMs(0, 0) === 1000,
+    'gatePauseMs — [base/2, base] · 상한 8초 · 경계(0 · 99)');
+  return out;
+}
 
 (async () => {
   say('── 1. 주소');
@@ -36,7 +139,8 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     chk(A.API_BASE_PROD === PROD && A.API_BASE_DEV === DEV, '운영 · dev API 주소');
     chk(A.apiBaseFor('prod', memStore({ 'tw.apiBaseUrl': 'https://x.togetherworking.duckdns.org' })) === PROD && A.apiBaseFor(undefined, null) === PROD, '★ 운영 앱은 늘 운영 API(시험 주소 무시)');
     chk(A.apiBaseFor('dev', memStore()) === DEV && A.apiBaseFor('dev', null) === DEV, 'dev 앱은 dev API');
-    chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.togetherworking.duckdns.org/' })) === 'https://api-test.togetherworking.duckdns.org', '  ↳ dev 앱만 tw.apiBaseUrl(끝 / 무시)');
+    chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.together-working.com/' })) === 'https://api-test.together-working.com', '  ↳ dev 앱만 tw.apiBaseUrl(끝 / 무시)');
+    chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.togetherworking.duckdns.org' })) === DEV && !A.API_BASE_RE.test('https://api-test.togetherworking.duckdns.org'), '  ↳ ★ 옛 임시 도메인(duckdns)을 시험 주소 칸에 넣으면 dev API 로 떨어진다(E-6)');
     chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.together-working.com' })) === 'https://api-test.together-working.com', '  ↳ 새 도메인 묶음(*.together-working.com)도 시험 주소로');
     chk(['https://evil.example', 'http://api-test.togetherworking.duckdns.org', 'https://a.togetherworking.duckdns.org.evil.com', 'https://a.b.togetherworking.duckdns.org', PROD,
       'https://evil-together-working.com', 'https://a.together-working.com.evil.com', 'https://a.b.together-working.com', 'http://a.together-working.com', 'https://together-working.com']
@@ -51,9 +155,9 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
   {
     const f = mkFetch(() => res(200, { success: true, data: { a: 1 } }));
     const c = A.createApiClient({ baseUrl: PROD + '/', fetch: f });
-    const d = await c.get('/v1/config');
+    const d = await c.get('/v2/config');
     chk(d && d.a === 1, '봉투의 data 를 돌려준다');
-    chk(f.calls[0].url === PROD + '/v1/config' && f.calls[0].init.credentials === 'omit' && Object.keys(f.calls[0].init.headers || {}).length === 0, '  ↳ 주소 = 기본(끝 / 정리) + 경로 · 토큰 · 쿠키 없이');
+    chk(f.calls[0].url === PROD + '/v2/config' && f.calls[0].init.credentials === 'omit' && Object.keys(f.calls[0].init.headers || {}).length === 0, '  ↳ 주소 = 기본(끝 / 정리) + 경로 · 토큰 · 쿠키 없이');
     chk(c.baseUrl() === PROD && !c.resting(), '  ↳ baseUrl · 쉬지 않음');
     const nul = A.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(200, { success: true, data: null })) });
     chk((await nul.get('/x')) === null, '  ↳ data 가 null 이어도 성공(없음은 부르는 쪽이 판단)');
@@ -61,12 +165,14 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
 
   say('── 3. 실패 한 모양');
   {
-    const one = async (fn, opts) => err(A.createApiClient(Object.assign({ baseUrl: PROD, fetch: mkFetch(fn), backoffMs: 0 }, opts || {})).get('/v1/x'));
+    const one = async (fn, opts) => err(A.createApiClient(Object.assign({ baseUrl: PROD, fetch: mkFetch(fn), backoffMs: 0 }, opts || {})).get('/v2/x'));
     const cases = [
       ['네트워크(TypeError)', () => { throw new TypeError('Failed to fetch'); }, 'unavailable', 'NETWORK'],
       ['500', () => res(500, { success: false, code: 'INTERNAL' }), 'unavailable', 'INTERNAL'],
       ['502 HTML', () => res(502, new SyntaxError('html')), 'unavailable', ''],
-      ['404(배포 전)', () => res(404, { success: false, code: 'NOT_FOUND' }), 'unavailable', 'NOT_FOUND'],
+      ['404 길 없음', () => res(404, { success: false, code: 'NOT_FOUND' }), 'noRoute', 'NOT_FOUND'],
+      ['404 옛 경로 없음', () => res(404, { success: false, code: 'DATA_ROUTE_NOT_FOUND' }), 'noRoute', 'DATA_ROUTE_NOT_FOUND'],
+      ['404 code 없음', () => res(404, {}), 'noRoute', 'NOT_FOUND'],
       ['200 인데 봉투 아님(HTML)', () => res(200, new SyntaxError('html')), 'unavailable', ''],
       ['200 인데 success:false', () => res(200, { success: false }), 'unavailable', ''],
       ['503 CONFIG_NOT_READY', () => res(503, { success: false, code: 'CONFIG_NOT_READY' }), 'notReady', 'CONFIG_NOT_READY'],
@@ -79,11 +185,13 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       const e = await one(fn);
       if(!(e instanceof A.ApiError) || e.kind !== kind || e.code !== code) bad.push(name + '=' + (e && e.kind) + '/' + (e && e.code));
     }
-    chk(bad.length === 0, '★ 네트워크 · 5xx · 404 · 봉투 아님 → unavailable · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request' + (bad.length ? ' — 틀림: ' + bad.join(', ') : ''));
+    chk(bad.length === 0, '★ 네트워크 · 5xx · 봉투 아님 → unavailable · 길 없는 404 → noRoute · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request' + (bad.length ? ' — 틀림: ' + bad.join(', ') : ''));
     const e503 = await one(() => res(503, { success: false, code: 'CONFIG_NOT_READY' }));
     chk(e503.status === 503 && e503.name === 'ApiError' && e503 instanceof Error, '  ↳ 상태 · 이름 · Error 를 잇는다');
-    chk(A.shouldFallback(new A.ApiError('unavailable')) && A.shouldFallback(new A.ApiError('notReady')) && !A.shouldFallback(new A.ApiError('auth')) && !A.shouldFallback(new A.ApiError('request')) && !A.shouldFallback(null),
-      'shouldFallback — 닿지 못함 · 사본 없음만 Firebase 길로(권한 · 요청 오류는 덮지 않음)');
+    chk(!('shouldFallback' in A), '★ shouldFallback 는 없다 — 실패해도 다른 길로 넘어가지 않는다(부르는 쪽이 오류 번호로 드러낸다)');
+    const logged = []; const ce = console.error; console.error = (...a) => { logged.push(a.join(' ')); };
+    try{ await one(() => res(404, { success: false, code: 'NOT_FOUND' })); }finally{ console.error = ce; }
+    chk(logged.length === 1 && /\/v2\/x/.test(logged[0]) && /앱 버그/.test(logged[0]) && /404/.test(logged[0]), '★ 길 없는 404 는 console.error 로 크게 남는다(메서드 · 길 · 상태 — 조용히 넘어가지 않는다)');
     const t0 = Date.now();
     const eh = await one(() => new Promise(() => {}), { timeoutMs: 150 });
     chk(eh && eh.kind === 'unavailable' && eh.code === 'TIMEOUT' && Date.now() - t0 < 1000, '★ 답이 없으면 시간 제한에서 끊는다(TIMEOUT · unavailable)');
@@ -111,10 +219,24 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const e3 = await err(c.get('/r2'));
     chk(e3 && e3.kind === 'notReady' && f.calls.length === 4, '  ↳ 사본 없음(notReady)은 서버가 살아 있는 것 — 쉬지 않는다');
     mode = 'ok';
+    {
+      /* ★ 길 없는 404(앱 버그)는 쉬기에 넣지 않는다 — 같은 통로의 /v2/config(원격 설정 · 점검 판정)가 30초 막히지 않게 */
+      const ce = console.error; console.error = () => {};
+      try{
+        const fr = mkFetch((url) => (/\/v2\/gone$/.test(url) ? res(404, { success: false, code: 'NOT_FOUND' }) : res(200, { success: true, data: { cfg: 1 } })));
+        const cr = A.createApiClient({ baseUrl: PROD, fetch: fr, now: () => t, backoffMs: 30000 });
+        const en = await err(cr.get('/v2/gone'));
+        const cfg = await cr.get('/v2/config');
+        chk(en && en.kind === 'noRoute' && !cr.resting() && cfg && cfg.cfg === 1 && fr.calls.length === 2, '★ 길 없는 404 뒤에도 쉬지 않는다 — 그 요청만 실패하고 /v2/config 는 바로 간다(BACKOFF 0)');
+      }finally{ console.error = ce; }
+    }
     const c0 = A.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(401, {})), now: () => t, backoffMs: 30000 });
     await err(c0.get('/x'));
     chk(!c0.resting(), '  ↳ 권한 오류도 쉬지 않는다');
   }
+
+  say('── 4-2. 멈춤 gate(로그인 통로)');
+  for(const [ok, msg] of await gateCases(A)) chk(ok, msg);
 
   say('── 5. 캐시 · 같은 요청 · 주소 없음');
   {
@@ -132,12 +254,168 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const p1 = c2.get('/same'), p2 = c2.get('/same');
     await new Promise((r) => setTimeout(r, 0)); release();
     chk((await p1) === 'x' && (await p2) === 'x' && g.calls.length === 1, '같은 경로를 동시에 부르면 요청은 하나');
+    {
+      /* 로그인 읽기는 누구의 것인지가 열쇠에 든다 — 계정이 바뀌는 사이 앞 계정의 응답에 합쳐지지 않는다 */
+      const rel = [];
+      const q = mkFetch((url, init) => new Promise((r) => { rel.push(() => r(res(200, { success: true, data: init.headers.Authorization }))); }));
+      const tk = { v: jwt('A') };
+      const cq = A.createApiClient({ baseUrl: PROD, fetch: q, getToken: async () => tk.v });
+      const a1 = cq.get('/me', { auth: true }), a2 = cq.get('/me', { auth: true });
+      await new Promise((r) => setTimeout(r, 0));
+      tk.v = jwt('B');
+      const b1 = cq.get('/me', { auth: true });
+      await new Promise((r) => setTimeout(r, 0));
+      rel.forEach((f2) => f2());
+      const [ra, rb, rc] = [await a1, await a2, await b1];
+      chk(q.calls.length === 2 && ra === rb && rc !== ra, '★ 로그인 읽기 — 같은 사람의 동시 요청은 하나로 · 계정이 바뀐 뒤 요청은 앞 계정 응답에 합쳐지지 않고 따로 간다');
+    }
+    {
+      /* 토큰 받기가 멈춰도 시간 제한 안에서 끝난다 · 토큰은 요청당 한 번만 받는다 */
+      const hf = mkFetch(() => res(200, { success: true, data: 1 }));
+      const t0 = Date.now();
+      const eh = await err(A.createApiClient({ baseUrl: PROD, fetch: hf, timeoutMs: 40, getToken: () => new Promise(() => {}) }).get('/me', { auth: true }));
+      chk(eh && eh.code === 'TIMEOUT' && eh.kind === 'unavailable' && hf.calls.length === 0 && Date.now() - t0 < 1500, '★ 토큰 받기가 안 끝나도 timeoutMs 안에 TIMEOUT(요청 0)');
+      let n = 0;
+      const once1 = mkFetch(() => res(200, { success: true, data: 1 }));
+      const cg = A.createApiClient({ baseUrl: PROD, fetch: once1, timeoutMs: 40, getToken: () => (++n === 1 ? Promise.resolve(jwt('A')) : new Promise(() => {})) });
+      chk((await cg.get('/me', { auth: true })) === 1 && n === 1, '  로그인 읽기는 토큰을 한 번만 받는다(두 번째 받기가 멈춰도 상관없다)');
+    }
+    {
+      /* 쓰기 — 읽은 토큰의 주인과 묶는다 */
+      const wf = mkFetch(() => res(200, { success: true, data: 7 }));
+      const tk = { v: jwt('A') };
+      const cw = A.createApiClient({ baseUrl: PROD, fetch: wf, getToken: async () => tk.v });
+      tk.v = jwt('B');
+      const ew = await err(cw.put('/me/x', { a: 1 }, { expectOwner: 'A' }));
+      chk(ew && ew.code === 'OWNER_CHANGED' && ew.status === 0 && wf.calls.length === 0, '★ 쓰기 — 토큰 주인이 읽을 때(A)와 달라지면(B) 보내지 않고 OWNER_CHANGED(요청 0)');
+      chk((await cw.put('/me/x', { a: 1 }, { expectOwner: 'B' })) === 7 && wf.calls.length === 1, '  주인이 같으면 그대로 보낸다');
+      chk((await cw.put('/me/x', { a: 1 })) === 7 && wf.calls.length === 2, '  expectOwner 를 안 주면 지금과 같다(다른 기능 무변경)');
+      const bytes = new Uint8Array([1, 2, 3]);
+      const rf = mkFetch(() => res(200, { success: true, data: { url: 'u' } }));
+      const cr = A.createApiClient({ baseUrl: PROD, fetch: rf, getToken: async () => jwt('A') });
+      await cr.post('/v2/me/images?purpose=dday', bytes, { rawType: 'image/png', expectOwner: 'A' });
+      const ri = rf.calls[0].init;
+      chk(ri.body === bytes && ri.headers['Content-Type'] === 'image/png' && ri.method === 'POST' && ri.headers.Authorization === 'Bearer ' + jwt('A'), '  rawType — 바이트 본문을 JSON 으로 바꾸지 않고 그 Content-Type 으로 그대로 보낸다');
+      const owners = [];
+      tk.v = jwt('C');
+      chk((await cw.get('/me/x', { auth: true, onOwner: (w) => owners.push(w) })) === 7 && owners.join() === 'C', '  읽기 onOwner — 그 요청에 쓴 토큰의 주인을 알려 준다');
+    }
     const e = await err(A.createApiClient({ baseUrl: '', fetch: f }).get('/x'));
     const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: null }).get('/x'));
     chk(e.kind === 'unavailable' && e.code === 'NO_API' && e2.code === 'NO_API', '주소 · fetch 가 없으면 곧장 unavailable(NO_API)');
   }
 
-  say('── 6. 모듈 · 배선');
+  say('── 6. 쓰기');
+  {
+    const f = mkFetch(() => res(200, { success: true, data: 'ok' }));
+    const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('u1'), deviceId: () => 'dev-0001' });
+    const r = [await c.post('/p', { a: 1 }), await c.put('/u', { b: 2 }), await c.patch('/m', { c: null }), await c.del('/d')];
+    const [p, u, m, dl] = f.calls;
+    chk(r.every((x) => x === 'ok') && p.init.method === 'POST' && u.init.method === 'PUT' && m.init.method === 'PATCH' && dl.init.method === 'DELETE', 'post · put · patch · del — 방법이 맞고 봉투의 data');
+    chk(p.init.body === '{"a":1}' && m.init.body === '{"c":null}' && p.init.headers['Content-Type'] === 'application/json' && dl.init.body === undefined && !('Content-Type' in dl.init.headers),
+      '  ↳ 본문은 JSON(null 칸도 그대로 — PATCH 의 «지움») · 본문 없는 DELETE 는 본문 · 형식 머리 없음');
+    chk([p, u, m, dl].every((x) => x.init.headers.Authorization === 'Bearer ' + jwt('u1')), '  ↳ 쓰기는 로그인이 기본(토큰을 붙인다)');
+    await c.post('/pub', { v: 1 }, { auth: false });
+    chk(!('Authorization' in f.calls[4].init.headers) && !('X-Device-Id' in f.calls[4].init.headers), '  ↳ auth:false 일 때만 토큰 · 기기 머리 없이');
+    const f204 = mkFetch(() => ({ ok: true, status: 204, headers: { get: () => null }, json: async () => { throw new Error('본문 없음'); } }));
+    chk((await A.createApiClient({ baseUrl: PROD, fetch: f204, getToken: async () => 't' }).post('/v', {})) === null, '  ↳ 204(본문 없음)는 null 로 성공');
+    let t = 0;
+    const down = A.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => { throw new TypeError('x'); }), getToken: async () => 't', now: () => t, backoffMs: 30000 });
+    const ew = await err(down.post('/a', {}));
+    chk(ew && ew.code === 'NETWORK' && !down.resting(), '  ↳ 쓰기 실패는 쉬기를 걸지 않는다(다음 쓰기 · 읽기를 막지 않게)');
+    chk(A.WRITE_TIMEOUT_MS >= 8000 && A.WRITE_TIMEOUT_MS <= 30000 && A.WRITE_TIMEOUT_MS > A.TIMEOUT_MS, '  ↳ 쓰기 시간 제한(' + A.WRITE_TIMEOUT_MS + 'ms)이 읽기보다 길다');
+    const slow = await err(A.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => new Promise(() => {})), getToken: async () => 't', writeTimeoutMs: 60 }).put('/s', {}));
+    chk(slow && slow.code === 'TIMEOUT', '  ↳ 쓰기도 시간 제한에서 끊는다');
+  }
+
+  say('── 7. 로그인');
+  {
+    const forces = [];
+    let n = 0;
+    const f = mkFetch((url, init) => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: init.headers.Authorization })));
+    const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async (force) => { forces.push(force); return force ? 'fresh' : 'old'; }, deviceId: () => 'dev-0001' });
+    const v = await c.get('/v2/me', { auth: true });
+    chk(v === 'Bearer fresh' && forces.join(',') === 'false,true' && f.calls.length === 2, '401 AUTH_REQUIRED(토큰이 막 끝남) → 새 토큰(force)으로 한 번만 다시(첫 토큰은 요청당 한 번만 받는다)');
+    chk(f.calls[0].init.headers['X-Device-Id'] === 'dev-0001' && A.DEVICE_HEADER === 'X-Device-Id', '  ↳ 로그인 요청에 이 기기 머리 X-Device-Id');
+    const g = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
+    const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: g, getToken: async () => 't' }).get('/x', { auth: true }));
+    chk(e2 && e2.kind === 'auth' && g.calls.length === 2, '  ↳ 다시 해도 401 이면 그대로 auth(두 번까지만)');
+    const h = mkFetch(() => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }));
+    const e3 = await err(A.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/v2/me', { auth: true }));
+    chk(e3 && e3.code === 'USER_CODE_NOT_BOUND' && h.calls.length === 1, '  ↳ 가입 전(USER_CODE_NOT_BOUND)은 다시 안 함');
+    const pub = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
+    await err(A.createApiClient({ baseUrl: PROD, fetch: pub, getToken: async () => 't' }).get('/x'));
+    chk(pub.calls.length === 1, '  ↳ 로그인 없는 읽기의 401 은 다시 안 함');
+    const none = mkFetch(() => res(200, { success: true, data: 1 }));
+    const e4 = await err(A.createApiClient({ baseUrl: PROD, fetch: none, getToken: async () => null }).patch('/x', {}));
+    const e5 = await err(A.createApiClient({ baseUrl: PROD, fetch: none }).get('/x', { auth: true }));
+    chk(e4 && e4.kind === 'auth' && e4.code === 'NO_TOKEN' && e5 && e5.code === 'NO_TOKEN' && none.calls.length === 0, '  ↳ 토큰이 없으면 보내지 않고 auth(NO_TOKEN)');
+    const nod = mkFetch(() => res(200, { success: true, data: 1 }));
+    await A.createApiClient({ baseUrl: PROD, fetch: nod, getToken: async () => 't', deviceId: () => { throw new Error('x'); } }).get('/x', { auth: true });
+    chk(nod.calls.length === 1 && !('X-Device-Id' in nod.calls[0].init.headers), '  ↳ 기기 id 를 못 얻으면 머리 없이(프리미엄만 아님 · 요청은 간다)');
+  }
+
+  say('── 8. ETag · 오류 봉투');
+  {
+    let body = { success: true, data: { v: 1 } };
+    const f = mkFetch((url, init) => (init.headers['If-None-Match'] === '"e1"' ? res(304, null) : res(200, body, { ETag: '"e1"' })));
+    const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('uA') });
+    const a = await c.get('/v2/config');
+    const b = await c.get('/v2/config');
+    chk(a.v === 1 && b === a && !f.calls[0].init.headers['If-None-Match'] && f.calls[1].init.headers['If-None-Match'] === '"e1"', 'ETag 를 기억해 다음 읽기에 If-None-Match · 304 면 기억한 값');
+    const ma = await c.get('/v2/me/x', { auth: true });
+    const tok = { cur: jwt('uA') };
+    const c2 = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => tok.cur });
+    await c2.get('/v2/me/x', { auth: true });
+    tok.cur = jwt('uB');
+    const n0 = f.calls.length;
+    await c2.get('/v2/me/x', { auth: true });
+    chk(ma.v === 1 && !f.calls[n0].init.headers['If-None-Match'], '  ↳ 로그인 읽기는 토큰 주인(sub)마다 따로 — 다른 계정은 기억 값을 묻지 않는다');
+    c.clearCache();
+    await c.get('/v2/config');
+    chk(!f.calls[f.calls.length - 1].init.headers['If-None-Match'], '  ↳ clearCache 는 ETag 기억도 지운다');
+    {
+      /* 계정을 놓을 때 — 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않는다 */
+      const gate = []; const who = { v: jwt('uA') };
+      const fs2 = mkFetch((url, init) => new Promise((r) => gate.push(() => r(res(200, { success: true, data: init.headers.Authorization }, { ETag: '"m"' })))));
+      const cs = A.createApiClient({ baseUrl: PROD, fetch: fs2, getToken: async () => who.v, backoffMs: 0 });
+      const pA = cs.get('/v2/me', { auth: true });
+      await new Promise((r) => setImmediate(r));
+      cs.forgetSession(); who.v = jwt('uB');
+      const pB = cs.get('/v2/me', { auth: true });
+      await new Promise((r) => setImmediate(r));
+      const pB2 = cs.get('/v2/me', { auth: true });
+      while(gate.length) gate.shift()();
+      const [a1, b1, b2] = await Promise.all([pA, pB, pB2]);
+      chk(fs2.calls.length === 2 && a1 === 'Bearer ' + jwt('uA') && b1 === 'Bearer ' + jwt('uB') && b2 === b1, 'forgetSession — 앞 계정의 진행 중 읽기에 묻어가지 않고 새로 보낸다 · 새 요청끼리는 하나로');
+      const n1 = fs2.calls.length; const pC = cs.get('/v2/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pC;
+      chk(fs2.calls.length === n1 + 1 && fs2.calls[n1].init.headers['If-None-Match'] === '"m"', '  ↳ 앞 계정 읽기가 늦게 끝나도 새 계정 요청 자리를 지우지 않는다 · 새 계정 ETag 는 그대로');
+      cs.forgetSession();
+      const n2 = fs2.calls.length; const pD = cs.get('/v2/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pD;
+      chk(!fs2.calls[n2].init.headers['If-None-Match'], '  ↳ forgetSession 은 계정별 ETag 기억도 지운다');
+    }
+    const lost = mkFetch(() => res(304, null));
+    const el = await err(A.createApiClient({ baseUrl: PROD, fetch: lost, backoffMs: 0 }).get('/z'));
+    chk(el && el.kind === 'unavailable' && el.code === 'NOT_MODIFIED', '  ↳ 기억 없이 304 면 닿지 못함으로(빈 값을 돌려주지 않는다)');
+    const many = mkFetch((url, init) => (init.headers['If-None-Match'] ? res(304, null) : res(200, { success: true, data: url }, { ETag: '"x"' })));
+    const cm = A.createApiClient({ baseUrl: PROD, fetch: many, etagMax: 2 });
+    await cm.get('/1'); await cm.get('/2'); await cm.get('/3');
+    const k = many.calls.length; await cm.get('/1');
+    chk(!many.calls[k].init.headers['If-None-Match'] && A.ETAG_MAX >= 16, '  ↳ 상한을 넘으면 오래된 기억부터 버린다(기본 ' + A.ETAG_MAX + ')');
+    const one = async (fn) => err(A.createApiClient({ baseUrl: PROD, fetch: mkFetch(fn), backoffMs: 0, getToken: async () => 't' }).post('/w', {}));
+    const ei = await one(() => res(409, { success: false, code: 'AVATAR_ITEM_NOT_USABLE', message: '입을 수 없는 물건', items: [{ itemId: 'p1', reason: 'LOCKED' }] }));
+    chk(ei && ei.kind === 'request' && ei.status === 409 && ei.items && ei.items[0].itemId === 'p1' && ei.message === '입을 수 없는 물건', '  ↳ 실패 봉투의 code · message · items 를 잇는다');
+    const er = await one(() => res(429, { success: false, code: 'TOO_MANY_REQUESTS' }, { 'Retry-After': '7' }));
+    chk(er && er.kind === 'request' && er.retryAfterMs === 7000, '  ↳ 429 는 Retry-After(초)를 retryAfterMs 로');
+    chk(A.retryAfterMsOf('0') === 0 && A.retryAfterMsOf('') === null && A.retryAfterMsOf('Wed, 21 Oct 2015') === null && A.retryAfterMsOf(null) === null && A.retryAfterMsOf('-1') === null, '  ↳ Retry-After 경계 — 0 · 빈 값 · 날짜 · 음수');
+    const nf = await one(() => res(404, { success: false, code: 'USER_NOT_FOUND' }));
+    chk(nf && nf.kind === 'request' && nf.code === 'USER_NOT_FOUND', '  ↳ 자원이 없다는 404(USER_NOT_FOUND)는 request — 길이 없는 404 만 닿지 못함');
+    const plain = await one(() => res(400, { success: false, code: 'INVALID_REQUEST' }));
+    chk(plain && plain.items === null && plain.retryAfterMs === null, '  ↳ items · Retry-After 가 없으면 null');
+    chk(A.tokenOwner(jwt('abc')) === 'abc' && /^t:/.test(A.tokenOwner('garbage')), '  ↳ 토큰 주인 읽기 — 못 읽으면 토큰 끝 글자로');
+  }
+
+  say('── 9. 모듈 · 배선');
   {
     const code = strip(SRC);
     chk(!/^\s*import\s/m.test(SRC) && !/firebase\/|firebase-|gstatic|getDatabase|require\(/.test(code), 'api-client.js 는 아무것도 import 하지 않는다(Firebase 모름)');
@@ -147,14 +425,172 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent });
       return w;
     };
-    const wp = mkWin('prod'), wd = mkWin('dev'), wn = mkWin(null), wo = mkWin('dev', { 'tw.apiBaseUrl': 'https://api-x.togetherworking.duckdns.org' });
+    const wp = mkWin('prod'), wd = mkWin('dev'), wn = mkWin(null), wo = mkWin('dev', { 'tw.apiBaseUrl': 'https://api-x.together-working.com' });
     chk(wp.TwApi && wp.TwApi.client && wp.TwApi.client.baseUrl() === PROD, 'window.TwApi · 앱 한 벌(client) — 운영 앱은 운영 API');
-    chk(wd.TwApi.client.baseUrl() === DEV && wn.TwApi.client.baseUrl() === PROD && wo.TwApi.client.baseUrl() === 'https://api-x.togetherworking.duckdns.org', '  ↳ dev 앱 dev API · companion 없음(웹 · 검사) 운영 · dev 시험 주소');
-    const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>'), iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
-    chk(iApi > 0 && iApi < iRc && iRc < iApp, 'html — api-client.js → remote-config.js → app.js 차례');
+    chk(wd.TwApi.client.baseUrl() === DEV && wn.TwApi.client.baseUrl() === PROD && wo.TwApi.client.baseUrl() === 'https://api-x.together-working.com', '  ↳ dev 앱 dev API · companion 없음(웹 · 검사) 운영 · dev 시험 주소');
+    {
+      const calls = [];
+      let down = false;
+      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){ calls.push('touch'); } } }, TwDeviceId: { store: { get: () => 'dev-abc123' } },
+        fetch: async (url, init) => { if(down) throw new TypeError('x'); calls.push(init.headers); return res(200, { success: true, data: 1 }); } };
+      w.window = w;
+      vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
+      const e0 = await err(w.TwApi.authed.get('/v2/me', { auth: true }));
+      w.TwApi.bindToken(async (force) => 'tok-' + (force ? 'f' : 'n'));
+      await w.TwApi.authed.put('/v2/me/x', { a: 1 });
+      const h = calls.filter((x) => typeof x === 'object').pop();
+      chk(e0 && e0.code === 'NO_TOKEN' && h.Authorization === 'Bearer tok-n' && h['X-Device-Id'] === 'dev-abc123' && calls.includes('touch'),
+        'authed(로그인 통로) — 토큰을 잇기 전엔 NO_TOKEN · bindToken 뒤 토큰 · 기기 머리(TwDeviceId) · 점검 창 touch');
+      down = true;
+      const eA = await err(w.TwApi.authed.get('/v2/me/friends', { auth: true }));
+      const eC = await err(w.TwApi.client.get('/v2/config'));
+      chk(eA && eA.code === 'NETWORK' && !w.TwApi.authed.resting() && eC && w.TwApi.client.resting(), '  ↳ 로그인 통로는 닿지 못해도 쉬지 않는다(다시 묻기를 막지 않게) · 공용 읽기 통로는 쉰다');
+      chk(w.TwApi.authed.gateLeftMs() > 0 && w.TwApi.client.gateLeftMs() === 0, '  ↳ ★ 대신 로그인 통로만 멈춤 gate(다시 묻기를 늦춘다) · 공용 읽기 통로는 gate 없음');
+    }
+    const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>'), iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>'),
+      iDev = HTML.indexOf('<script src="parts/shared/device-id.js"></script>'), iMt = HTML.indexOf('<script src="parts/shared/maintenance-gate.js"></script>');
+    chk(iMt > 0 && iDev > iMt && iApi > iDev && iApi < iRc && iRc < iApp, 'html — maintenance-gate.js · device-id.js → api-client.js → remote-config.js → app.js 차례');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => (/connect-src ([^;]+);/.exec(m[1]) || [])[1] || '');
-    const inCsp = (u) => csp.length === 2 && csp.every((c) => /(^| )https:\/\/\*\.together-working\.com( |$)/.test(c) && /(^| )https:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c)) && A.API_BASE_RE.test(u);
-    chk(inCsp(PROD) && inCsp(DEV), '  ↳ 운영 · dev API 주소가 CSP connect-src(https://*.together-working.com) 안 · 옛 duckdns 묶음도 그대로 열림');
+    const inCsp = (u) => csp.length === 2 && csp.every((c) => /(^| )https:\/\/\*\.together-working\.com( |$)/.test(c) && !/duckdns/.test(c)) && A.API_BASE_RE.test(u);
+    chk(inCsp(PROD) && inCsp(DEV), '  ↳ 운영 · dev API 주소가 CSP connect-src(https://*.together-working.com) 안 · 옛 duckdns 는 CSP 에 없음');
+  }
+
+  say('── 10. mutation test');
+  {
+    /* 깨진 원본으로 핵심 동작 몇 가지를 다시 돌려 하나라도 틀리는지 본다 */
+    const loadSrc = (src) => { const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; };
+    async function probe(src){
+      let bad = 0;
+      const ok = (c) => { if(!c) bad++; };
+      let M; try{ M = loadSrc(src); }catch(_){ return 99; }
+      try{
+        const f = mkFetch((url, init) => (init.headers['If-None-Match'] === '"e"' ? res(304, null) : res(200, { success: true, data: { u: url } }, { ETag: '"e"' })));
+        const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => 'tk', deviceId: () => 'dev-0001' });
+        const a = await c.get('/a'); const b = await c.get('/a');
+        ok(b === a && f.calls.length === 2);
+        await c.get('/m', { auth: true });
+        ok(f.calls[2].init.headers['X-Device-Id'] === 'dev-0001');
+        await c.del('/d');
+        ok(f.calls[3].init.method === 'DELETE' && f.calls[3].init.body === undefined && f.calls[3].init.headers.Authorization === 'Bearer tk');
+        let n = 0; const forces = [];
+        const g = mkFetch(() => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: 1 })));
+        ok((await M.createApiClient({ baseUrl: PROD, fetch: g, getToken: async (x) => { forces.push(x); return 't'; } }).get('/r', { auth: true })) === 1 && forces.join() === 'false,true');
+        const h = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
+        await err(M.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/r', { auth: true }));
+        ok(h.calls.length === 2);
+        const nb = mkFetch(() => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }));
+        await err(M.createApiClient({ baseUrl: PROD, fetch: nb, getToken: async () => 't' }).get('/me', { auth: true }));
+        ok(nb.calls.length === 1);
+        const e1 = await err(M.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(404, { success: false, code: 'USER_NOT_FOUND' })), backoffMs: 0 }).get('/x'));
+        ok(e1 && e1.kind === 'request');
+        const ce0 = console.error; console.error = () => {};
+        try{
+          const nr = mkFetch((url) => (/gone$/.test(url) ? res(404, { success: false, code: 'NOT_FOUND' }) : res(200, { success: true, data: 5 })));
+          const cn = M.createApiClient({ baseUrl: PROD, fetch: nr, backoffMs: 30000 });
+          const en = await err(cn.get('/gone'));
+          ok(en && en.kind === 'noRoute' && !cn.resting() && (await cn.get('/v2/config')) === 5);
+        }finally{ console.error = ce0; }
+        const e2 = await err(M.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(429, { success: false, code: 'TOO_MANY_REQUESTS', items: [1] }, { 'Retry-After': '3' })), getToken: async () => 't' }).post('/x', {}));
+        ok(e2 && e2.retryAfterMs === 3000 && e2.items && e2.items[0] === 1);
+        const pb = mkFetch(() => res(200, { success: true, data: 1 }));
+        const ep = await err(M.createApiClient({ baseUrl: PROD, fetch: pb }).post('/p', {}));
+        ok(ep && ep.code === 'NO_TOKEN' && pb.calls.length === 0);
+        const u = mkFetch((url, init) => res(200, { success: true, data: init.headers['If-None-Match'] || null }, { ETag: '"z"' }));
+        const tk = { v: jwt('A') };
+        const cu = M.createApiClient({ baseUrl: PROD, fetch: u, getToken: async () => tk.v });
+        await cu.get('/me', { auth: true }); tk.v = jwt('B');
+        ok((await cu.get('/me', { auth: true })) === null);
+        {
+          const g = []; const t2 = { v: jwt('A') };
+          const ff = mkFetch((url, init) => new Promise((r) => g.push(() => r(res(200, { success: true, data: init.headers.Authorization })))));
+          const cf = M.createApiClient({ baseUrl: PROD, fetch: ff, getToken: async () => t2.v, backoffMs: 0 });
+          const q1 = cf.get('/me', { auth: true }); await new Promise((r) => setImmediate(r));
+          cf.forgetSession(); t2.v = jwt('B');
+          const q2 = cf.get('/me', { auth: true }); await new Promise((r) => setImmediate(r));
+          g.shift()();   // 앞 계정 읽기가 먼저 끝남
+          await q1;
+          const q3 = cf.get('/me', { auth: true });
+          while(g.length) g.shift()();
+          const [r2, r3] = await Promise.all([q2, q3]);
+          ok(r2 === 'Bearer ' + jwt('B') && r3 === r2 && ff.calls.length === 2);
+        }
+        const rel = [];
+        const q = mkFetch((url, init) => new Promise((r) => { rel.push(() => r(res(200, { success: true, data: init.headers.Authorization }))); }));
+        const tq = { v: jwt('A') };
+        const cq = M.createApiClient({ baseUrl: PROD, fetch: q, getToken: async () => tq.v });
+        const a1 = cq.get('/me', { auth: true });
+        await new Promise((r) => setTimeout(r, 0));
+        tq.v = jwt('B');
+        const b1 = cq.get('/me', { auth: true });
+        await new Promise((r) => setTimeout(r, 0));
+        rel.forEach((f2) => f2());
+        ok(q.calls.length === 2 && (await a1) !== (await b1));
+        const hf = mkFetch(() => res(200, { success: true, data: 1 }));
+        const eh = await err(M.createApiClient({ baseUrl: PROD, fetch: hf, timeoutMs: 30, getToken: () => new Promise(() => {}) }).get('/me', { auth: true }));
+        ok(eh && eh.code === 'TIMEOUT' && hf.calls.length === 0);
+        let gn = 0;
+        const g1 = mkFetch(() => res(200, { success: true, data: 1 }));
+        ok((await M.createApiClient({ baseUrl: PROD, fetch: g1, timeoutMs: 30, getToken: () => (++gn === 1 ? Promise.resolve(jwt('A')) : new Promise(() => {})) }).get('/me', { auth: true })) === 1);
+        const wf = mkFetch(() => res(200, { success: true, data: 7 }));
+        const wt = { v: jwt('A') };
+        const cw = M.createApiClient({ baseUrl: PROD, fetch: wf, getToken: async () => wt.v });
+        wt.v = jwt('B');
+        const ew = await err(cw.put('/m', {}, { expectOwner: 'A' }));
+        ok(ew && ew.code === 'OWNER_CHANGED' && wf.calls.length === 0);
+        ok((await cw.put('/m', {}, { expectOwner: 'B' })) === 7 && (await cw.put('/m', {})) === 7 && wf.calls.length === 2);
+        const ow = []; await cw.get('/m', { auth: true, onOwner: (x) => ow.push(x) }); ok(ow.join() === 'B');
+        const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, fetch: async () => { throw new TypeError('x'); } };
+        w.window = w;
+        vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
+        w.TwApi.bindToken(async () => 't');
+        await err(w.TwApi.authed.get('/x', { auth: true }));
+        ok(!w.TwApi.authed.resting() && w.TwApi.authed.gateLeftMs() > 0);
+        for(const [g] of await gateCases(M)) ok(g);
+      }catch(_){ bad++; }
+      return bad;
+    }
+    chk((await probe(SRC)) === 0, '원본은 핵심 동작을 다 지킨다');
+    const BREAKS = [
+      ["        if(memo) headers['If-None-Match'] = memo.etag;", '', 'If-None-Match 를 안 보냄'],
+      ["    if(typeof dev === 'string' && dev) h[DEVICE_HEADER] = dev;", '', '기기 머리를 안 붙임'],
+      ["      return once(path, ms, Object.assign({}, o, { force: true }));", "      return once(path, ms, o);", '다시 할 때 새 토큰을 안 받음'],
+      ["      if(!(o.auth && e instanceof ApiError && e.status === 401 && e.code === 'AUTH_REQUIRED')) throw e;", "      if(!(e instanceof ApiError && e.status === 401)) throw e;", '가입 전 · 로그인 없는 401 도 다시 보냄'],
+      ["    if(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0){", "    if(status === 404){", '자원 없음 404 를 길 없음으로'],
+      ["throw new ApiError('noRoute', status,", "throw new ApiError('unavailable', status,", '길 없는 404 를 닿지 못함(30초 쉬기)으로 되돌림'],
+      ["retryAfterMs: status === 429 ? retryAfterMsOf(headerOf(res, 'Retry-After')) : null", "retryAfterMs: null", 'Retry-After 를 버림'],
+      ["    o.auth = o.auth !== false;", "", '쓰기가 로그인 없이 감'],
+      ["    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0,", "    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch,", '로그인 통로가 쉬기를 씀'],
+      ["if(method !== 'GET' && !(method === 'DELETE' && o.body === undefined)){", "if(method !== 'GET'){", '본문 없는 DELETE 에 null 본문'],
+      ["joined('A ' + a.who + ' ' + path, path,", "joined('A ' + path, path,", '같은 요청 합치기에 누구가 안 들어감'],
+      ["      gate: true,   // 대신", "      //", '로그인 통로에 멈춤 gate 없음'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429))) return;", '동시 실패를 따로 셈(기다림이 몰아서 늚)'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(gateUntil > now()) return;", '4xx · 401 에도 멈춤'],
+      ["    if(!(isServerDown(e) || (e instanceof ApiError && e.status === 429)) || gateUntil > now()) return;", "    if(!isServerDown(e) || gateUntil > now()) return;", 'Retry-After 없는 429 뒤 바로 다시'],
+      ["(e.kind === 'notReady' || (e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED'))", "(e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED')", 'notReady(503 사본 없음) 뒤 바로 다시'],
+      ["{ gateUntil = 0; gateFails = 0; return data; }", "{ return data; }", '성공해도 멈춤이 안 풀림'],
+      ["{ gateUntil = 0; gateFails = 0; return data; }", "{ gateUntil = 0; return data; }", '성공해도 연속 실패 수가 남음'],
+      ["    if(ms <= 0) return go();", "    return go();", '멈춤 동안에도 바로 보냄'],
+      ["      limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));", "", '429 Retry-After 를 안 지킴'],
+      ["      limited.set(key, now() + Math.min(e.retryAfterMs, RETRY_AFTER_MAX_MS));", "      limited.set(key, now() + e.retryAfterMs);", 'Retry-After 상한 없음'],
+      ["    return gated(method + ' ' + path, () => {", "    return gated(method, () => {", '429 가 다른 endpoint 까지 막음'],
+      ["  return Math.round(base * (1 - 0.5 * r));\n}\n/* 서버가", "  return base;\n}\n/* 서버가", '멈춤 기다림을 흩지 않음(모든 앱이 같은 때 다시)'],
+      ["const GATE_MS = Object.freeze([1000, 2000, 4000, 8000]);", "const GATE_MS = Object.freeze([1000]);", '연달아 실패해도 기다림이 안 늚'],
+      ["      gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정", "      //", '계정을 놓아도 멈춤 · 429 막힘이 남음'],
+      ["      gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정", "      gateUntil = 0; gateFails = 0;   // 앞 계정", '계정을 놓아도 429 막힘이 남음'],
+      ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(false) throw", '쓰기 직전 토큰 주인을 안 견줌'],
+      ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(o.expectOwner && tokenOwner(tok) === o.expectOwner) throw", '토큰 주인 견줌이 거꾸로'],
+      ["    if(!force && 'tok' in o) tok = o.tok;", "    if(false) tok = o.tok;", '이미 받은 토큰을 또 받음'],
+      ["      try{ tok = getToken ? await Promise.race([getToken(false), to]) : null; }", "      try{ tok = getToken ? await getToken(false) : null; }", '토큰 받기가 시간 제한 밖'],
+      ["return o.onOwner ? p.then((data) => { o.onOwner(a.who); return data; }) : p;", "return p;", 'onOwner 를 안 부름'],
+      ["        memoKey = a.who + ' ' + path;", "        memoKey = path;", 'ETag 기억을 계정끼리 섞음'],
+    ];
+    const missed = [];
+    for(const [from, to, what] of BREAKS){
+      if(SRC.indexOf(from) < 0){ missed.push('글 못 찾음: ' + what); continue; }
+      const bad = await Promise.race([probe(SRC.split(from).join(to)), new Promise((r) => setTimeout(() => r(99), 2500))]);   // 멈추면(시간 제한 밖 토큰 받기) 빨강
+      if(bad === 0) missed.push(what);
+    }
+    chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   }
 
   say('\n' + pass + ' · ' + fail);

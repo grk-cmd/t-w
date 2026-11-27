@@ -1,12 +1,12 @@
 ---
 name: todo
-description: 관리자 할 일(adminTodos)을 확인 · 등록 · 완료한다 — 버그 제보를 같이 고치는 사람끼리 겹치지 않게. 할 일에는 버그 제보와 관련된 일만 적는다(기능 · 계획은 PR · 이슈). 버그 제보 수정을 시작하기 전, 그 PR 을 만들 때, 머지된 뒤에 쓴다. "할 일 확인", "할 일 등록", "누가 하고 있나", "/todo" 에도.
+description: 관리자 할 일(API /v2/admin/todos)을 확인 · 등록 · 완료한다 — 버그 제보를 같이 고치는 사람끼리 겹치지 않게. 할 일에는 버그 제보와 관련된 일만 적는다(기능 · 계획은 PR · 이슈). 버그 제보 수정을 시작하기 전, 그 PR 을 만들 때, 머지된 뒤에 쓴다. "할 일 확인", "할 일 등록", "누가 하고 있나", "/todo" 에도.
 ---
 
 # 할 일 확인 · 등록 · 완료
 
-웹 관리자 📋 할 일 화면과 같은 데이터(`adminTodos`)를 `node scripts/todo.js` 로 다룬다.
-관리자 Google 계정으로 `gcloud auth login` 한 사람만 쓸 수 있다. 처음 한 번은 `node scripts/todo.js setup` 으로 내 관리자 계정을 고른다(아래 «처음 한 번»).
+웹 관리자 📋 할 일 화면과 같은 데이터(API 서버 `/v2/admin/todos`)를 `node scripts/todo.js` 로 다룬다.
+관리자 계정만 쓸 수 있다. 처음 한 번은 터미널에서 `node scripts/todo.js setup` 으로 관리자 계정(친구 코드 + 비밀번호)에 로그인한다(아래 «처음 한 번»).
 
 ## 언제
 - **할 일에는 버그 제보와 관련된 일만 적는다.** 기능 · 리팩터 · 릴리스 계획 · 운영 작업은 등록하지 않는다 — 겹침은 열린 PR · `status:검토중` 이슈(`docs/WORK_STATUS.md`)로 본다(할 일이 쌓여 «무엇이 남았나» 가 흐려지지 않게).
@@ -19,7 +19,7 @@ description: 관리자 할 일(adminTodos)을 확인 · 등록 · 완료한다 �
 ### 1. 겹치는지 확인
 ```bash
 node scripts/todo.js brief                 # 지금 진행 중인 일 전부(누가 · 무엇을)
-node scripts/todo.js find <낱말> <낱말>     # 하려는 일의 핵심 낱말 2~3개 — 제목 · 메모에서 찾는다
+node scripts/todo.js find <낱말> <낱말>     # 하려는 일의 핵심 낱말 2~3개 — 제목 · 메모 · 제보 번호에서 찾는다
 ```
 - 낱말은 한국어 · 영어 둘 다 넣어 본다(예: `find 채팅 이모티콘 chat`).
 - **비슷한 일이 «진행 중» 이면 멈추고 사용자에게 알린다** — 누가 하고 있는지, id, 그래도 할지 / 그 사람과 나눌지 묻는다. 묻지 않고 시작하지 않는다.
@@ -28,15 +28,15 @@ node scripts/todo.js find <낱말> <낱말>     # 하려는 일의 핵심 낱말
 
 ### 2. 등록 — 겹치지 않으면
 ```bash
-node scripts/todo.js start "<무엇을 — 한 줄 제목>" --type feat|bug [--memo "<왜 · 범위>"] [--report <제보 id>]
+node scripts/todo.js start "<무엇을 — 한 줄 제목>" --type feat|bug [--memo "<왜 · 범위>"] [--report B-MMDD-n]
 ```
 - `--type bug` 로 적는다(빠지면 오류). `feat` 는 버그 제보에서 나온 개선일 때만.
-- 제목은 120자까지, 사용자가 알아볼 쉬운 말로 — 앞에 제보 고정 번호(`B-MMDD-n`). `--report <제보 id>`(20자, 웹 관리자 제보 주소 끝)를 붙인다.
+- 제목은 120자까지, 사용자가 알아볼 쉬운 말로 — 앞에 제보 고정 번호(`B-MMDD-n`). `--report B-MMDD-n`(웹 관리자 🐞 제보에 보이는 고정 번호 · 여러 개면 여러 번 · 30개까지)을 붙인다.
 - 처음 써 보거나 확실하지 않으면 `--dry-run` 으로 무엇을 쓸지 먼저 보여 준다.
 - 나온 `id` 를 기억해 둔다(브랜치 · PR 본문에 쓴다).
 
 ### 3. PR 본문
-`.github/pull_request_template.md` 의 `할 일:` 줄에 id 를 적는다. 예: `할 일: tmv1tiuezg94bz0` — 버그 제보가 아닌 PR 은 «없음».
+`.github/pull_request_template.md` 의 `할 일:` 줄에 id 를 적는다. 예: `할 일: 019a…`(서버가 준 id) — 버그 제보가 아닌 PR 은 «없음».
 
 ### 4. 머지된 뒤 — 완료
 ```bash
@@ -54,21 +54,23 @@ node scripts/todo.js list --doing         # 진행 중만
 node scripts/todo.js list --all           # 완료까지
 ```
 줄 앞 배지: 🆕 새 기능(feat) · 🐞 버그(bug) · `·` 종류 없음(웹에서 만든 옛 할 일).
-어느 명령이든 `--dev` 를 붙이면 dev DB(together-working-dev).
+어느 명령이든 `--dev` 를 붙이면 dev API(`api-dev.together-working.com` · 로그인도 dev 계정으로 따로 setup).
 
 ## 처음 한 번 (새로 같이 일하는 사람)
-1. Google Cloud CLI 설치 → `gcloud auth login` (웹 관리자에 들어가는 그 관리자 Google 계정, 프로젝트 권한이 있어야 한다)
-2. 웹 관리자 오른쪽 위에서 내 이름을 정해 둔다(이름표 `adminNames`).
-3. `node scripts/todo.js setup` → 목록에서 내 이름 확인 → `node scripts/todo.js setup <내 이름 또는 uid>`
-   저장 위치는 `.claude/todo-me.json`(본 저장소 · 워크트리 공용 · **커밋되지 않는다**).
+1. 웹 관리자에 들어가는 관리자 계정의 **친구 코드 · 비밀번호**를 준비한다(구글로만 가입했으면 앱 계정 탭에서 비밀번호를 먼저 만든다).
+2. **터미널에서 직접**(Claude Code 안 말고) `node scripts/todo.js setup` → 친구 코드 · 비밀번호(보이지 않음)를 친다.
+   서버에 관리자인지 묻고, 맞으면 로그인(refresh token)을 `~/.config/tw-todo/auth-prod.json` 에 저장한다 — 권한 600 · 저장소 밖 · 비밀번호는 저장하지 않는다.
+   명령마다 이 파일로 1시간짜리 ID 토큰을 새로 받는다. dev 는 `node scripts/todo.js setup --dev`(파일 `auth-dev.json`).
 
 ## 안 될 때
-- «관리자 계정만 쓸 수 있어요» — gcloud 로그인 계정이 프로젝트 권한이 없다. `gcloud auth list` 로 어느 계정인지 보고 `gcloud auth login`.
-- «gcloud 가 없어요» — 1번 설치부터.
-- «먼저 내 관리자 계정을 정해 주세요» — `setup`.
+- «관리자 계정만 쓸 수 있어요» — 그 계정이 서버 관리자 표에 없다. 웹 관리자에 들어가는 계정으로 `setup`.
+- «먼저 관리자 계정으로 로그인해 주세요» · «로그인이 풀렸어요» — `setup`(비밀번호를 바꾸면 저장된 로그인이 끊긴다).
+- «친구 코드나 비밀번호가 맞지 않아요» — 앱에서 쓰는 친구 코드 · 비밀번호인지 확인.
 - «방금 다른 사람이 이 할 일을 바꿨어요» — 그대로 다시 실행하면 최신 값 위에 쓴다.
+- «API 에 닿지 못했어요» — 서버 상태 확인(`--dev` 는 dev 서버가 떠 있을 때만).
 - 관리자가 아닌 사람은 이 스킬을 건너뛴다(세션 시작 요약도 조용히 안 나온다). 그때는 사용자에게 겹치는 일이 없는지 직접 물어본다.
 
 ## 지키는 것
-- 이 도구는 gcloud 토큰으로 **보안 규칙을 거치지 않고** 운영 DB 에 쓴다. 할 일(`adminTodos`)과 작업 기록(`adminLog`) 말고는 쓰지 않고, 모양 검사 · rev + 1 · 읽은 값 그대로일 때만 쓰기(ETag)를 스크립트가 한다 — 스크립트를 고칠 때 이 셋을 지키고 `checks/sim-todo-cli.js` 를 돌린다.
+- 이 도구는 API 서버만 부른다 — 권한(관리자) · 모양 검사 · 겹침(`version` 이 다르면 409) · 감사 기록은 서버가 한다. 만들기는 `requestId` 로 다시 보내도 한 건. 스크립트를 고칠 때 요청 모양을 서버(`api/README.md` «ops»)와 맞추고 `checks/sim-todo-cli.js` 를 돌린다.
+- 로그인 파일(`~/.config/tw-todo/`)은 저장소에 넣지 않고 남에게 주지 않는다 — 그 파일만 있으면 관리자로 할 일을 쓸 수 있다.
 - 할 일을 지우거나, 남이 작업자인 할 일을 «완료» 로 바꾸는 것은 사용자에게 먼저 묻는다.

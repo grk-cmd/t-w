@@ -1,9 +1,9 @@
 /* ═══ 📦 sim-room-sync.js — 📦 방으로 보내는 def(직렬화 · 얼굴 URL · 델타 전송 · Firebase provider) · 🛰 poke 신선도 · 🚪 자리비움 자동 퇴장 · 🛰 서버 모듈 감시견 모듈 구조 (2026-10-14 신설 · 앱 FSD 35번) ═══════════════
    app.js 의 방 def 전송 · poke · 자동 퇴장 · 감시견 네 구역 본문 을 parts/room/room-sync.js 로 옮겼다(글자 그대로 · 바뀐 줄 5 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(방 통신 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · retryDefAfter · serializeDefForNetwork)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · retryDefAfter · serializeDefForNetwork)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 13줄 그대로 · 부르는 곳은 roomSyncMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · room-sync.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -25,8 +25,8 @@ const FN_DEPS = ["_autoAwayResetClock","_chatIsHost","_chatIsSecretRoom","getMyU
 const VAL_DEPS = ["faceUploadCache","twNav"];
 const GET_DEPS = ["DESK_LICENSE_HOLD","ITEM_LICENSE_HOLD","Presence","savedDesks"];
 const SET_DEPS = [];
-const EXPORTS = ["AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","POKE_SKEW_MS","_autoExitCancel","_autoExitWarn","_defSizeNames","_loadImgCors","_pokeFresh","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_srvNow","_storageFaceUrlOne","defWireForSize","deserializeDefFromNetwork","ensureRoomFaceUrls","makeFirebaseProvider","retryDefAfter","serializeDefForNetwork"];
-const MOVED = ["POKE_FRESH_MS","POKE_SKEW_MS","_srvNow","_pokeFresh","AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","_autoExitOv","_autoExitTimer","_autoExitDue","_autoExitDone","_autoExitInRoom","_autoExitExempt","_autoExitCancel","_autoExitDo","_autoExitWarn","ROOM_FACE_SEND_DATAURL","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_storageFaceUrlOne","ensureRoomFaceUrls","serializeDefForNetwork","_DEF_SIZE_URL","_DEF_SIZE_IMGS","defWireForSize","_defSizeNames","DEF_DIAG_WARN_BYTES","_defDiagLastSig","_defPayloadDiag","_loadImgCors","_roomFaceUrlToCanvas","deserializeDefFromNetwork","_lastSentRoomPayload","_roomSnapSeq","_sameRoomVal","_diffRoomPayload","makeFirebaseProvider"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const EXPORTS = ["AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","POKE_SKEW_MS","_autoExitCancel","_autoExitWarn","_defSizeNames","_loadImgCors","_pokeFresh","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_srvNow","_storageFaceUrlOne","defWireForSize","deserializeDefFromNetwork","ensureRoomFaceUrls","retryDefAfter","serializeDefForNetwork"];
+const MOVED = ["POKE_FRESH_MS","POKE_SKEW_MS","_srvNow","_pokeFresh","AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","_autoExitOv","_autoExitTimer","_autoExitDue","_autoExitDone","_autoExitInRoom","_autoExitExempt","_autoExitCancel","_autoExitDo","_autoExitWarn","ROOM_FACE_SEND_DATAURL","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_storageFaceUrlOne","ensureRoomFaceUrls","serializeDefForNetwork","_DEF_SIZE_URL","_DEF_SIZE_IMGS","defWireForSize","_defSizeNames","DEF_DIAG_WARN_BYTES","_defDiagLastSig","_defPayloadDiag","_loadImgCors","_roomFaceUrlToCanvas","deserializeDefFromNetwork"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,","  Presence: ()=>Presence,","  _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),","  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),","  faceUploadCache: uploadCacheMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  twNav: twNav,","  savedDesks: ()=>commissionMod.savedDesks(),","  toast: (...a)=>toast(...a),","  diagNote: (...a)=>diagNote(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
@@ -36,13 +36,14 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  Object.assign(deps, over || {});
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
@@ -78,7 +79,30 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 2-2. 서버 시각 — 모르면 null · 기기 시계로 대신하지 않는다');
+const clockOf = (src, sp) => build(src, { Presence: () => ({ serverProvider: () => sp }) });
+const pokeRows = (src) => {
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const w0 = console.warn; let warns = 0; console.warn = () => { warns++; };
+  try{
+    const outside = clockOf(src, null);
+    t(outside._srvNow() === null && outside._pokeFresh(Date.now()) === false && warns === 1, '★ 방 밖 · 시계 모름 — _srvNow() null · 알림 ts 는 기기 시계와 견주지 않고 버린다(console.warn)');
+    const inRoom = clockOf(src, { serverNow: () => 100000 });
+    t(inRoom._srvNow() === 100000 && inRoom._pokeFresh(90000) === true && inRoom._pokeFresh(60000) === false && inRoom._pokeFresh(160001) === false && inRoom._pokeFresh(0) === true, '  방 안 — 서버 시각으로 견준다(30초 안 · 앞서도 60초까지) · ts 없는 값은 그대로 받는다');
+    const unsynced = clockOf(src, { serverNow: () => null });
+    t(unsynced._srvNow() === null && unsynced._pokeFresh(1) === false, '  방 안이지만 시계를 아직 못 맞췄으면 null · 버린다');
+  }catch(e){ t(false, '던짐 — ' + String(e && e.message || e).slice(0, 100)); }
+  console.warn = w0;
+  return r;
+};
+pokeRows(MOD).forEach(([ok, msg]) => chk(ok, msg));
+{
+  const broke = MOD.replace('return sp ? sp.serverNow() : null;', 'return sp ? sp.serverNow() : Date.now();');
+  chk(broke !== MOD && pokeRows(broke).some(([ok]) => !ok), 'mutation test: 방 밖에서 기기 시계로 되돌리면 2-2절이 빨강');
+}
+
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-sync.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -87,7 +111,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const roomSyncMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('roomSyncMod.' + x)); if(n){ ls[i] = ls[i].replace('roomSyncMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['만들 때 던짐', m => m.replace('function createRoomSync(deps){', 'function createRoomSync(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createRoomSync(deps){', 'function createRoomSync(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

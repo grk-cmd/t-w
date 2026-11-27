@@ -1,0 +1,20 @@
+{
+  "projects": {
+    "default": "together-working"
+  },
+  "targets": {
+    "together-working": {
+      "hosting": {
+        "main": [
+          "together-working"
+        ],
+        "help": [
+          "together-working-help"
+        ],
+        "home": [
+          "tw-site"
+        ]
+      }
+    }
+  }
+}

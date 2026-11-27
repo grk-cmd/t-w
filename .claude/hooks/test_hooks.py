@@ -183,15 +183,22 @@ def risky(name, files, want_high, want_word=''):
         bad += 1
         print(f'  ✗ 위험도 {name}: {r}')
 P = lambda name, *added: {'filename': name, 'status': 'modified', 'patch': '@@ -1 +1 @@\n' + '\n'.join('+' + a for a in added)}
-risky('CSP 줄이 바뀜', [P('app/desk-companion-prototype.html', '<meta http-equiv="Content-Security-Policy" content="frame-src https://help.together-working.com;">')], True, 'CSP')
-risky('web.app 주소를 새로 박음', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://together-working.web.app';")], True, 'Firebase 기본 주소')
-risky('firebaseapp.com 주소', [P('app/parts/x.js', "fetch2('https://together-working.firebaseapp.com/a')")], True, 'Firebase 기본 주소')
-risky('우리 도메인 주소는 높음 아님', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://help.together-working.com';")], False)
-risky('글자만 바뀜', [P('app/parts/myhome/scheduler.js', "btn.textContent = '📪 알림함 확인';")], False)
+risky('CSP 줄이 바뀜', [P('apps/desktop/app/desk-companion-prototype.html', '<meta http-equiv="Content-Security-Policy" content="frame-src https://help.together-working.com;">')], True, 'CSP')
+risky('web.app 주소를 새로 박음', [P('apps/desktop/app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://together-working.web.app';")], True, 'Firebase 기본 주소')
+risky('firebaseapp.com 주소', [P('apps/desktop/app/parts/x.js', "fetch2('https://together-working.firebaseapp.com/a')")], True, 'Firebase 기본 주소')
+risky('우리 도메인 주소는 높음 아님', [P('apps/desktop/app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://help.together-working.com';")], False)
+risky('글자만 바뀜', [P('apps/desktop/app/parts/myhome/scheduler.js', "btn.textContent = '📪 알림함 확인';")], False)
 risky('검사 · 문서의 web.app 은 빼기', [P('checks/sim-x.js', "!S.isHelpUrl('https://together-working.web.app/help/')"), P('docs/RELEASE.md', 'https://together-working.web.app/admin/')], False)
-risky('CSP 소문자(http-equiv 는 대소문자 안 가림)', [P('app/x.html', '<meta http-equiv="content-security-policy" content="frame-src *">')], True, 'CSP')
-risky('정규식 안에 쓴 web.app 주소', [P('app/parts/x.js', r"const RE = /^https:\/\/together-working\.web\.app\//;")], True, 'Firebase 기본 주소')
-risky('지운 줄은 안 봄', [{'filename': 'app/a.js', 'status': 'modified', 'patch': "@@ -1 +1 @@\n-const U = 'https://together-working.web.app';"}], False)
+risky('CSP 소문자(http-equiv 는 대소문자 안 가림)', [P('apps/desktop/app/x.html', '<meta http-equiv="content-security-policy" content="frame-src *">')], True, 'CSP')
+risky('정규식 안에 쓴 web.app 주소', [P('apps/desktop/app/parts/x.js', r"const RE = /^https:\/\/together-working\.web\.app\//;")], True, 'Firebase 기본 주소')
+risky('지운 줄은 안 봄', [{'filename': 'apps/desktop/app/a.js', 'status': 'modified', 'patch': "@@ -1 +1 @@\n-const U = 'https://together-working.web.app';"}], False)
+# 저장소 구조(#431) — 옮긴 자리의 고위험 파일이 그대로 높음으로 잡히는가
+risky('규칙 파일(firebase/)', [P('firebase/firebase-database-rules.json', '{}')], True, 'Firebase 규칙')
+risky('함수(firebase/functions/)', [P('firebase/functions/index.js', 'x')], True, 'Cloud Functions')
+risky('앱 메인(apps/desktop/)', [P('apps/desktop/main.js', 'x')], True, 'Electron 메인')
+risky('앱 의존성(apps/desktop/package.json)', [P('apps/desktop/package.json', 'x')], True, '의존성')
+risky('루트 의존성(package.json)', [P('package.json', 'x')], True, '의존성')
+risky('새 모듈(apps/desktop/app/parts/)', [{'filename': 'apps/desktop/app/parts/x/new.js', 'status': 'added', 'patch': '@@ -0,0 +1 @@\n+x'}], True, '새 모듈')
 risk.api = real_api
 
 # 판 브랜치만 합친 머리 — 앞 커밋의 승인 · 판정을 이어 받는가(PR 자체 변경이 같을 때만)
@@ -226,15 +233,25 @@ carry = [
 MOVED = [{'filename': 'app/a.js', 'status': 'modified', 'patch': '@@ -9,3 +9,3 @@ function deleteAll\n ctx2\n-old\n+new'}, files('new')[1]]
 ROWDEL = files('new')[:1] + [{'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("aaaaaaaaaaaa")}\n-| **sim-z.js** | 9 | **abcdefabcdef** |'}]
 A7 = dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}])
+TWO = lambda a, b: {'filename': 'app/a.js', 'status': 'modified', 'patch': f'@@ -{a},3 +{a},3 @@\n ctx\n-old\n+new\n@@ -{b},3 +{b},3 @@\n ctx2\n-old2\n+new2'}
+RULES = lambda n: {'filename': 'firebase-database-rules.json', 'status': 'modified', 'patch': f'@@ -{n},3 +{n},3 @@\n   ".read": "auth != null",\n-  ".write": false\n+  ".write": "auth != null"'}
+HOOK = lambda n: {'filename': '.claude/hooks/ship-gate.py', 'status': 'modified', 'patch': f'@@ -{n},3 +{n},3 @@\n ctx\n-old\n+new'}
 carry += [
     ('같은 줄을 다른 자리(다른 함수)에', dict(A7, cmp={O: files('new'), H: MOVED}), H, False),
-    ('줄 번호가 달라짐(같은 글 · 같은 앞뒤 · 다른 자리 — 판 브랜치가 위를 고쳤어도 다시)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, False),
+    ('코드 파일이 통째로 밀림(판 브랜치가 위를 고침 — 상대 줄 같음)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, True),
+    ('코드 파일 덩어리 사이가 벌어짐(사이에 무언가 낌)', dict(A7, cmp={O: [TWO(1, 20)], H: [TWO(1, 30)]}), H, False),
+    ('코드 파일 덩어리 둘이 같이 밀림', dict(A7, cmp={O: [TWO(1, 20)], H: [TWO(11, 30)]}), H, True),
+    ('규칙 JSON 은 통째로 밀려도 다시(덩어리 하나는 상대 줄로 자리를 못 잡음)', dict(A7, cmp={O: [RULES(5)], H: [RULES(45)]}), H, False),
+    ('CHECKS.md 는 덩어리 사이가 벌어져도 같음(다른 갈래가 표에 줄을 더함)', dict(A7, cmp={O: [files('new')[0], {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("aaaaaaaaaaaa")}\n@@ -90 +90 @@\n-x\n+y'}],
+                                                                       H: [files('new')[0], {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("bbbbbbbbbbbb")}\n@@ -95 +95 @@\n-x\n+y'}]}), H, True),
+    ('가드 파일도 줄 번호 그대로', dict(A7, cmp={O: [HOOK(5)], H: [HOOK(45)]}), H, False),
     ('CHECKS.md 의 다른 해시 줄을 지움', dict(A7, cmp={O: files('new'), H: ROWDEL}), H, False),
     ('다른 파일의 해시 줄 모양 줄은 빼지 않음', dict(A7, cmp={O: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('aaaaaaaaaaaa')}], H: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('bbbbbbbbbbbb')}]}), H, False),
     ('두 커밋 다 바꾼 것 없음', dict(A7, cmp={O: [], H: []}), H, False),
     ('patch 없는 파일(머리 판이 같아도 못 봄)', dict(A7, cmp={O: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}]),
                                                     H: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}])}), H, False),
-    ('앞뒤 글은 같고 @@ 꼬리(함수)만 다름', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('@@ -1,3 +1,3 @@', '@@ -1,3 +1,3 @@ function deleteAll')), files('new')[1]]}), H, False),
+    ('코드 파일 앞뒤 글은 같고 @@ 꼬리(함수)만 다름', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('@@ -1,3 +1,3 @@', '@@ -1,3 +1,3 @@ function deleteAll')), files('new')[1]]}), H, True),
+    ('규칙 JSON 은 @@ 꼬리만 달라도 다시', dict(A7, cmp={O: [RULES(5)], H: [dict(RULES(5), patch=RULES(5)['patch'].replace(' @@\n', ' @@ "rooms"\n', 1))]}), H, False),
 ]
 B = 'e5' * 20   # 승인이 두 번 — O 승인 → B 코드 고침 · 승인 → H 는 B 에 합치기만: 가장 최근 승인(B)과 견준다
 carry += [('승인 두 번 · 최근 승인과 견줌', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}, {'user': U, 'body': '승인 ' + B[:7]}], commits=(O, B, H),
@@ -250,6 +267,44 @@ for name, kw, head, want in carry:
     else:
         bad += 1
         print(f'  ✗ 이어 받기 {name}: {got}(기대 {want})')
+
+# 기준선 json — 합친 뒤 다시 쓴 숫자가 «옛 머리 · 합친 판 브랜치» 어느 쪽보다 느슨하지 않으면 같은 변경
+import base64 as _b64
+MB = 'f6' * 20   # H 가 합친 판 브랜치 커밋
+BL = 'checks/app-size-baseline.json'
+def bl_case(name, old_v, base_v, new_v, want, new_base=MB, missing_new=False):
+    risk._same.clear()
+    blobs = {O: old_v, MB: base_v, H: None if missing_new else new_v}
+    cmp = {O: files('new', extra=[{'filename': BL, 'status': 'modified', 'patch': '@@ -1 +1 @@\n-a\n+b'}]),
+           H: files('new', extra=[{'filename': BL, 'status': 'modified', 'patch': '@@ -1 +1 @@\n-a\n+c'}])}
+    fake(commits=(O, H), cmp=cmp, comments=[{'user': U, 'body': '승인 ' + O[:7]}])
+    inner = risk.get
+    def get(p):
+        if '/compare/' in p:
+            return dict(inner(p), merge_base_commit=({'sha': new_base} if new_base else {}) if p.endswith(H) else {'sha': 'x'})
+        if '/contents/' in p:
+            v = blobs.get(p.rsplit('ref=', 1)[1])
+            if v is None:
+                raise RuntimeError('gh api: Not Found (HTTP 404)')
+            return {'content': _b64.b64encode(json.dumps(v).encode()).decode()}
+        return inner(p)
+    risk.get = get
+    global ok, bad
+    got = risk.owner_approved(395, H)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 기준선 이어 받기 {name}: {got}(기대 {want})')
+F = lambda cap, secs=('가',): {'files': {'app.js': {'cap': cap, 'lines': cap - 100, 'sections': list(secs)}}}
+bl_case('둘 다 줄였고 합친 값은 더 작음', F(900), F(950), F(850), True)
+bl_case('합친 값이 판 브랜치 값과 같음', F(900), F(950), F(950), True)
+bl_case('합친 값이 양쪽보다 큼(상한을 올림)', F(900), F(950), F(960), False)
+bl_case('구역 목록이 둘의 합 안', F(900, ('가',)), F(950, ('나',)), F(900, ('가', '나')), True)
+bl_case('구역 목록에 새 이름', F(900), F(950), F(900, ('가', '새 구역')), False)
+bl_case('새 칸이 생김', F(900), F(950), dict(F(900), extra=1), False)
+bl_case('합친 머리에 기준선이 없음', F(900), F(950), None, False, missing_new=True)
+bl_case('합친 판 브랜치 커밋을 모름', F(900), F(950), F(850), False, new_base=None)
 
 # 가드 판정 이어 받기 — 머리에 tw/confirm · tw/verify 가 없어도 앞 커밋에 있고 PR 자체 변경이 같으면 머지 길을 연다
 import importlib.util, io, contextlib
@@ -286,7 +341,7 @@ for name, fl, base, want in (
         ('컨펌자 지침', [{'filename': '.claude/agents/tw-confirmer.md'}], 'main', True),
         ('/ship 안내서', [{'filename': '.claude/skills/ship/SKILL.md'}], 'main', True),
         ('시험 파일 · 다른 스킬 · 역할 문서만', [{'filename': '.claude/hooks/test_hooks.py'}, {'filename': '.claude/skills/todo/SKILL.md'}, {'filename': '.claude/roles/_공통.md'}], 'main', False),
-        ('앱 · 규칙 · main.js — 높음이어도', [{'filename': 'firebase-database-rules.json'}, {'filename': 'main.js'}], 'release/0.12.0', False)):
+        ('앱 · 규칙 · main.js — 높음이어도', [{'filename': 'firebase/firebase-database-rules.json'}, {'filename': 'apps/desktop/main.js'}], 'release/0.12.0', False)):
     fake(base=base, files=fl)
     got = risk.needs_owner(395)
     if got == want:
@@ -336,7 +391,7 @@ def gate_case(name, fl, approved_comment, want_deny):
     else:
         bad += 1
         print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
-gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase-database-rules.json'}], False, False)
+gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase/firebase-database-rules.json'}], False, False)
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
 # 웹 관리자 길 — admin 으로 가는 PR · admin → main 합치기는 main 에 없는 것으로 web-admin/ 안만(main...머리 를 견준다 · base 로 본다)

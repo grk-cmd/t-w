@@ -1,20 +1,20 @@
 # app.js 구역 지도 — 앱 FSD 1단계
 
-렌더러 본체 `app/parts/app.js` 를 웹 관리자(`web-admin/`)처럼 **층(FSD)** 으로 나눠 옮기기 위한 지도다.
+렌더러 본체 `apps/desktop/app/parts/app.js` 를 웹 관리자(`apps/admin/`)처럼 **층(FSD)** 으로 나눠 옮기기 위한 지도다.
 이번 단계는 **코드를 한 줄도 옮기지 않는다** — 지금 무엇이 어디 있는지 적고, 더 커지지 않게 막고(검사 `sim-app-size.js`),
 어느 것부터 옮길지 순서를 정한다.
 
-**진행** — 1번(📅 스케줄러 · 🔔 일정 알림 → `app/parts/scheduler.js`) · 2번(👑 달성표 → `app/parts/weekly-challenge.js`) ·
-3번(📷 스티커사진 창 → `app/parts/purikura-ui.js`) · 4번(📖 방명록 → `app/parts/guestbook.js`) ·
-5번(👥 친구 관리 → `app/parts/friend-manage.js` · 🐞 버그 제보 탭 → `app/parts/bug-board-ui.js` 끝) ·
-6번(🍅 뽀모도로 → `app/parts/pomodoro.js`) · 7번(🎨 마이홈 스티커 관리 창 → `app/parts/myhome-sticker.js`) ·
-8번(🎰 가챠 코어 · 보관함 · 뽑기 창 → `app/parts/gacha.js`) ·
-7-2번(🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 → `app/parts/myhome-edit.js`)을 옮겼다.
+**진행** — 1번(📅 스케줄러 · 🔔 일정 알림 → `apps/desktop/app/parts/scheduler.js`) · 2번(👑 달성표 → `apps/desktop/app/parts/weekly-challenge.js`) ·
+3번(📷 스티커사진 창 → `apps/desktop/app/parts/purikura-ui.js`) · 4번(📖 방명록 → `apps/desktop/app/parts/guestbook.js`) ·
+5번(👥 친구 관리 → `apps/desktop/app/parts/friend-manage.js` · 🐞 버그 제보 탭 → `apps/desktop/app/parts/bug-board-ui.js` 끝) ·
+6번(🍅 뽀모도로 → `apps/desktop/app/parts/pomodoro.js`) · 7번(🎨 마이홈 스티커 관리 창 → `apps/desktop/app/parts/myhome-sticker.js`) ·
+8번(🎰 가챠 코어 · 보관함 · 뽑기 창 → `apps/desktop/app/parts/gacha.js`) ·
+7-2번(🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 → `apps/desktop/app/parts/myhome-edit.js`)을 옮겼다.
 그 뒤 **구역 머리만 새로 단 PR**(코드 무변경 · 주석 76줄)로 섞여 있던 큰 구역 16개를 기능 경계에서 나눴다 — 구역 97 → **173개**.
-그다음 10번(🙋 투게더룸 친구 초대 → `app/parts/room-invite-ui.js`) · 13번(🕒 포커스 기록 팝업 → `app/parts/focus-log.js`) ·
-14번(💬 대화창 배선 → `app/parts/chat-window.js`) · 15번(📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 → `app/parts/myhome-inbox.js`) ·
-16번(🎵 상태칩 플레이리스트 → `app/parts/playlist.js`)을 옮겼다(머리는 그대로 두고 연결만 남김 — 구역 수 · 번호 그대로).
-아래 줄 · 구역 번호 · 씀 · 쓰임은 16번 뒤 값이다(`node scripts/app-sections.js` 로 다시 뽑음). 번호가 크게 바뀌어서
+그다음 10번(🙋 투게더룸 친구 초대 → `apps/desktop/app/parts/room-invite-ui.js`) · 13번(🕒 포커스 기록 팝업 → `apps/desktop/app/parts/focus-log.js`) ·
+14번(💬 대화창 배선 → `apps/desktop/app/parts/chat-window.js`) · 15번(📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 → `apps/desktop/app/parts/myhome-inbox.js`) ·
+16번(🎵 상태칩 플레이리스트 → `apps/desktop/app/parts/playlist.js`)을 옮겼다(머리는 그대로 두고 연결만 남김 — 구역 수 · 번호 그대로).
+아래 줄 · 구역 번호 · 씀 · 쓰임은 16번 뒤 값이다(`node apps/desktop/scripts/app-sections.js` 로 다시 뽑음). 번호가 크게 바뀌어서
 순서표 1 ~ 8 · 7-2 줄에 적힌 «#N» 은 **머리를 달기 전(97개) 번호**다 — 아래 «옛 번호 → 새 번호» 로 찾는다.
 목적 · 층 · 비고는 손으로 적은 것이라 그대로 두고, 나뉜 구역 · 새 구역만 새로 적었다(관련 모듈은 스크립트 값 그대로).
 
@@ -22,8 +22,8 @@
 
 | | 값 |
 |---|---|
-| `app/parts/app.js` | **34,967줄** · 구역 머리 **173개** (상한 35,167줄 — `checks/app-size-baseline.json`) · 처음 46,147줄 · 116개 |
-| `app/parts/firebase-init.js` | **4,459줄** · 구역 머리 31개 (상한 4,544줄) |
+| `apps/desktop/app/parts/app.js` | **34,967줄** · 구역 머리 **173개** (상한 35,167줄 — `checks/app-size-baseline.json`) · 처음 46,147줄 · 116개 |
+| `apps/desktop/app/parts/firebase-init.js` | **4,459줄** · 구역 머리 31개 (상한 4,544줄) |
 | 1,000줄 넘는 구역 | 1개 (#89 꾸미기 파츠 부착 — 한 기능) · 머리를 달기 전 10개 |
 | 머리와 내용이 어긋난 «섞인» 구역 | 3개 · 1,518줄 (전체의 4.3%) — #36 · #126 은 몇십 줄이 끼어 있는 정도, #170 은 `if(desktopMode){…}` 한 덩이라 머리로 못 나눔 · 머리를 달기 전 16개 · 18,204줄(48%) |
 | 다른 구역이 거의 안 쓰는 구역(쓰임 ≤ 3) | 56개 — 옮기기 쉬운 쪽 |
@@ -67,13 +67,13 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 - **씀** = 이 구역이 다른 구역에서 정의한 이름을 쓰는 구역 수(많이 쓰는 셋), **쓰임** = 이 구역의 이름을 쓰는 다른 구역 수.
   구역마다 맨 앞 칸에서 정의한 이름(`function` · `const` · `let` · `var` · `class`)을 모아 다른 구역 본문에 낱말로 나오는지 센
   **근사치**다 — 주석 · 문자열 안도 세고, `key` · `fill` 같은 흔한 이름은 부풀려진다. 순서를 정하는 참고용.
-- **관련 모듈** = 이 구역이 부르는 `app/parts/*.js` (모듈의 함수 이름 · `window.X` 로 내놓은 이름 기준).
-- 숫자는 `node scripts/app-sections.js` (표) · `--json` (구역마다 정의 · 참조 전부)로 다시 뽑는다.
-  `--file app/parts/firebase-init.js --indent 4` 로 firebase-init 도 본다. **층 · 목적 · 비고는 손으로 적은 것**이라 옮길 때 같이 고친다.
+- **관련 모듈** = 이 구역이 부르는 `apps/desktop/app/parts/*.js` (모듈의 함수 이름 · `window.X` 로 내놓은 이름 기준).
+- 숫자는 `node apps/desktop/scripts/app-sections.js` (표) · `--json` (구역마다 정의 · 참조 전부)로 다시 뽑는다.
+  `--file apps/desktop/app/parts/firebase-init.js --indent 4` 로 firebase-init 도 본다. **층 · 목적 · 비고는 손으로 적은 것**이라 옮길 때 같이 고친다.
 
 ## 더 커지지 않게 — `checks/sim-app-size.js`
 
-- app.js · firebase-init.js 줄 수가 상한을 넘으면 빨강: «app.js 가 상한(N줄)을 넘었어요 — 새 로직은 app/parts/<도메인>.js 모듈로 (CLAUDE.md 구조 표)».
+- app.js · firebase-init.js 줄 수가 상한을 넘으면 빨강: «app.js 가 상한(N줄)을 넘었어요 — 새 로직은 apps/desktop/app/parts/<도메인>.js 모듈로 (CLAUDE.md 구조 표)».
   상한 = 기준선을 쓸 때 줄 수 + 여유(app.js 200줄 · firebase-init.js 100줄 — 급한 고침용).
 - 구역 머리(`/* ═══ 제목` · `/* ══ 제목` · `/* ==== 제목`, firebase-init 은 4칸 들여쓴 것까지)가 기준선 목록에 없는 것이면 빨강 — 새 기능을 이 파일에 쌓는 신호다.
 - **톱니(ratchet)**: 코드를 모듈로 옮겨 줄 수가 여유 + 500줄(firebase-init 은 + 200줄) 넘게 줄면 빨강 — **같은 PR 에서** 상한을 내린다.
@@ -84,10 +84,27 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
   섞인 구역에 **머리만 새로 다는** PR 은 머리 줄만큼 줄 수가 늘어 둘 다 쓴다(`--write-baseline --allow-new-section --allow-increase` — 상한이 머리 줄 수만큼만 오른다).
 - 기준선 파일 `checks/app-size-baseline.json` 은 검사 파일이 아니라 `CHECKS.md` §3 해시 대상이 아니다(`ui-tokens-baseline.json` 과 같은 방식). 바뀌면 PR diff 로 본다.
 
+### 줄 수 말고 «조립만» — `checks/sim-app-wiring.js`
+
+줄 상한은 줄 수만 본다. app.js 의 끝 모양(모듈을 만들고 deps 를 잇는 글만 — 설계 tw-docs `docs/design/app/app-js-split.md` 2-1 · 2-3)은 로직 표지 다섯으로 본다:
+맨 위 함수 선언 · 맨 위 `let` 이름 · `addEventListener` 부름 · `localStorage` 이름 · `try` 문(typescript 파서로 센다 — 주석 · 문자열 안은 안 센다). 모듈에 deps 로 넘기는 `createX({ storage: localStorage })`(create… 부름의 객체 속성 값이 그 이름 자체)는 조립이라 안 센다.
+기준선 `checks/app-wiring-baseline.json` 보다 **늘면 빨강**, 줄면 같은 PR 에서 내린다(`node checks/sim-app-wiring.js --write-baseline` — 늘었으면 쓰기를 거절한다).
+처음 값(0.12.4 · P3 뒤): 함수 209 · let 77 · 듣기 71 · 저장 47 · try 139. 다섯이 모두 0 이 되면 기준선을 걷고 «0 이 아니면 빨강» 으로 바꾼다.
+
+## 옮기기 규약 — `scripts/move-verbatim.js`
+
+app.js 에서 모듈로 옮기는 PR(제목에 «app.js 분리» · «동작 무변경»)의 규약이다. «그대로 옮겼다» 는 사람이 다시 읽어 믿지 않고 기계로 증명한다.
+
+- **크기**: PR 하나에 구역 여럿. 기준은 옮기는 줄 1,000 ~ 2,000줄이고 큰 덩어리부터 옮긴다. 구역마다 PR 을 나누지 않는다.
+- **허용되는 고침**(이것만): 주석 · 모듈 머리와 꼬리(`window.TwXxx` · `createXxx(deps)` · `const X = deps.X;` · 알림 고리 · `return { … }`) · app.js 쪽 연결 줄(`const xMod = TwXxx.createXxx({…})` 와 deps 줄) · 다시 대입되는 let 을 읽는 함수로(`foo` → `foo()`) · 쓰는 함수로(`foo = v` → `setFoo(v)`) · 부르는 곳의 이름 바꿈(`fn(` → `xMod.fn(`) · 알림 고리로 바꿈(`xMod.fn(` → `xHooks.fn(`) · `typeof` 가드 걷기(`!== 'undefined' &&` · `=== 'undefined' ||` 두 모양만 · 새로 넣지 않는다) · html · `checks/smoke.js` 의 script · PRELOAD 한 줄 · README 절. 그 밖의 고침은 옮기기 PR 에 섞지 않고 따로 낸다.
+- **증명**: PR 마다 `node scripts/move-verbatim.js origin/<base> HEAD` 를 돌려 결과(옮긴 줄 수 · 종류별 줄 수 · 허용 밖)를 본문에 붙인다. 허용 밖이 있으면 한 줄씩 왜 필요한지 적는다. 컨펌자 · 검증자는 허용 밖 줄과 연결(deps · 만드는 자리 · 로드 순서)만 본다. 도구가 못 잡는 것: 줄 순서가 바뀐 것 · `})` 같은 문장부호만 있는 줄(블록 경계가 옮겨진 곳은 사람이 본다) · 연결 블록 칸에 바로 부르는 식이 든 것 · 읽기 자리의 `x` → `xMod.x` · 새 모듈을 html 에 안 싣는 것(smoke 검사 몫) · 가드 이름이 속성 · 문자열 안 낱말로만 남은 식의 가드 걷기 · 한 줄에 같은 이름을 두 번 대입 · setter 인자 칸의 쉼표식 · 읽는 함수 이름을 `()` 없이 쓴 줄. 전체 목록은 도구 머리 주석.
+- **기록**: 이 표의 줄은 한두 줄로 쓴다 — 파일 · 내놓는 이름 수 · app.js 줄 수 변화. 책임 · deps · 함정은 도메인 폴더 `README.md` 에 있다.
+- 판정기 자체의 검사는 `checks/sim-move-verbatim.js`.
+
 ## 옮기는 순서 (제안)
 
-한 줄 = 앞으로의 PR 하나. 고른 기준: 다른 구역이 덜 쓰고(쓰임 · 밖으로 나가는 이름이 적음) 줄 수가 큰 것부터.
-**방법**은 지금 있는 모듈과 같다 — `app/parts/<이름>.js` 를 classic script(IIFE · `window.Xxx = api` · `module.exports`)로 만들고
+한 줄 = 앞으로 옮길 구역 하나(PR 은 «옮기기 규약» 대로 여러 구역을 묶는다). 고른 기준: 다른 구역이 덜 쓰고(쓰임 · 밖으로 나가는 이름이 적음) 줄 수가 큰 것부터.
+**방법**은 지금 있는 모듈과 같다 — `apps/desktop/app/parts/<이름>.js` 를 classic script(IIFE · `window.Xxx = api` · `module.exports`)로 만들고
 `desk-companion-prototype.html` 에서 app.js **앞**에 싣는다. app.js 는 `Xxx.createXxx({ … })` 로 필요한 것만 deps 로 넘긴다
 (`creator-flat-view.js` · `wd-ear.js` 가 본보기). 옮긴 모듈에는 `sim-<이름>.js` 를 붙여 node 로 실행해 본다.
 
@@ -95,7 +112,7 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 - **app.js 글을 읽는 검사**가 많다(`fs.readFileSync('app.js')` 로 함수 몸통을 찾는 sim). 옮긴 함수를 찾는 검사는 새 파일을 읽게 고친다 — 아래 «먼저 볼 검사». 고치면 `CHECKS.md` §3 해시 · 개정 번호도 같은 커밋에.
 - 맨 앞 칸에서 **부팅 때 바로 도는 줄**(구독 시작 · 이벤트 연결)은 실행 순서가 바뀐다. `createXxx` 는 app.js 의 원래 자리에서 부른다.
 - 구역 밖에서 쓰는 이름(«밖에서 쓰는 이름»)은 `const xxx = Xxx.createXxx(…)` 의 반환값으로 내놓고 부르는 쪽을 `xxx.이름` 으로 바꾼다.
-- 한 PR 에 한 구역 묶음. 옮긴 뒤 `npm run check` 의 `sim-app-size` 톱니가 빨개지면 상한을 내린다.
+- 한 PR 에 여러 구역(1,000 ~ 2,000줄 · «옮기기 규약» 절). 옮긴 뒤 `npm run check` 의 `sim-app-size` 톱니가 빨개지면 상한을 내린다.
 
 > 1 ~ 8 · 7-2 줄의 «#N» 은 머리를 새로 달기 전(구역 97개) 번호다. 9 ~ 는 지금(173개) 번호다. 옛 번호 → 새 번호(굵게 = 나뉜 구역):
 > #1→1 · #2→2 · #3→3 · #4→4 · #5→5 · #6→6 · #7→7 · #8→8 · #9→9 · #10→10 · #11→11 · **#12→12~15** · #13→16 · **#14→17~18** · #15→19 · #16→20 · #17→21 · #18→22 · **#19→23~25** · #20→26 · #21→27 · #22→28 · #23→29 · **#24→30~31** · #25→32 · **#26→33~42** · #27→43 · #28→44 · **#29→45~54** · #30→55 · **#31→56~62** · #32→63 · #33→64 · #34→65 · #35→66 · #36→67 · #37→68 · #38→69 · #39→70 · #40→71 · #41→72 · **#42→73~78** · **#43→79~86** · #44→87 · #45→88 · #46→89 · #47→90 · #48→91 · #49→92 · #50→93 · #51→94 · #52→95 · #53→96 · #54→97 · #55→98 · #56→99 · #57→100 · #58→101 · **#59→102~108** · #60→109 · #61→110 · #62→111 · **#63→112~114** · #64→115 · #65→116 · #66→117 · #67→118 · #68→119 · #69→120 · **#70→121~130** · #71→131 · **#72→132~135** · #73→136 · #74→137 · #75→138 · #76→139 · #77→140 · #78→141 · #79→142 · #80→143 · #81→144 · #82→145 · **#83→146~154** · #84→155 · #85→156 · #86→157 · #87→158 · #88→159 · **#89→160~162** · #90→163 · #91→164 · #92→165 · #93→166 · **#94→167~170** · #95→171 · #96→172 · #97→173
@@ -105,13 +122,13 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 | 1 ✅ | 📅 스케줄러 · 🔔 일정 알림 | (옛 #29 #30) | 1,204 | `scheduler.js` (features) | **옮김** — 내놓는 이름 8개(`renderSchedCalendar` · `renderDdays` · `subscribeMonth` · `setDdays` · `setDdaysVisit` · `refreshBellBadge` · `renderBellList` · `isBellOpen`), 부르는 곳은 #29(친구 탭 D-day 구독 · 수령함 · 공지) · #30(마이홈 관람) / 받는 이름(deps) 12개. `BELL_SEEN_KEY` 는 #67 로그아웃 지움 목록이 같이 써서 app.js 에 둠 · 연결은 #28 끝(원래 자리) | 낮음 | `sim-scheduler`(신설) · `smoke`(scheduler.js 먼저 평가) — `sim-win-layers` · `sim-win-front` 는 그대로 초록 |
 | 2 ✅ | 👑 달성표 (규칙 + 화면) | (옛 #109 #110) | 1,188 | `weekly-challenge.js` (entities 규칙 + widgets 화면 — 한 파일) | **옮김** — 내놓는 이름 6개(`syncChalToServer` · `open` · `isOpen` · `focusTick` · `setKeyPlatform` · `resetMemory`) + 검사용 `calc` · `tick` · `state`, 부르는 곳은 #61(런처 동기화) · #67(로그아웃 flush · 메모리 지우기) · #94(활성 앱 판정) · pomodoro.js(뽀모 서랍 — 6번) / 받는 이름(deps) 13개. `CHAL_KEY` 는 #67 로그아웃 지움 목록이 같이 써서 app.js 에 둠 · 다시 대입되던 `chalRec` · `_chalDirty` · `_chalKeyPlatform` 은 `resetMemory` · `setKeyPlatform` 으로 · 연결은 #94 끝(원래 자리) | 낮음 | `sim-weekly-challenge`(신설) · `smoke`(먼저 평가) · `sim-pomodoro` · `sim-mobile-focus` · `sim-account-switch` · `sim-keysof-twin`(weekly-challenge.js 를 읽게) — `sim-google-login` 은 그대로 초록 |
 | 3 ✅ | 📷 스티커사진 창 | (옛 #46 ~ #52) | 2,623 | `purikura-ui.js` (pages · `purikura-net.js` 옆) | **옮김** — 내놓는 이름 4개(`open` · `close` · `isOpen` · `phase`) + 세션 콜백 넷(`onPeers` · `onMeta` · `onPeerEvent` · `onShot`) + 검사용 `state` · `deco`, 부르는 곳은 #12(때리기 'b' 조준 키) · #42(📷 버튼 — 대화창 버튼 연결) · #65(회사원 모드 켜기) · #40(세션 입구 `_purikura()` 의 콜백) / 받는 이름(deps) 31개 — 대부분 캐릭터 리그 · 애니메이션 도우미(#84 #13 #16). 다시 대입되는 `officeMode` · `_plPlaying` 과 뒤에 선언되는 const(`Presence` · 리그 상수 넷)는 읽는 함수로 · 세션 입구 `_purikura()` · `_pkSession` 은 #40(🎲 주사위)에 남김(주사위 · 📷 버튼도 씀) · 연결은 #40 끝(원래 자리) | 중간 | `sim-purikura-ui`(신설) · `smoke`(먼저 평가) · `sim-purikura-stage` · `-deco` · `-fish` · `sim-pk-fit` · `sim-fix-0923`(purikura-ui.js 를 읽게) |
-| 4 ✅ | 📖 방명록 (새 글 배지 + 독립 팝업 창) | (옛 #34 ~ #36) | 475 | `guestbook.js` (pages) | **옮김** — 내놓는 이름은 예전처럼 window 고리 7개(`_mhGbStartWatch` · `_mhGbStopWatch` · `_mhGbRefreshBadge` · `_mhGbMarkAllRead` · `_mhReSubscribeGuestbook` · `openMyGuestbook` · `_mhGbRefreshWriteUI`) — 부르는 여덟 곳(#29 친구 목록 구독 · 마이홈 열기 · 닫기 · #30 관람 시작 · 끝 · #61 런처로)은 typeof 로 보고 부르므로 그대로(scheduler.js 의 `_closeBellWin` 과 같은 방식) · 반환값도 같은 함수 7개 / 받는 이름(deps) 8개. 다시 대입되는 `_mhViewingUserId` · `_myHomeFriends` 는 읽는 함수로 · `showChatBubble` 은 **남김**(말풍선 widgets — 7개 구역이 쓴다 · 지금은 #31 끝) · 연결은 #31 끝(원래 자리) | 낮음 | `sim-guestbook`(신설) · `smoke`(먼저 평가) · `sim-child-theme`(guestbook.js 를 읽게) — `sim-win-front` 는 그대로 초록 |
+| 4 ✅ | 📖 방명록 (새 글 배지 + 독립 팝업 창) | (옛 #34 ~ #36) | 475 | `guestbook.js` (pages) | **옮김** — 내놓는 이름은 예전처럼 window 고리 6개(`_mhGbStartWatch` · `_mhGbStopWatch` · `_mhGbRefreshBadge` · `_mhGbMarkAllRead` · `_mhReSubscribeGuestbook` · `openMyGuestbook`) — 부르는 여덟 곳(#29 친구 목록 구독 · 마이홈 열기 · 닫기 · #30 관람 시작 · 끝 · #61 런처로)은 typeof 로 보고 부르므로 그대로(scheduler.js 의 `_closeBellWin` 과 같은 방식) · 반환값도 같은 함수 7개 / 받는 이름(deps) 8개. 다시 대입되는 `_mhViewingUserId` · `_myHomeFriends` 는 읽는 함수로 · `showChatBubble` 은 **남김**(말풍선 widgets — 7개 구역이 쓴다 · 지금은 #31 끝) · 연결은 #31 끝(원래 자리) | 낮음 | `sim-guestbook`(신설) · `smoke`(먼저 평가) · `sim-child-theme`(guestbook.js 를 읽게) — `sim-win-front` 는 그대로 초록 |
 | 5 ✅ | 👥 친구 관리 칸 · 🐞 버그 제보 탭 링크 | (옛 #29) | 494 | `friend-manage.js` (widgets) · 버그 탭 62줄은 `bug-board-ui.js` 끝 | **옮김** — 내놓는 이름 11개(`showFriendRequestPopup` · `reqVisible` · `renderFriendManage` · `renderFriendRequests` · `refreshFriendReqBadge` · `lookupName` · `bulkAccept` · `bulkReject` · `setTab` · `tab` · `picked`) + 검사용 `acceptOne` · `seatsLeft`, 부르는 곳은 모두 #29(요청 구독 · 마이홈 열기 · 탭 전환 · 친구 코드 추가 · 서브탭 · 일괄 처리 바 — 열다섯 줄, `friendManage.이름`) / 받는 이름(deps) 10개. 다시 대입되는 `_myFriendRequests` · `_myHomeFriends` · `myHomeOpen` 은 읽는 함수로 · 다시 대입되던 `_fmTab` 은 `setTab` · `tab` 으로 · `FRIEND_MAX` 는 #28 에 남김(다섯 곳이 본다 · 값으로 넘김) · 🐞 버그 제보 탭은 `createXxx` 없이 bug-board-ui.js 끝 맨 앞 칸(게시판 화면과 같은 방식 · app.js 뒤지만 firebase-init(module) 앞이라 구독 때가 같다) · 연결은 #28 끝(원래 자리) | 낮음 | `sim-friend-manage-module`(신설) · `smoke`(먼저 평가) · `sim-friend-manage` · `sim-gift-star`(friend-manage.js 를 읽게) · `sim-scheduler`(자리 기준) — `sim-bug-board` 는 그대로 초록 |
 | 6 ✅ | 🍅 뽀모도로 | (옛 #98 앞머리) | 176 | `pomodoro.js` (features) | **옮김** — 옛 #98 948줄 가운데 뽀모 몫인 앞머리 176줄(상태 · 구간 넘기기 · 서랍 그리기 · 버튼 연결)만. 밖에서 부르는 곳은 #87(📊 오늘 기록 전시의 `_focusShowConf`) 한 곳 — 만드는 줄보다 먼저(로드 중) 불려 반환값을 볼 수 없어서 예전처럼 window 고리 `_pomoShowText` + typeof 가드(guestbook.js 와 같은 방식) · 반환값은 같은 함수 + 검사용 `open` · `render` · `tick` · `cfg` · `run` / 받는 이름(deps) 4개(`toast` · `_focusShowPush` 는 화살표, `weeklyChal` · `_pomoSnd` 는 앞에 선언된 const 값). 알림음 풀 `_pomoSnd` 는 #12 효과음 공장에 남김(자동재생 잠금 해제 등록보다 앞이어야 한다) · 지도에 «42개» 로 적었던 입력 판정 · 프레임 상한 몫과 `myHomeOpen` · `applyDesktopRunClass` · 데스크탑 모드 772줄은 뽀모가 아니라 **남김** → 머리가 빠져 #94 에 붙음 · 연결은 👑 달성표 연결 바로 뒤(#94 · 원래 자리) | 낮음 | `sim-pomodoro-module`(신설) · `smoke`(먼저 평가) · `sim-pomodoro` · `sim-weekly-challenge`(pomodoro.js 를 읽게) |
 | 7 ✅ | 🎨 마이홈 스티커 관리 창 · 스티커 편집 | (옛 #32 의 두 덩이) | 255 | `myhome-sticker.js` (widgets) | **옮김** — 옛 #32 1,481줄 가운데 스티커 몫 두 덩이(관리 창 119줄 · 편집모드 · 드래그 · 회전 · 크기 136줄)만. 내놓는 이름 9개(`open` · `close` · `render` · `bringIn` · `editStart` · `editEnd` · `bindDrag` · `bindRotate` · `bindResize`), 부르는 곳은 #31(`renderMyHomeStickers` 의 편집 시작 · 끝 · 핸들 셋 · [+ 스티커] · 새 스티커 붙이기) · #29(마이홈 닫기) 여덟 줄 — 모두 마이홈을 연 뒤에 돌아 `myHomeSticker.이름` / 받는 이름(deps) 18개 — 함수 10개는 화살표(`renderMyHomeStickers` 는 `bindMyHomePage` 가 감싸 다시 대입 · `commitMyHomePage` 는 window 이름), 다시 대입되는 `_myHomeData` · `_mhViewingUserId` · `_mhStickerEditSid` 는 읽는 함수, `_mhStickerEditSid` · `_mhStickerDragDist` 에 쓰는 것은 쓰는 함수(둘 다 #31 `renderMyHomeStickers` 가 읽어서 app.js 에 둠), `STICKER_*` 셋은 값. 🔗 마이홈 본문 링크 · 마이홈 페이지 편집 묶음(`bindMyHomePage`) · 📖 방명록 연결 · `showChatBubble` 은 **남김** → 머리가 빠져 #31 에 붙음(7-2) · 연결은 `renderMyHomeStickers` 뒤(#31 · 원래 자리) | 낮음 | `sim-myhome-sticker`(신설) · `smoke`(먼저 평가) — `sim-myhome-load` 는 그대로 초록 |
 | 7-2 ✅ | 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋 | (#31 뒤쪽 `bindMyHomePage`) | 1,167 | `myhome-edit.js` (widgets — 디자인 스튜디오 · 프리셋도 한 파일) | **옮김** — 즉시 실행 함수 하나(`bindMyHomePage`)의 본문 1,165줄을 글자 그대로(들여쓰기도). 디자인 스튜디오 · 프리셋(약 470줄)은 따로 떼지 않았다 — [✎ 마이홈 수정] 버튼(묶음 앞쪽)이 `_mhOpenDesignStudio` 를, 스튜디오가 `commitMyHomePage` · `_mhOpenColorPopup` 을 이름으로 부르는 한 몸이라 나누면 글자 그대로가 깨진다. 바뀐 줄 69 — 다시 대입되는 let(`_myHomeData` · `_mhViewingUserId` · `_myHomeLoaded` · `_myHomeUid` · `_mhStickerDragDist` · `isPremium` · `isAdmin`)은 읽는 함수, `_myHomeLoaded = false` · `_mhStickerDragDist` 쓰기는 쓰는 함수, 묶음보다 한참 뒤에 선언되는 `USER_NAME_MAX` 는 읽는 함수(값이면 TDZ), `renderMyHomeStickers` 감싸기는 감싸기 전 함수를 값으로 받고(`getRenderMyHomeStickers` — 화살표면 무한 재귀) 감싼 함수를 `setRenderMyHomeStickers` 로 되돌려 넣는다. 밖으로는 예전처럼 window 고리 11개(`commitMyHomePage` · `_mhOpenColorPopup` · `_mhBeginNameEdit` · `_mhCancelNameEdit` · `_mhBgmRefresh` · `_mhBgmPlaying` · `_mhBgmSetPlaying` · `_bgmDestroy` · `_mhApplyBg` · `_mhApplyTheme` · `_mhDsClose`) — app.js · myhome-sticker.js · purikura-ui.js 가 그 이름으로 부르므로 부르는 곳은 안 고쳤다. 반환값 13개는 검사용(`commit` · `openDesignStudio` · `presets` …) / 받는 이름(deps) 34개 — 함수 15는 화살표, 읽는 함수 9 · 쓰는 함수 3, `myHomeSticker` · `STICKER_*` 둘 · `DS_IMG_*` 넷은 앞에 선언된 const 라 값. 연결은 원래 자리(🔗 마이홈 본문 링크 뒤 · 📖 방명록 연결 앞) | 중간 | `sim-myhome-edit`(신설) · `smoke`(먼저 평가) · `sim-myhome-load` · `sim-child-theme` · `sim-fix-1008` · `sim-myhome-sticker` · `sim-purikura-deco`(새 파일을 읽게) — `sim-myhome-steps` 는 그대로 초록 |
 | 8 ✅ | 🎰 가챠 코어 · 보관함 · 뽑기 창 | (옛 #90 #91) | 1,213 | `gacha.js` (entities 규칙 + widgets 화면 — 한 파일) | **옮김** — 옛 #90 · #91 두 구역 1,217줄 가운데 저장 키 세 줄을 뺀 전부(달성표처럼 한 파일 — 보관함 · 뽑기 창이 코어 이름 스무 개 가까이를 그대로 써서 나누면 글자 그대로가 깨진다). 내놓는 이름 16개(`isGachaPart` · `isGachaColorUnlocked` · `gachaCount` · `sceneHasColorGroup` · `DUPES_FOR_COLOR` · `syncGachaToServer` · `pruneUnownedGachaParts` · `renderGachaInv` · `toggleGachaInv` · `isInvOpen` · `isDrawOpen` · `selId` · `owned` · `bonus` · `setBonusLocal` · `resetMemory`) + 검사용 `draw` · `pool` · `state` 등, 부르는 곳은 #26(T 키 · 꾸미기 커밋 · 미리보기 색상 영역) · #43(파츠 등록 · 색 없는 파츠 판정 · 꾸미기 창 거르기) · #61(런처) · #67(로그아웃 flush · 검문 · 메모리 지우기) · #70(연동 pull) · #83(카탈로그 도착 · 썸네일 · 라이선스 접기) · #94(👑 달성표 deps) 스물몇 줄 — 부팅 중 먼저 불리는 곳이 없어(smoke · 헤드리스 main 계측) typeof 고리 대신 `gachaMod.이름` / 받는 이름(deps) 40개 — 함수 28은 화살표, 다시 대입되는 `isAdmin` · `savedParts` · `PART_CATS` · `wdDraftDef` · `activeWdAdj` 는 읽는 함수(+ `activeWdAdj` 쓰는 함수), `seats` · `slots` · `Presence` · 저장 키 셋은 값. 두 구역 사이의 🔑 쓰기 거부 안내(`_warnServerWriteDenied` — 캐릭터 슬롯도 부른다)와 저장 키 세 줄(계정 전환 지움 목록)은 **남김** → 머리가 빠져 #89 에 붙음 · 연결은 옛 #90 머리 자리(원래 자리) · 예전부터 window 에 걸던 `openGachaInv` · `closeGachaInv` · `_gachaRestorePos` 는 그대로 | 높음 | `sim-gacha`(신설) · `smoke`(먼저 평가) · `sim-gacha-prune` · `sim-gacha-race` · `sim-part-color-entry`(gacha.js 를 먼저 평가) · `sim-account-switch` · `sim-key-input` · `sim-weekly-challenge`(gachaMod) — `sim-slot-sync` 는 그대로 초록 |
-| 9 ✅ | 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 (관리자) | #132 #133 | 681 | `admin/admin-license-bulk.js` (features · 관리자 폴더) | **옮김(관리자 코드 admin 폴더 1번)** — 두 구역 680줄을 글자 그대로 `app/parts/admin/` 으로. deps 7개(`escHtml` · `toast` · `_genLicenseKey` · `_saveFailMsg` · `renderLicenseGenList` · `downloadBlob` · `_srFmtDate`) · 밖에서 부르는 이름 0. 처음 계획: 밖에서 쓰는 이름 **0** — 둘 다 버튼을 거는 즉시 실행 함수(`bindLicenseXlsxBulk` · `bindSecretRoomGrant`)와 그 도우미(`_lx*`)뿐 / 받는 이름 약 10개 — `escHtml`(#48) · `_genLicenseKey`(#101) · `renderLicenseGenList`(#130) · `downloadBlob`(#153) · `_saveFailMsg` · `toast`(#154) · `genRoomCode` · `_srFmtDate` · `_mySecretRoomCode` · `_refreshSecretRoomUI`(#115 — 방 서버 provider 안). 연결은 #131 끝(원래 자리) | 낮음 | `sim-license-xlsx`(`_lx*` 를 app.js 에서 읽는다 → 새 파일) · `smoke` |
+| 9 ✅ | 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 (관리자) | #132 #133 | 681 | `admin/admin-license-bulk.js` (features · 관리자 폴더) | **옮김(관리자 코드 admin 폴더 1번)** — 두 구역 680줄을 글자 그대로 `apps/desktop/app/parts/admin/` 으로. deps 7개(`escHtml` · `toast` · `_genLicenseKey` · `_saveFailMsg` · `renderLicenseGenList` · `downloadBlob` · `_srFmtDate`) · 밖에서 부르는 이름 0. 처음 계획: 밖에서 쓰는 이름 **0** — 둘 다 버튼을 거는 즉시 실행 함수(`bindLicenseXlsxBulk` · `bindSecretRoomGrant`)와 그 도우미(`_lx*`)뿐 / 받는 이름 약 10개 — `escHtml`(#48) · `_genLicenseKey`(#101) · `renderLicenseGenList`(#130) · `downloadBlob`(#153) · `_saveFailMsg` · `toast`(#154) · `genRoomCode` · `_srFmtDate` · `_mySecretRoomCode` · `_refreshSecretRoomUI`(#115 — 방 서버 provider 안). 연결은 #131 끝(원래 자리) | 낮음 | `sim-license-xlsx`(`_lx*` 를 app.js 에서 읽는다 → 새 파일) · `smoke` |
 | 10 ✅ | 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기 | #172 | 268 | `room-invite-ui.js` (features) | **옮김** — 머리 아래 본문 268줄(즉시 실행 함수 `bindRoomInvite` · 받기 `_bindRoomInviteReceiver` · 팝업 `showRoomInvitePopup` · 깜빡임 `_flashTaskbar` · 상수 둘 · 부팅 때 수신을 거는 두 줄)을 글자 그대로(들여쓰기도). 바뀐 줄 1 — `_myHomeFriends`(#44 · 다시 대입되는 let)를 읽는 함수로(`_myHomeFriends()`). 밖에서 쓰는 이름 **0**(반환값 `showPopup` · `busy` 는 검사용) / 받는 이름(deps) 9개 — 함수 7개(`toast` · `escHtml` · `getMyUserId` · `getDisplayName` · `startRoom` · `doLeaveRoom` · `_friendInRoom`)는 화살표, `_myHomeFriends` 는 읽는 함수, `Presence`(#113)는 앞에 선언된 const 라 값. 지도에 적었던 `resize` 는 받지 않는다 — 본문의 `addEventListener('resize', …)` 는 window 이벤트다. 연결은 원래 자리(INIT 뒤 · 머리는 그대로) — 만들 때 창 버튼 · 끌기 · resize 를 걸고 수신 구독(또는 firebase-ready 기다림)이 예전과 같은 때 돈다 | 낮음 | `sim-room-invite-ui`(신설) · `smoke`(먼저 평가) · `sim-room-invite-wait`(room-invite-ui.js 를 읽게) |
 | 11 ✅ | 🚩 신고하기 | #160 | 190 | `report.js` (features) · 관리자 목록은 `admin/admin-report.js` | **옮김** — 신고 창 · 공용 도우미 · 팝업 칸은 report.js(바뀐 줄 0), 관리자 신고 목록은 admin-report.js(팝업 칸 · isAdmin 은 읽는 · 쓰는 함수 · 바뀐 줄 6). 메뉴는 `reportMod.openDialog`. 처음 계획: 밖에서 쓰는 이름 1개 — `_openReportDialog` ← #87(DRAG / PET 우클릭 메뉴 · 사람이 누를 때만이라 반환값 `report.openDialog`) / 받는 이름 약 8개 — `_reportHiddenUids` · `_reportHiddenSave`(#9 숨기기) · `_seatLabelName`(#85) · `_awayUrlOk`(#159) · `getDisplayName`(#115) · `getMyUserId` · `MY_FRIEND_CODE_KEY`(#6) · `isAdmin`(#99 — 읽는 함수) | 낮음 | `sim-report-away`(신고 상수 · 창 함수를 app.js 에서 읽는다 → 새 파일) · `smoke` |
 | 12 ✅ | 🧹 관리자 콘솔 도구 (F12) | #149 | 146 | `admin/admin-console.js` (features · 관리자 폴더) | **옮김(관리자 코드 admin 폴더 2번)** — 본문 144줄 글자 그대로 · 바뀐 줄 4(카탈로그 목록 셋을 읽는 함수로) · 콘솔 함수 일곱은 예전처럼 window. 처음 계획: 밖에서 쓰는 이름 **0** — 전부 `window.X = async function` 콘솔 함수 7개(`analyzeCatalog` · `cleanupGhostRooms` · `reclaimInvitesSince` · `migrateCatalog*` …)라 이름이 그대로 / 받는 이름 2개 — `savedParts`(#146) · `savedDesks`(#145) — 둘 다 다시 대입되는 let 이라 읽는 함수 + `firebaseAPI` · `toast` | 낮음 | 읽는 검사 없음 — `smoke` 만(새 검사 `sim-admin-console` 로 window 이름 일곱 개 확인) |
@@ -140,7 +157,7 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 9번(관리자 코드 admin 폴더 1번)으로 34,967 → 34,303줄(664줄 — 옮긴 680줄 − 연결 · 안내 16줄).
 9 ~ 15 는 쓰임이 적은 구역(머리를 새로 달아 드러난 것 위주)이라 모두 해서 약 2,300줄, 16(플레이리스트)까지 하면 약 4,100줄이 더 빠진다.
 
-**관리자 코드는 `app/parts/admin/` 에 모은다** (2026-10-14~) — 웹 관리자와 겹치는 기능 걷기(#140, 닫음)보다 먼저, 관리자 몫을 동작 그대로 이 폴더로 옮긴다.
+**관리자 코드는 `apps/desktop/app/parts/admin/` 에 모은다** (2026-10-14~) — 웹 관리자와 겹치는 기능 걷기(#140, 닫음)보다 먼저, 관리자 몫을 동작 그대로 이 폴더로 옮긴다.
 나중에 걷을 때 파일 몇 개만 지우면 되게. 1번 = 위 순서표 9번(`admin-license-bulk.js`). 2번 = 순서표 12번(`admin-console.js`). 3번 = 라이선스 발급 · 공지 · 카테고리 관리(`admin-license.js` · `admin-notice.js` · `admin-category.js` — 옛 #130 의 관리자 몫 · #131, app.js 34,167 → 33,773줄). 4번 = 파츠 · 책상 · 아이템 등록 창 · 파츠 삭제(`admin-part-register.js` — #81 · #82, 값 열세 개는 읽는 함수 · app.js 33,773 → 33,385줄). 5번 = 📊 통계 · 🎟️ 초대권 지급(`admin-users.js` — 초대 창 안쪽) · 🛑 방 종료 · 🧹 유령 방 · ⚙️ 게임 설정 · 📢 광고 배너 편집(`admin-launcher.js`), app.js 33,385 → 33,168줄. 🚩 신고 목록은 FSD 11번(신고하기)과 같이. 6번 = 📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기(`admin-asset.js` — 흩어진 덩이 셋). 7번 = 🔐 관리자 모드 진입(`admin-mode.js` — isAdmin 을 바꾸는 단 한 곳 · setIsAdmin). 관리자 신고 목록은 FSD 11번과 함께(`admin-report.js`). 순서표 1 ~ 16 · 관리자 1 ~ 7 끝(2026-10-14) — 남은 구역은 새 순서표. 다음 후보: 🧹 관리자 콘솔 도구(12번) · 🛠️ 라이선스 발급 · 공지 · 업데이트 안내 · 📁 카테고리 관리 ·
 🛠️ 파츠 · 책상 · 아이템 등록 창 · 광고 배너 · 게임 설정 편집 · 통계 · 커미션 생성 · GLB 불러오기 · 관리자 모드 진입. 검사 러너는 `parts/admin/` 을 깊은 자리에서 이름으로 끌어올리고, `sim-ui-tokens` · `audit.py` · `smoke` 는 그 자리도 본다.
 
@@ -165,14 +182,14 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 남길 핵심(약 4,000줄 · 쓰임이 수십 곳이라 도메인 폴더를 나눌 때 같이 본다): SETUP #1 · BUILDERS #5 · SEATS #6 · 좌석 크기 #7 ·
 좌석 배치 #18 · FIT #20 · USER STATUS #23 · CREATOR + LAUNCHER #90 · 방 접속 상태(Presence) #113 · ANIM #155.
 
-고른 기준은 1차와 같다 — 쓰임(다른 구역이 부르는 수)이 적고 줄 수가 큰 것부터, 한 줄 = PR 하나. 구역 번호는 지금(173개) 번호
-(`node scripts/app-sections.js` 로 다시 뽑는다 — 아래 «구역 표» 의 줄 범위는 옛 값이라 번호 · 제목으로 찾는다).
+고른 기준은 1차와 같다 — 쓰임(다른 구역이 부르는 수)이 적고 줄 수가 큰 것부터, 한 줄 = 구역 하나(PR 은 «옮기기 규약» 절대로 묶는다). 구역 번호는 지금(173개) 번호
+(`node apps/desktop/scripts/app-sections.js` 로 다시 뽑는다 — 아래 «구역 표» 의 줄 범위는 옛 값이라 번호 · 제목으로 찾는다).
 
 | 순서 | 묶음 | 구역 | 줄(약) | 메모 |
 |---|---|---|---:|---|
 | 17 ✅ | 🏆 [내 정보] 전체 랭킹 → 🪪 [내 정보] 화면 | #119 #120 | 702 | **옮김** — `my-info.js`(앞 구역 «[내 정보] 런처 화면 전환» 과 한 화면이라 같이) · deps 53 · 내놓는 이름 6 · app.js 32,832 → 32,190줄 |
-| 18 ✅ | 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 이관 조율 | #138 #139 #140 | 868 | **옮김** — `chars.js` · deps 29 · 내놓는 이름 25 · 공용 `loadImg` 는 app.js 에 남김 · app.js 32,190 → 31,360줄. 검사용 공용 도우미 `checks/sim-renderer-src.js` 신설(옮길 때마다 MODULES 한 줄) |
-| 19 ✅ | ☁️ 슬롯 기기 간 동기화 · 연동 UI | #136 #137 | 662 | **옮김** — `slot-sync.js` · deps 19 · 내놓는 이름 27 + 쓰는 함수 3(로그아웃이 비움) · 서버 쓰기 많음 — 나중 `-net` 통로 후보 |
+| 18 ✅→걷음 | 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 이관 조율 (0.13 에서 서버 원본 옷장 `closet.js` 로 대체 — `chars.js` 삭제) | #138 #139 #140 | 868 | **옮김** — `chars.js` · deps 29 · 내놓는 이름 25 · 공용 `loadImg` 는 app.js 에 남김 · app.js 32,190 → 31,360줄. 검사용 공용 도우미 `checks/sim-renderer-src.js` 신설(옮길 때마다 MODULES 한 줄) |
+| 19 ✅→걷음 | ☁️ 슬롯 기기 간 동기화 · 연동 UI (0.13 에서 걷음 — 변환은 `slot-codec.js`, 받기 · 쓰기는 `closet.js`, 연동 띠 · 충돌 창은 없어짐) | #136 #137 | 662 | **옮김** — `slot-sync.js` · deps 19 · 내놓는 이름 27 + 쓰는 함수 3(로그아웃이 비움) · 서버 쓰기 많음 — 나중 `-net` 통로 후보 |
 | 20 ⏸ | 🖼️ 이미지 도장 | #92 | 730 | **미룸** — 본문이 생성기 그리기 핵심(붓 · 지우개 · 피부색 · 카메라 궤도 · bindPaint · loadSkins) · 읽는 함수 31 · 쓰는 함수 21 이 필요 → 생성기(#90 · #105)와 한 묶음으로 도메인 단계에서 |
 | 21 ✅ | 🖍️ 파츠에 직접 그리기 · 그림칸 | #43 #77 | 972 | **옮김** — `part-paint.js` · `findMySeat` 는 app.js 에 남김 · animal.js 가 부르는 3개는 «옛 전역 이름» 한 줄씩 · app.js 28,537 → 27,605줄 |
 | 22 ✅ | 🏠 마이홈 창 버튼 · 🫧 자리비움 그림 | #54 #159 | 734 | **옮김** — 도메인이 달라 둘로: `away-pic.js`(deps 11 · 내놓는 이름 9) · `myhome-ui.js`(deps 23 · 내놓는 이름 1) · app.js 30,724 → 30,035줄 |
@@ -222,7 +239,7 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 ## 옮기는 순서 4차 (46 ~ ) — 2026-10-14
 
 3차(34 ~ 45)가 끝났다 — app.js 19,851 → 14,804줄. 위 «남기는 것» 밖에 남은 기능 조각(구역마다 코드 10 ~ 80줄, 합쳐 약 650줄)을
-분야별로 세 묶음으로 옮긴다. 조각마다 모듈 하나(원래 자리 차례가 안 바뀌게), 한 줄 = PR 하나.
+분야별로 세 묶음으로 옮긴다. 조각마다 모듈 하나(원래 자리 차례가 안 바뀌게), 한 줄 = 구역 하나(PR 은 «옮기기 규약» 절대로 묶는다).
 
 | 순서 | 묶음 | 구역 | 줄(약) | 메모 |
 |---|---|---|---:|---|
@@ -240,9 +257,102 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 남은 건 위 «남기는 것» · «더 남기는 것» 과 생성기 묶음(20 · 28 · #150 등 — 도메인 단계에서 한 덩이로)뿐이다.
 다음은 구조 정리 2단계 — 도메인별로 무엇이 어디 있는지 문서로(그다음 도메인 폴더 → 컨벤션). 임시 다리 «// 옛 전역 이름» 11줄은 4단계 첫 PR 에서 걷었다. keep 공용 이름은 4단계에서 deps 로 바꾸며 걷는다.
 
+## 5차 후보 — 캐릭터 코어(`packages/char-core`) 뒤에 남은 앱 전용 덩어리 (2026-10-26)
+
+«끝의 정의» 의 «3D 핵심» 이 바뀌었다. 몸(`createBody`) · 얼굴(`createFace`) · 파츠(`createParts`) · 조명 · 색조 · 복제 코드 · UV 채우기는
+`@tw/char-core` 로 빠져 앱과 웹이 같이 쓴다(#430). app.js 에 남은 3D 는 **데스크톱 앱에만 있는 기능**이라 «핵심이라 남김» 이 아니라 모듈로 옮길 대상이다.
+한 번에 옮기지 않고, 그 구역을 고치는 PR 이 생길 때 같이 떼어 낸다(«손대는 구역만» 규칙과 같다).
+
+줄 범위는 0.13.0 `apps/desktop/app/parts/app.js`(9,171줄) 기준이다. 무엇이 들어 있는지는 옮길 때 그 범위를 열어 본다.
+
+| 덩어리(구역 머리 글자) | 줄 범위 | 줄 수 | 대표 함수 | 갈 곳(제안) | 메모 |
+|---|---|---:|---|---|---|
+| `WARDROBE PARTS` | 4009–5088 | 1,080 | `equipPartOnSeat` · `applyPartXf` · `applyEquippedPartsToSeat` | `character/` | |
+| `ANIM` | 7851–8516 | 666 | `targetFor` · `animateRig` · `frame` | `character/` · 프레임 루프는 app.js | |
+| `BUILDERS` | 273–751 | 479 | `buildDesk` · `equipDeskItem` · `buildPlaceholder` | `room/` | |
+| `SEATS` | 752–1205 | 454 | `createSeat` · `removeSeat` · `saveCharPos` | `room/` | ⚠️ 내 코드 · 친구코드(`getMyUserId` · `genFriendCodeCandidate` · `ensureMyFriendCode` 등)가 섞여 있다 — 이 몫은 `account/` |
+| `🐾 종족 선택창` | 6322–6780 | 459 | `applyCharToSeat` · `launchApp` · `backToLauncher` | `character/` · `launcher/` | 종족 선택창 본문은 이미 `creator/race-picker.js` — 머리 이름과 아래 내용이 다르다 |
+| `캐릭터에 직접 페인팅 (3D)` | 5161–5581 | 421 | `pushHistory` · `undo` · `bindPaint` | `creator/` | |
+| `🪑 좌석 배치(layoutSeats)` | 1657–2027 | 371 | `fitModel` · `fitDesk` · `setUserStatus` | `room/` · `status/` | |
+| `캐릭터 흔들기 — 시메지 컨셉` | 3698–3999 | 302 | `classifyHit` · 캔버스 누르기 · 끌기 · 떼기 처리기 | `room/` | |
+| `🧍 생성기 미리보기` | 5999–6248 | 250 | `openCreator` | `creator/` | |
+| `SETUP` | 1–180 | 180 | 렌더러 · 씬 · 조명 만들기 · `applyGlowEffect` | 부팅은 app.js · 빛 번짐은 `character/` | 실행 화면 조명(여섯 자리에 같은 글)은 0.13 에서 `shared/light-tone.js` `addRunLights` 한 벌로 |
+
+남는 것(끝의 정의 새 판): 부팅 순서 · 모듈 연결 · 프레임 루프 · 공용 상태(`seats` 등)를 넘기는 줄.
+데이터 읽기 · 쓰기(`firebase-init.js`)는 이 표와 별개 — 서버 API 로 옮기면서 줄어든다(도메인 provider → `shared/api-client.js` · 0.13 에서 범용 데이터 통로는 걷음).
+
+## 0.13 — 빈 머리 걷기
+
+본문을 모듈로 옮긴 뒤 머리 주석(과 «옮긴 곳» 안내)만 남았던 구역 머리 37개를 걷었다 — 구역 번호를 지키려고 남겼던 것이라
+줄 범위로 찾는 아래 표가 낡은 뒤로는 쓸모가 없었다. 머리 주석의 «왜 · ⚠️» 는 옮긴 모듈의 그 함수 옆에 1~3줄로 옮겼다.
+app.js 9,087 → 8,823줄(264줄) · 구역 163 → 126개. 남긴 빈 머리 둘(📦 방으로 보내는 def · 🛰 서버 모듈 감시견)은
+C(방 · 대화 realtime)가 같은 자리를 고치고 있어 그 뒤에 걷는다. 아래 구역 표의 «(머리만)» 줄은 옛 값이다.
+
+## 0.12.4 에서 합친 것(release/0.12.4 → release/0.13.0)
+
 **0.12.4 — 🩺 렌더러 생존 신호 #34 일부 옮김**: 0.1초 하트비트(창 보임 구독 · `setCharBounds`) → `launcher/heartbeat.js` · 1분 진단 줄(`[비용]` · `[프레임]`) → `launcher/run-diag-minute.js`. `_twMoveSeenAt` · `runCost` · 프레임 반복 안의 재기 줄은 app.js. app.js 9,729 → 9,711줄.
 
-## 구역 표 — `app/parts/app.js`
+**0.12.4 — 빈 머리 걷기**(0.13 #818 과 같은 모양): 본문을 모듈로 옮긴 뒤 머리 주석(과 «옮긴 곳» 안내)만 남았던 구역 머리 37개를 걷었다 —
+구역 번호를 지키려고 남겼던 것이라 줄 범위로 찾는 아래 표가 낡은 뒤로는 쓸모가 없었다. 머리 주석의 «왜 · ⚠️» 는 옮긴 모듈의 그 함수 옆에 1~3줄로 옮겼다.
+app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 넷 — 📦 방으로 보내는 def · 🛰 서버 모듈 감시견(0.13 이 같은 자리를 고침) ·
+☁️ 연동 UI · 🧬 slots → chars 이관(0.13 이 둘레까지 걷음). 아래 구역 표의 «(머리만)» 줄은 옛 값이다.
+
+**0.12.4 — 실행 화면 조명 한 벌**(0.13 #822 · #826 과 같은 모양): 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 여섯 자리에 같던 앰비언트 · 키 · 뒤쪽 바운스 · 정면 필 글과
+생성기 미리보기 · 동물 생성기의 빛 만들기를 `shared/light-tone.js` 의 `addRunLights` · `runLightInts` 로 묶었다(화면 그대로). `_mkFrontFill` 은 걷었고 `lightToneMod` 만드는 줄은 조명 상수 바로 뒤로 올렸다.
+종족 선택의 동물 카드는 옛 손 빛(0.95 · 1.0)이 실행 화면 몫과 달라 처음엔 남겼다가, 사용자 확인 뒤 사람 카드와 같은 `addRunLights` 로 옮겼다(카드가 사람 카드 밝기로 어두워짐 — 보이는 변화 · 0.13 #826 과 같은 줄).
+
+**0.12.4 — app.js 분리 M1**(설계 tw-docs `app-js-split.md` 4-2): SETUP 의 무대 만들기(렌더러 · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더)를 `shared/stage.js` 로, 발광 조각을 `character/glow.js` 로 옮겼다(동작 그대로 · 글 그대로).
+조명 상수 · `_fixGlbMatLighting`(T0 몫) · 화질 읽기(`_renderQuality` — 프레임 상한 몫) · 한글 진단 걸기 · 몸 재기 모듈 만들기는 app.js 에 남았다. `glow.js` 는 지금 부르는 곳이 없다. app.js 9,454 → 9,370줄.
+
+**0.12.4 — app.js 분리 M2**: 사람 귀 붙이기(귀 재질 · 귀 그림 · 까닥임 등록 · def 에 맞게 붙이기)를 `character/human-ear-attach.js` 로 옮겼다(동작 그대로 · 글 그대로 — 늦게 생기는 `seats` · `partPaintMod` · `wardrobeMod` · `rideBenchMod` 만 읽는 함수로 받는다). app.js 9,370 → 9,328줄.
+
+**0.12.4 — app.js 분리 M3**: 기본 책상 · 화분 · 컵 · 책 · 대신 몸 만들기와 재질(`M` · `matWood` …)을 `room/desk-build.js` 로 옮겼다(동작 그대로 · 글 그대로 · deps 없음). app.js 9,328 → 9,290줄.
+
+**0.12.4 — app.js 분리 M4**: 파츠 · 책상 아이템 애니메이션 재생(클립 고르기 · 믹서 · 활동 중에만 재생 · 아이템 idle · 손 따라가기 · 눌러 재생)을 `character/part-anim.js` 로 옮겼다(글 그대로 — `isAdmin` · `userStatus` · `seats` 만 읽는 함수로 받고 옛 `typeof` 가드 둘을 걷었다). app.js 9,290 → 9,104줄.
+
+**0.12.4 — app.js 분리 M5**: 책상 아이템 장착(장착 · 해제 · 위치 · 색 · 모으기 · 바로 저장 · 저장 반영)을 `character/desk-item-equip.js` 로 옮겼다(글 그대로 — 더 아래에서 만들어지거나 다시 대입되는 열 가지를 읽는 함수로 받는다). app.js 9,104 → 8,902줄.
+
+**0.12.4 — app.js 분리 M6**: 좌석 목록(`seats`) · `createSeat` · `removeSeat` · 고른 좌석 · 좌석 간격 저장을 `room/seats.js` 로 옮겼다(글 그대로 — 다시 대입되는 `selected` · `SPACING` · `MULTIPLAYER_SPACING` 는 읽는 · 쓰는 함수로 내놓고 app.js 는 `seatsMod.selected()` 로 읽는다). app.js 8,902 → 8,874줄.
+
+**0.12.4 — app.js 분리 M7**: 캐릭터 높이 · 깊이(`CHAR_Z` · `clampCharY` …) · 프로그램 이동 위치 · 크기의 모니터별 저장 · 끌기 한계(`clampDeskPan`) · 책상 반폭(`seatDeskHalfWidth`)을 `room/char-place.js` 로 옮겼다(글 그대로 — `seats` 는 읽는 함수, 줄 배치는 attach 알림, 다시 대입되는 여섯은 읽는 · 쓰는 함수). app.js 8,874 → 8,624줄.
+
+**0.12.4 — app.js 분리 M8**: FIT 구역의 `fitModel`(몸 키 · 자리 맞춤) · `fitDesk`(책상 맞춤)를 `character/fit-model.js` 로 옮겼다(글 그대로 — `creatorPrevMod` 만 읽는 함수로 받는다). app.js 8,624 → 8,488줄.
+
+**0.12.4 — app.js 분리 M9**: USER STATUS 구역(내 상태 저장 · 칩 · 메뉴 · 커스텀 상태 · `statusConfFor`)과 좌석 xf 저장(`saveSeatXf`)을 `status/user-status.js` 로 옮겼다(글 그대로 — 방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환은 모듈 순환을 막으려고 `attachStatusHooks` 알림으로 건다. `window.setUserStatus` 고리는 app.js 가 건다). app.js 8,488 → 8,423줄.
+
+**0.12.4 — app.js 분리 M10**: 캐릭터 투명도(`setSeatOpacity`)를 `room/seat-opacity.js` 로, 활동 판정(`seatState` · 활동 시각 · 펜 앱 · `triggerPet`)을 `status/seat-state.js` 로 옮겼다(글 그대로 — 활동 시각 · 펜 앱 깃발은 모듈 안에서 읽는 · 쓰는 함수로 나온다. 옛 `lastZ` 는 선언만 있어 걷음). app.js 8,423 → 8,326줄.
+
+**0.12.4 — app.js 분리 M11**: DRAG / PET 구역(캔버스 우클릭 · 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 안전망 · 전역 마우스 NDC · `drag` 상태)을 `room/seat-pointer.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 여섯은 읽는 · 쓰는 함수로 받고, 옛 `typeof seats` 가드 하나는 걷음). app.js 8,326 → 8,084줄.
+
+**0.12.4 — app.js 분리 M12**: `applyCharToSeat` 묶음(좌석 파츠 비우기 · 리깅 xf 다시 굽기 · 동물 좌석 다시 빌드 · placeholder 클릭 판정 · 동물 귀 등록 · `applyCharToSeat`)을 `character/char-apply.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 일곱은 읽는 함수로 받고, `window.rebuildAnimalSeats` · `window.registerAnimalEar` 고리는 모듈이 만들 때 건다. 옛 `typeof seats` 가드 하나는 걷음). app.js 8,084 → 7,835줄.
+
+**0.12.4 — app.js 분리 M13 ~ M16**: 앱 모드(`launcher/app-mode.js`) · 회사원 · 피규어 모드 깃발(`launcher/office-mode.js`) · 설정 저장 헬퍼(`shared/ls-set.js`) · 몸짓(`character/rig-anim.js`) · 프레임 상한 · rAF 멈춤 감시(`launcher/frame-pace.js`)를 글 그대로 옮겼다(한 PR · 모듈 다섯). app.js 7,835 → 7,324줄.
+
+**0.12.4 — app.js 분리 T4**: 옷 겹침(`_unequipClothCat` · `applyClothVisibility`)을 `character/cloth-visibility.js` 로 옮겼다(글 그대로 — 0.13 이 이 구역을 안 바꿨다. deps 는 `decoPartsMod` · `premiumMod` · `rideBenchMod` · `unequipPartFromSeat`).
+
+**0.12.4 — app.js 분리 T1**: 색조 셰이더 구역(100줄 → 0.13 의 이름 잇기 여섯 줄)을 `shared/hue-tint.js` 로 옮겼다(0.13 app.js 글 그대로 — 셰이더 본문은 코어 `tone.ts`).
+
+**0.12.4 — app.js 분리 T2**: 기본 몸 구역(`bodyCore` 만들기 · `loadBaseGLB` · `instantiateBase` · 커미션 GLB 캐시 · `normalizeModel`)을 `character/base-body.js` 로 옮겼다(0.13 app.js 글 그대로 — #830 `shareSkeletons` 줄도 0.13 글에 있다. 안 읽히던 `measureBaseGeometry` · `calcMeshBox` · `BASE_MESH_*` 와 `let BASE_SCENE · BASE_ANIMS` 는 걷고 코어 `bodyCore.baseScene()` · `baseAnims()` 로 읽음).
+
+**0.12.4 — app.js 분리 T5**: 파츠 저작 오프셋 · 머리 높이 보정 · xf 적용 구역(367줄)을 `character/part-xf.js` 로 옮겼다(0.13 app.js 글 그대로 — 계산 본문은 코어 `createParts` 를 부르는 한 줄 · 코어 파츠는 app.js 가 만들어 넘김).
+
+**0.12.4 — app.js 분리 T6**: 파츠 붙이기 · 떼기 · def 대조 · 한꺼번에 입히기 · 본 찾기(약 780줄)를 `character/part-equip.js` 로 옮겼다(0.13 app.js 글 그대로 — 복제 · 재질 · 리깅 다시 묶기 · wrapper 는 코어 `createParts` 호출. 0.12.4 의 #830 `shareSkeletons` 두 줄은 0.13 글에도 있어 그대로).
+
+**0.12.4 — app.js 분리 M17 ~ M19**: `frame()` · `prev`(`launcher/frame-loop.js` — 좌석 한 명 몫 분리는 글이 달라져 R5 로 남김) · 플라잉체어(`room/flying-chair.js`) · 스티커 그리기(`myhome/myhome-sticker-render.js` — 다시 대입이 있어 읽는 · 쓰는 함수, F4 때 걷음) · 이동 모드 · 캐릭터 화면 좌표(`launcher/move-mode.js`)를 글 그대로 옮겼다. app.js 7,324 → 6,858줄.
+
+**0.12.4 — app.js 분리 M20 ~ M22**: 생성기 그림판(`creator/creator-canvas.js` — 얼굴 합성 · 몸 만들기는 T7 몫이라 남김) · `openCreator` · `renderLauncher`(`creator/creator-open.js`) · 활성 앱 판정 · 창 모드 정하기(`launcher/window-mode.js` — 판단 그대로, F2 의 바탕)를 글 그대로 옮겼다. app.js 6,972 → 6,087줄(base 기준).
+
+**0.12.4 — app.js 분리 T7**: 얼굴 · 피부 캔버스 · 사람 몸 만들기(`newCanvas` · `compositeFace` · `defToBase` 등 약 110줄)를 `creator/creator-face.js` 로 옮겼다(0.13 app.js 글 그대로 — 본문은 코어 `createFace` · `createBody.assemble` 호출. `defToBase` 의 `onRoot` 에 #830 `shareSkeletons` 가 있다).
+
+**0.12.4 — app.js 분리 M23**: app.js 다음 `<script>` 로 실려 app.js 전역을 그냥 부르던 넷(`character/animal.js` · `myhome/myhome-desktop.js` · `support/bug-board-ui.js` · `status/noise.js`)을 `createXxx(deps)` 로 바꿨다. app.js 보다 먼저 싣고 app.js 끝(INIT 뒤)에서 만든다(옛 차례 그대로). deps 는 값 · 함수 · 읽는 함수 · 쓰는 함수(`curSlot` · `creatorOpen` 은 이 모듈이 바꾼다). 남은 몫: `myhome/mallang.js` · `myhome/bookmark.js` 의 app.js 이름 3개씩.
+
+**0.12.4 — app.js 분리 F2**: 창 모드를 한 값으로 모았다. `main.js` 는 렌더러가 보낸 모드(`launcher` · `creator` · `animal` · `myhome` · `run`)를 `_curMode` 로 기억하고 창 크기로 되짚지 않는다(`sizeToMode` · 허용 오차 · 줄인 크기 표 `_fittedSize` 걷음). 다시 불러오기 전 되돌리기는 `_applyConfigMode(true, 'launcher')` 한 줄로 같은 통로를 지난다. 화면 쪽 주인은 `launcher/window-mode.js`(M22).
+
+**0.12.4 — app.js 분리 F3**: app.js 바닥 INIT 덩이(좌석 탭 · 앱 모드 · 관리자 UI · 라이선스 글 · 마이홈 시작 · 기본 몸 불러오기 · 프레임 루프 · 런처 루프 · 얼굴 복구 점검 · 창 크기 맞춤)를 `launcher/run-boot.js` 의 차례 표로 옮겼다(0.13 `app-boot.js` 모양 — 표에 없는 이름 · 남는 이름은 만들 때 던지고 `begin` 은 한 번). 기본 몸을 못 불러오면 안내 한 번(`E-SYS-08`) 뒤 대신 몸으로 이어 간다.
+
+**0.13.0 에 합침(release/0.12.4 → release/0.13.0)**: 위 M6 ~ M23 · T0 ~ T7 · F1 ~ F4 는 0.13 판에 그대로 들어왔다 — 0.13 이 그 구역에서 바꾼 줄(서버 원본 · 계정 칸 · 코어 호출)은 옮긴 모듈 안에 넣었다. 다른 점: M23 은 동물 · 소음 둘만(마이홈 바탕화면은 `myhome-desktop-boot.js`, 버그 제보 게시판은 0.13 의 `bugBoardUi` 가 만든다) · F3 의 «마이홈 시작» · «슬롯 읽기» 칸은 빠짐(계정 확인 뒤 `app-boot.js` 차례) · F4 의 «그린 뒤 알림» 은 걷음(스티커 지우기 · 저장은 상태 주인 `myhomeStore.removeSticker`).
+
+## 구역 표 — `apps/desktop/app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
 |---|---|---:|---|---|---|---|---|---|
@@ -290,7 +400,7 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 | 42 | 7388–7853 | 466 | 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(`commitWdDraft`) · 색 영역 | features | animal.js gacha.js | 24 (#41 #146 #1) | 17 (#75 #79 #162) |  |
 | 43 | 7854–8657 | 804 | 🖍️ 파츠에 직접 그리기 | features | animal.js key-input.js paint-tools.js purikura-ui.js uv-fill.js | 17 (#146 #41 #77) | 19 (#42 #91 #92) |  |
 | 44 | 8658–8745 | 88 | 🏠 마이홈 친구 탭 상수 · 상태 | pages | bug-board-ui.js friend-manage.js myhome-inbox.js scheduler.js | 12 (#55 #118 #79) | 15 (#46 #61 #54) | 끝에 📅 스케줄러 · 🔔 일정 알림 연결(`MhScheduler.createScheduler` — scheduler.js · 원래 자리) · 👥 친구 관리 연결(`TwFriendManage.createFriendManage` — friend-manage.js · 옛 #29 자리). 🐞 버그 제보 탭(오픈카톡 기본 링크)은 bug-board-ui.js 끝으로 |
-| 45 | 8746–8776 | 31 | 🖥️ 한 계정 한 기기 — 밀려난 기기 처리 | features |  | 4 (#6 #115 #118) | 2 (#46 #115) |  |
+| 45 | 8746–8776 | 31 | 🖥️ 계정마다 PC 는 서버가 정한 상한까지 — 이 PC 등록 · 연결이 끊긴 PC 의 처리 | features |  | 4 (#6 #115 #118) | 2 (#46 #115) |  |
 | 46 | 8777–8889 | 113 | 🏠 마이홈 열기(`initMyHome`) · 소유자 쓰기 거부 안내 | pages | bug-board-ui.js friend-manage.js guestbook.js myhome-inbox.js scheduler.js | 9 (#44 #161 #6) | 1 (#35) |  |
 | 47 | 8890–8896 | 7 | 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 | entities |  | 1 (#161) | 4 (#52 #46 #161) | 15번으로 함수는 myhome-inbox.js 로 — 남은 것은 구독이 다시 대입하는 `_myInbox` · `_myInboxReady` · `_inboxBroadcast` 와 로그아웃이 같이 쓰는 `INBOX_BC_READ_KEY` |
 | 48 | 8897–8914 | 18 | 공용 HTML 이스케이프 `escHtml` | shared | myhome-inbox.js | 1 (#64) | 12 (#44 #51 #52) | 0단계 shared 감 |

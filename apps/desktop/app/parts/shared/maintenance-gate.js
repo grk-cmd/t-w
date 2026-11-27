@@ -1,0 +1,267 @@
+/* maintenance-gate.js — 🛠 서버 점검: 점검이 켜진 동안 서버를 쓰는 기능을 누르면 «서버 점검 중» 창 (검사 sim-maintenance-gate.js)
+   [어디서 읽나 — 0.13 · 사용자 결정 2026-11-14] 서버 GET /v2/config 의 maintenance { on, endsAt(ISO), message } 를 먼저 읽는다(ADMIN_ONLY 중에도 이 길만 열려 있다).
+     서버에 닿지 못할 때만(네트워크 · 5xx · 시간 초과 — 4xx 는 아님) Firebase config/maintenance 한 칸을 한 번 읽는다(readFlag). 점검 상태의 주인은 이 모듈 하나(cur).
+     읽는 때(P3): 앱 켤 때 · realtime 알림 config · realtime 이 점검(4006)으로 닫을 때 · [다시 시도] 를 누를 때. 혼자 주기로 묻지 않고 칸을 계속 듣지도 않는다.
+   [왜] 점검 동안은 규칙이 이 한 칸 말고 Firebase 를 다 막고 API 도 멈춘다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 그대로 두고,
+     서버에 닿는 요청을 «사람이 방금 누른 동작» 이 낼 때만 창을 띄운다. 앱이 뒤에서 혼자 내는 요청(친구 목록 · 원격 설정 · 구독)은 조용히 넘긴다
+     — 요청마다 띄우면 창이 끝없이 뜬다. 점검 중엔 오류 번호 토스트도 내지 않는다(error-codes.js muted).
+     원격 설정(API 먼저)으로 읽지 않는 까닭 — 점검 중엔 API 가 없다.
+   [사람이 누른 동작] 클릭 · 키 입력 뒤 ACTIVE_MS(1초) 안에 나간 요청. 점검 창 안의 입력은 세지 않는다(«확인» 이 창을 다시 부르지 않게).
+     ⚠️ navigator.userActivation.isActive 를 쓰지 말 것 — 아무 데나 누른 뒤 약 5초 참이라, 꾸미기 저장 디바운스(3초) · 하트비트 같은 뒤쪽 요청에도 창이 뜬다.
+     따로 된 창(📖 방명록 · 👑 디자인 스튜디오 — window.open)의 입력도 센다: 그 창을 열 때 store.watchInput(그 document) 를 건다(document.open 이 리스너를 지우니 d.close() 뒤에).
+     점검 창은 마지막으로 누른 창 안에 그린다(본창에만 그리면 앞에 뜬 자식 창에 가려진다).
+     잡는 문은 범용 통로 · API 통로 둘뿐 — runTransaction 직접 호출 · 함수 호출 · 방 서버 웹소켓으로만 닿는 기능은 창 없이 실패한다.
+   [끝나면] 권한이 거부된 onValue 구독은 다시 붙지 않아서 앱을 다시 켜야 친구 · 우편 · 방이 이어진다.
+     로컬 기능을 쓰는 중일 수 있으니 저절로 끄지 않고 [지금 다시 켜기] [나중에] 를 묻는다. 이번 실행에 점검을 본 적이 없으면 묻지 않는다.
+   [못 읽음] 모르는 모양은 «점검 아님» — 잘못 막는 쪽이 못 막는 쪽보다 크다(update-flow.js 와 같다).
+   deps: userActive() · ui({ show(view, onPress) · hide() }) · relaunch() · now()
+   [realtime 점검] serverClosed(retry, onDismiss) — realtime 서버가 4006 으로 닫으면 점검 창 + [다시 시도]. 누르거나 점검 칸이 풀리면 retry 한 번(자동 재시도 없음) · 창이 떠 있는 동안 on() 도 참.
+   «확인» 으로 닫으면 같은 retry 를 onDismiss 에도 넘긴다(띠 [다시 연결]) · 점검 해제와 띠 중 먼저 온 쪽만 붙는다 — 닫은 뒤에도 on() 이 참이면 이 실행의 오류 알림이 다 꺼진다.
+   내놓는 것: createMaintenance(deps) → { onValue(값) · touch() · serverClosed(retry, onDismiss) · on() } · createInputClock({ now }) → { note(안쪽인가) · active() }
+     · 앱 한 벌 store(firebase-init 이 onValue 를 잇고, 요청 문 · api-client 가 touch · 자식 창을 여는 모듈이 watchInput(doc))
+   classic script — error-codes.js · api-client.js 보다 먼저 싣는다(window.TwMaintenance). Firebase 를 모른다. */
+(function(){
+'use strict';
+
+const MAINTENANCE_PATH = 'config/maintenance';
+const GATE_ID = 'maintGateOverlay';          // desktop-run.js UI_HIT_SEL 에도 있어야 클릭을 받는다
+const CONFIG_PATH = '/v2/config';
+const FLAG_TIMEOUT_MS = 2500;               // Firebase 한 칸 읽기 제한 — 서버 읽기(api-client TIMEOUT_MS)와 같다. 넘으면 «못 읽음»
+const SIGNAL_GAP_MS = 3000;                  // 서버 신호(4006)로 다시 읽을 때 최소 간격 — 서버가 «점검 아님» 인데 realtime 이 4006 이면 돌고 돌지 않게
+const MESSAGE_MAX = 200;                     // 규칙 config/maintenance/message 와 같은 값
+const ACTIVE_MS = 1000;                      // 누른 뒤 이 안에 나간 요청만 «그 동작이 낸 것» 으로 본다
+
+const DEFAULT_BODY = '더 좋은 서비스를 위해 서버를 점검하고 있어요.';
+const NOTE = '이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 그대로 쓸 수 있어요. 캐릭터 · 친구 · 기록은 계정에 그대로 남아 있어요.';
+
+/* config/maintenance 값 → 점검이면 { endsAt, message }, 아니면 null. on 이 정확히 true 일 때만 점검. */
+function maintenanceOf(raw){
+  if(!raw || typeof raw !== 'object' || raw.on !== true) return null;
+  const endsAt = (typeof raw.endsAt === 'number' && isFinite(raw.endsAt) && raw.endsAt > 0) ? raw.endsAt : null;
+  const message = (typeof raw.message === 'string') ? raw.message.trim().slice(0, MESSAGE_MAX) : '';
+  return { endsAt, message };
+}
+
+/* 서버 /v2/config 의 maintenance → 점검이면 { endsAt(ms), message }, 아니면 null. on 이 정확히 true 일 때만. endsAt 은 ISO 시각 글자(UTC). */
+function maintenanceOfServer(raw){
+  if(!raw || typeof raw !== 'object' || raw.on !== true) return null;
+  const t = (typeof raw.endsAt === 'string') ? Date.parse(raw.endsAt) : NaN;
+  const message = (typeof raw.message === 'string') ? raw.message.trim().slice(0, MESSAGE_MAX) : '';
+  return { endsAt: (isFinite(t) && t > 0) ? t : null, message };
+}
+/* 서버에 닿지 못한 오류인가 — 네트워크 · 시간 초과 · 5xx(ApiError kind 'unavailable' 또는 상태 500 이상). 4xx 는 아니다. */
+function unreachable(e){
+  if(!e) return false;
+  return e.kind === 'unavailable' || (typeof e.status === 'number' && e.status >= 500);
+}
+
+const pad2 = (n) => (n < 10 ? '0' : '') + n;
+/* 끝나는 시각 — 오늘이면 «15:30», 다른 날이면 «10월 27일 15:30» (이 PC 시간대). */
+function endsAtText(endsAt, nowMs){
+  const d = new Date(endsAt), t = new Date(nowMs);
+  const hm = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  const sameDay = d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+  return sameDay ? hm : (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + hm;
+}
+
+/* 창 글 — m 이 있으면 점검 중(단추 «확인» · retry 면 앞에 «다시 시도»), null 이면 끝남(단추 «지금 다시 켜기» · «나중에»). */
+function viewOf(m, nowMs, retry){
+  if(!m) return { title: '점검이 끝났어요', body: '앱을 다시 켜면 친구 · 우편 · 방이 다시 이어져요.', note: '', buttons: [{ label: '지금 다시 켜기', action: 'relaunch' }, { label: '나중에', action: 'close' }] };
+  const ends = m.endsAt ? '\n' + endsAtText(m.endsAt, nowMs) + '쯤 끝날 예정이에요.' : '';
+  const buttons = retry ? [{ label: '다시 시도', action: 'retry' }, { label: '확인', action: 'close' }] : [{ label: '확인', action: 'close' }];
+  return { title: '서버 점검 중', body: (m.message || DEFAULT_BODY) + ends, note: NOTE, buttons };
+}
+
+/* 마지막 사람 입력 시각 · 그 입력이 난 document — 점검 창 안의 입력(inGate)은 세지 않는다. */
+/** @param {{ now?: () => number }} deps */
+function createInputClock(deps){
+  const now = (deps && deps.now) || (() => Date.now());
+  let last = -Infinity, lastDoc = null;
+  return {
+    note(inGate, doc){ if(inGate) return; last = now(); lastDoc = doc || null; },
+    active: () => now() - last <= ACTIVE_MS,
+    lastDoc: () => lastDoc,
+  };
+}
+
+/** @param {{ readServer?: () => Promise<any>, readFlag?: () => Promise<any>, userActive: () => boolean, ui: { show: (view: object, onPress: (action: string) => void) => void, hide: () => void }, relaunch: () => void, now?: () => number, setTimeout?: Function, clearTimeout?: Function }} deps */
+function createMaintenance(deps){
+  const userActive = deps.userActive;
+  const ui = deps.ui;
+  const relaunch = deps.relaunch;
+  const now = deps.now || (() => Date.now());
+  let cur = null;             // 지금 점검이면 { endsAt, message }
+  let open = false;           // 창(점검 중 · 끝남)이 떠 있는가 — 떠 있으면 바뀐 값으로 바로 다시 그린다
+  let rtRetry = null;         // realtime 서버가 점검(4006)으로 닫았다 — [다시 시도] · 점검 해제 때 한 번 부를 함수(다시 붙기)
+  let rtDismiss = null;       // 그 창을 «확인» 으로 닫을 때 retry 를 넘겨받는 곳
+  let rtShown = false;        // 그 창이 떠 있다 — 이 동안만 on() 이 참(닫은 뒤엔 오류 알림을 다시 켠다)
+  let readServer = deps.readServer || null;   // 서버 GET /v2/config 읽기 — start 가 잇는다(api-client.js 를 직접 부르면 서로 부르는 순환이 된다)
+  let readFlag = deps.readFlag || null;      // 서버에 닿지 못할 때만 쓰는 Firebase 한 칸 읽기 — start 가 잇는다
+  let checking = null;        // 읽는 중인 약속 — 같은 때 둘이 읽지 않는다
+  let lastDone = -Infinity;
+
+  function takeRetry(){ const f = rtRetry; rtRetry = null; rtDismiss = null; rtShown = false; return f; }
+  function press(action){
+    open = false;
+    ui.hide();
+    if(action === 'relaunch') relaunch();
+    if(action === 'retry'){ const f = takeRetry(); if(f) f(); check(); }   // 사용자 동작 — 새 값 · 끝남을 한 번 읽는다
+    if(action === 'close' && rtShown){ rtShown = false; const d = rtDismiss; rtDismiss = null; if(d) d(rtRetry); }   // retry 는 남겨 점검 해제 때도 붙는다
+  }
+
+  function onValue(raw){ apply(maintenanceOf(raw)); }
+  function apply(m){
+    if(m){ cur = m; if(open) ui.show(viewOf(m, now(), !!rtRetry), press); return; }
+    const was = !!cur;   // 이번 실행에 점검을 본 적이 없으면 끝나도 다시 켜기를 묻지 않는다
+    cur = null;
+    const f = takeRetry();
+    if(f) f();   // 점검이 풀렸다 — realtime 은 여기서 한 번 다시 붙는다
+    if(was){ open = true; ui.show(viewOf(null, now()), press); }
+  }
+
+  /* realtime 서버가 점검(4006 — 관리자만 통과)으로 닫았다 — 점검 창을 [다시 시도] 와 함께 띄우고, 누르거나 점검 칸이 풀리면 retry() 한 번.
+     점검 칸(config/maintenance)을 아직 못 봤어도 서버가 점검이라 했으니 기본 문구로 띄운다. */
+  function serverClosed(retry, onDismiss){
+    let done = false;
+    if(now() - lastDone >= SIGNAL_GAP_MS) check();   // 서버 신호 — 끝 시각 · 문구를 서버에서 읽는다(방금 읽었으면 건너뜀)
+    rtRetry = () => { if(done) return; done = true; retry(); };   // 띠 [다시 연결] · 점검 해제 · [다시 시도] 중 한 번만
+    rtShown = true;
+    rtDismiss = onDismiss || null;
+    open = true;
+    ui.show(viewOf(cur || { endsAt: null, message: '' }, now(), true), press);
+  }
+
+  /* 점검 값을 한 번 읽는다 — 서버(/v2/config)가 먼저 · 닿지 못하면(unreachable) Firebase 한 칸 · 4xx 나 모르는 답은 지금 값 그대로.
+     한 번에 하나만 읽는다(읽는 중에 또 부르면 같은 약속을 돌려준다). */
+  /* Firebase 한 칸 읽기에 시간 제한 — SDK get() 은 스스로 끝나지 않을 수 있다(웹소켓이 안 열리면 오래 걸린 약속).
+     넘으면 «못 읽음» 으로 끝낸다(점검 아님으로 보지 않는다 · 다음 check() 가 새로 읽는다). 서버 읽기(api-client TIMEOUT_MS)와 같은 수준. */
+  function readFlagLimited(){
+    return new Promise((resolve, reject) => {
+      const st = deps.setTimeout || setTimeout, ct = deps.clearTimeout || clearTimeout;
+      const t = st(() => { console.warn('[maintenance-gate] Firebase 점검 칸 읽기 시간 초과 — 못 읽음'); reject(new Error('FLAG_TIMEOUT')); }, FLAG_TIMEOUT_MS);
+      Promise.resolve().then(() => readFlag()).then((v) => { ct(t); resolve(v); }, (e) => { ct(t); reject(e); });
+    });
+  }
+  function check(){
+    if(checking) return checking;
+    if(!readServer) return Promise.resolve(false);
+    checking = (async () => {
+      try{
+        let data;
+        try{ data = await readServer(); }
+        catch(e){
+          if(!unreachable(e) || !readFlag) return false;   // 4xx 등 — 서버가 답했으니 Firebase 로 물러나지 않는다
+          try{ apply(maintenanceOf(await readFlagLimited())); return true; }catch(_){ return false; }
+        }
+        if(!data || typeof data !== 'object' || Array.isArray(data)){
+          if(!readFlag) return false;                         // 봉투는 맞는데 data 가 없다 — 서버 문제로 보고 물러난다
+          try{ apply(maintenanceOf(await readFlagLimited())); return true; }catch(_){ return false; }
+        }
+        apply(maintenanceOfServer(data.maintenance));          // 칸이 없으면(옛 서버) 점검 아님
+        return true;
+      }finally{ checking = null; lastDone = now(); }
+    })();
+    return checking;
+  }
+  /* 앱 켤 때 한 번 부른다 — deps: { readServer(GET /v2/config), readFlag(Firebase 한 칸 읽기), rt(TwRtHub.store — on('config', fn)) }. 서버가 바꿨다는 알림이 오면 다시 읽는다. */
+  function start(o){
+    if(o && o.readServer) readServer = o.readServer;
+    if(o && o.readFlag) readFlag = o.readFlag;
+    if(o && o.rt && o.rt.on) o.rt.on('config', () => { check(); });
+    return check();
+  }
+
+  /* 서버 요청이 나가기 직전에 부른다 — 점검 중이고 사람이 방금 누른 동작일 때만 창. 이미 떠 있으면 글만 새로. */
+  function touch(){
+    if(!cur || !userActive()) return false;
+    open = true;
+    ui.show(viewOf(cur, now(), !!rtRetry), press);
+    return true;
+  }
+
+  return { onValue, touch, serverClosed, check, start, on: () => !!(cur || rtShown) };
+}
+
+/* 창 — 바탕을 덮지 않는 작은 창(로컬 기능은 계속 쓴다). 관리자가 쓴 문구는 textContent 로만 넣는다.
+   z-index 는 업데이트 화면(update-flow.js 100000)보다 아래 — 둘 다 뜨면 할 수 있는 일(업데이트)이 위. */
+function createMaintenanceDom(doc){
+  let els = null;
+  function build(){
+    const ov = doc.createElement('div');
+    ov.id = GATE_ID;
+    ov.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99990;-webkit-app-region:no-drag;'
+      + 'background:var(--win-face,#d4d0c8);border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);'
+      + 'box-shadow:3px 3px 0 rgba(0,0,0,.35);width:320px;max-width:92vw;font-family:Tahoma,\'Malgun Gothic\',sans-serif;';
+    const title = doc.createElement('div');
+    title.style.cssText = 'font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;background:linear-gradient(90deg,var(--win-title-a,#0a246a),var(--win-title-b,#a6caf0));';
+    const inner = doc.createElement('div');
+    inner.style.cssText = 'padding:14px;display:flex;flex-direction:column;gap:9px;';
+    const body = doc.createElement('div');
+    body.style.cssText = 'font-size:12px;line-height:1.55;color:var(--ink,#222);white-space:pre-wrap;';
+    const note = doc.createElement('div');
+    note.style.cssText = 'font-size:10.5px;line-height:1.5;color:var(--ink-soft,#555);';
+    const row = doc.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;';
+    inner.appendChild(body); inner.appendChild(note); inner.appendChild(row);
+    ov.appendChild(title); ov.appendChild(inner);
+    (doc.body || doc.documentElement).appendChild(ov);
+    els = { ov, title, body, note, row };
+  }
+  return {
+    show(v, onPress){
+      if(!els) build();
+      els.title.textContent = v.title;
+      els.body.textContent = v.body;
+      els.note.textContent = v.note || '';
+      els.note.style.display = v.note ? '' : 'none';
+      els.row.textContent = '';
+      for(const b of v.buttons){
+        const btn = doc.createElement('button');
+        btn.className = 'lc-btn';
+        btn.style.marginTop = '0';
+        btn.textContent = b.label;
+        btn.onclick = () => onPress(b.action);
+        els.row.appendChild(btn);
+      }
+      els.ov.style.display = '';
+    },
+    hide(){ if(els) els.ov.style.display = 'none'; },
+  };
+}
+
+/* 창을 여러 document(본창 · 자식 창)에 — getDoc() 이 고른 창에 그리고 나머지는 숨긴다 · 닫기는 전부. */
+function createMultiDocUi(getDoc){
+  const doms = new Map();   // document → 창
+  const domOf = (doc) => { if(!doms.has(doc)) doms.set(doc, createMaintenanceDom(doc)); return doms.get(doc); };
+  return {
+    show(v, onPress){
+      const target = getDoc();
+      for(const [doc, dom] of doms){ if(doc !== target) dom.hide(); }
+      domOf(target).show(v, onPress);
+    },
+    hide(){ for(const dom of doms.values()) dom.hide(); },
+  };
+}
+
+const api = { CONFIG_PATH, FLAG_TIMEOUT_MS, SIGNAL_GAP_MS, maintenanceOfServer, unreachable, MAINTENANCE_PATH, GATE_ID, MESSAGE_MAX, ACTIVE_MS, maintenanceOf, endsAtText, viewOf, createInputClock, createMaintenance, createMaintenanceDom, createMultiDocUi };
+/* 렌더러에서는 한 벌을 만들어 둔다 — 창은 처음 띄울 때 만든다(document 는 그때 있다). */
+if(typeof window !== 'undefined' && typeof document !== 'undefined'){
+  const input = createInputClock();
+  const watchInput = (doc) => {
+    const note = (e) => { const t = e && e.target; input.note(!!(t && t.closest && t.closest('#' + GATE_ID)), doc); };
+    doc.addEventListener('pointerdown', note, true);
+    doc.addEventListener('keydown', note, true);
+  };
+  watchInput(document);
+  // 마지막으로 누른 창이 아직 열려 있으면 그 창, 아니면 본창
+  const docNow = () => { const d = input.lastDoc(); return (d && d.defaultView && !d.defaultView.closed) ? d : document; };
+  api.store = createMaintenance({
+    userActive: input.active,
+    ui: createMultiDocUi(docNow),
+    relaunch: () => window.companion.relaunchApp(),
+  });
+  api.store.watchInput = watchInput;
+  window.TwMaintenance = api;
+}
+if(typeof module !== 'undefined' && module.exports) module.exports = api;
+})();

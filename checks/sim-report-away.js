@@ -2,7 +2,7 @@
    ・1절: 자리비움 그림 — [내 정보] 머리 아래 한 구획 · 500×500 WebP · 300KB · Storage away/ · URL 은 Storage 주소만 ·
           방 payload awayImg · 캐릭터 자리 스프라이트(자리비움 · 안 숨김 · 회사원 아님 · 불러온 뒤에만) · 그땐 책상 🫧 없음.
    ・2절: 신고하기 — 남의 좌석 메뉴 끝 «🚩 신고하기…»(채널 무관) · 사유 넷(기타 40자) · 그림 없으면 자리비움 줄 잠김 ·
-          신고자 정보는 닉네임 + 코드 뒷자리 4 + 사유뿐 · 신고 성공 = 내 화면에서 숨김 · 관리자 목록은 서로 다른 3명 이상.
+          신고는 서버 경로 하나(대상 · 사유 · 글 — 신고자는 서버가 토큰에서) · 신고 성공 = 내 화면에서 숨김 · 관리자 목록은 서버 경로(거르기는 서버).
    ・3절: 규칙 — users/$userId/awayImg · reports(관리자만 읽기 · 본인 칸만 쓰기 · 자기 자신 금지 · $other 거절).
    ・4절: 이름표 우클릭 = 좌석 메뉴(조준 · 회사원 게이트) · 클릭 받기(CSS · UI_HIT_SEL).
    [실행] app.js · report.js · admin-report.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json 이 있는 폴더에서. */
@@ -36,7 +36,7 @@ say('── 1. 자리비움 그림');
   const ok = new Function(grabFn('_awayUrlOk') + '; return _awayUrlOk;')();
   chk(ok(OK_URL) && !ok('https://evil.example/x.png') && !ok('data:image/png;base64,AA') && !ok(null) && !ok(OK_URL + 'x'.repeat(500)), 'URL 은 Storage 주소 · 500자 이하만');
   chk(/s\.remoteAwayImg=_awayUrlOk\(friends\[id\]\.awayImg\)/.test(CODE), '받는 쪽도 Storage 주소만 받는다');
-  chk(/awayImg:myAwayImg, ridingOn:/.test(CODE) && /lic:_myLicenseFlag\(\), awayImg:myAwayImg\}/.test(CODE), '평소 · 입장 페이로드에 awayImg');
+  chk(/awayImg:myAwayImg, ridingOn:/.test(CODE) && /noise:myNoise, awayImg:myAwayImg\}/.test(CODE), '평소 · 입장 페이로드에 awayImg');
   /* _awayPicFor 떼어 와 돌림 */
   const env = { office: false, st: 'ok', mine: OK_URL };
   const pic = new Function('env', `
@@ -60,7 +60,7 @@ say('── 1. 자리비움 그림');
   chk(!/!prem/.test(strip(grabFn('_awayReset'))) && /rs\.disabled = !!_awayBusy;/.test(CODE), '[기본으로]는 라이선스와 무관(내 그림을 되돌리는 길은 막지 않는다)');
   chk(!/_awayPremium/.test(strip(grabFn('_awayPicFor'))), '보는 쪽은 라이선스를 안 본다(남의 그림은 그대로 보인다)');
   chk(/_awayRenderUI\(null\); \}catch\(_\)\{\}        \/\/ 👑/.test(SRC), '라이선스가 바뀌면 칸을 다시 그린다(_refreshPremiumGatedUI)');
-  chk(/_awayBootSync\(0\)/.test(CODE) && /_awaySetLocal\(srv\)/.test(strip(grabFn('_awayBootSync'))), '부팅 때 서버 값이 기준(관리자가 내리면 로컬도 비움)');
+  chk(/function startAwayPic\(me\)/.test(CODE) && /_awaySetLocal\(srv\)/.test(strip(grabFn('startAwayPic'))), '부팅 때 서버 값이 기준(관리자가 내리면 로컬도 비움)');
   if(FI){
     const up = strip(grabFn('uploadAwayImg', FI.replace(/async uploadAwayImg\(/, 'function uploadAwayImg(')));
     chk(/away\/\$\{userId\}\/away_\$\{Date\.now\(\)\}\.webp/.test(up) && !/_uploadDataUrlIfNeeded/.test(up), 'Storage away/{uid}/away_{시각}.webp · dataURL 폴백 없음');
@@ -75,18 +75,13 @@ say('── 2. 신고하기');
   chk(/REPORT_KINDS\.forEach/.test(dlg) && /\{ k:'char'[\s\S]*\{ k:'away'[\s\S]*\{ k:'nick'[\s\S]*\{ k:'etc'/.test(CODE), '사유 넷: 캐릭터 · 자리비움 그림 · 닉네임 · 기타');
   chk(/etc\.maxLength = 40/.test(dlg) && /r\.type = 'radio'/.test(dlg), '라디오 · 기타는 40자');
   chk(/const off = \(kd\.k === 'away' && !hasAway\)/.test(dlg) && /hasAway = _awayUrlOk\(seat\.remoteAwayImg\)/.test(dlg), '그림 없는 사람은 자리비움 줄 잠김');
-  chk(/reportUser\(target, me, \{ kind:picked, note:txt, nick:[^}]*code4:_myCode4\(\) \}\)/.test(dlg), '신고자 정보 = 닉네임 + 코드 뒷자리 4 + 사유뿐');
-  chk(/String\(localStorage\.getItem\(MY_FRIEND_CODE_KEY\) \|\| ''\)\.slice\(-4\)/.test(CODE), '코드 뒷자리 4자리');
+  /* 신고 본문 · 실패 처리는 sim-report.js 가 돌려서 본다(report-api.js) — 여기서는 신고 창이 서버 경로 하나만 부르는지만 */
+  chk(/reportApi\.file\(target, picked, txt\)/.test(dlg) && !/firebaseAPI|reportUser|_myCode4/.test(dlg), '신고 = 서버 경로 하나(대상 · 사유 · 글뿐 — 내 이름 · 코드는 서버가 토큰에서)');
   chk(/_reportHiddenUids\.add\(target\); _reportHiddenSave\(\);/.test(dlg), '신고하면 내 화면에서 숨김');
-  const rows = new Function(`var REPORT_ADMIN_MIN = 3; ${grabFn('_reportAdminRows')} return _reportAdminRows;`)();
-  const all = { uA:{ r1:{kind:'away',ts:1}, r2:{kind:'nick',ts:3}, r3:{kind:'etc',note:'x',ts:2} }, uB:{ r1:{kind:'char',ts:1}, r2:{kind:'char',ts:2} },
-                uC:{ r1:{kind:'away',ts:1}, r2:{kind:'away',ts:1}, r3:{kind:'away',ts:1}, r4:{kind:'nick',ts:9} } };
-  const out = rows(all);
-  chk(out.length === 2 && out[0].target === 'uC' && out[1].target === 'uA', '서로 다른 3명 이상만 · 많은 순');
-  chk(out[1].recs[0].ts === 3, '최근 신고가 위');
+  /* 관리자 목록의 거르기(서로 다른 3명 이상) · 정렬 · 이름 붙이기는 서버가 한다 — 화면 · 실패 처리는 sim-report.js 가 돌려서 본다 */
   chk(/_openReportAdmin\(\)/.test(CODE) && /id="lcReportList" class="admin-only"/.test(HTML), '관리자 줄 [🚩 신고 목록]');
   const adm = strip(grabFn('_openReportAdmin'));
-  chk(/isAdmin/.test(adm.split('listReports')[0]), '관리자가 아니면 안 연다');
+  chk(/isAdmin/.test(adm.split('adminApi.page')[0]) && !/firebaseAPI|listReports|getUserBrief/.test(adm), '관리자가 아니면 안 연다 · 목록은 서버 경로 하나');
   chk(!/innerHTML/.test(dlg + adm), '이름 · 사유는 textContent 로만(innerHTML 없음)');
   chk(/ov\.className = 'app-popup-ov'/.test(strip(grabFn('_reportBox'))), '팝업은 app-popup-ov(클릭 통과 화이트리스트)');
 }

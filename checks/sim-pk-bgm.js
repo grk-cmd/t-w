@@ -3,7 +3,7 @@
    ★ 왜 이 검사가 있는가 — 끈 사람에게 다음에 창을 열 때 또 음악이 나면 끄기가 없는 것과 같다. 회사원 모드 · 자동재생 잠금 · 파일 없음도 예전처럼.
    ・1절: 시작 · 멈춤 — 처음부터 · 되감기 · 회사원 모드 무음 · 파일 경로 폴백 · 재생 막힘은 경고로
    ・2절: 끄기 — 열려 있으면 바로 · 켤 때는 멈춘 자리부터 · 닫혀 있을 때 눌러도 기억만 · 저장 키 · 버튼 글 · 꺼 둔 PC 는 처음부터 무음
-   ・3절: 깨 보기 · 4절: 배선(html 순서 · 제목줄 칸 · smoke) */
+   ・3절: mutation test · 4절: 배선(html 순서 · 제목줄 칸 · smoke) */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -76,7 +76,7 @@ function behave(src) {
     const w = world(MOD, { blocked: true }); w.bgm.start(); await flush();
     chk(/재생이 막혔어요/.test(w.env.warns.join()), '자동재생 잠금은 삼키지 않고 경고로 남긴다');
   }
-  say('── 3. 깨 보기 — 하나라도 못 잡으면 빨강');
+  say('── 3. mutation test — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['끈 상태를 안 읽음', (s) => s.replace("try{ muted = storage.getItem(MUTE_KEY) === '1'; }catch(_){}", '')],
     ['끈 상태를 안 저장', (s) => s.replace("save(MUTE_KEY, muted ? '1' : '0');", '')],

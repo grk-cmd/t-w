@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 던지지 않는다 · 60초 타이머 하나 · 내놓는 이름(없음)
    ・2절: 돌려 보기 — 실행 화면이 아니어도 1분 몫(히트 맵 그림자 운행 포함)을 비운다 · 실행 화면이면 [비용] → [프레임] 두 줄 · 그 뒤에 [지도] 줄들(판정이 없던 분은 없음) · 다시 대입되는 값은 그때 값 · 프레임 상한 모듈이 없으면 아무것도 안 한다
    ・3절: app.js 연결 — 1분 타이머가 app.js 에 안 남음 · deps 15줄 그대로 · 만드는 줄은 쓰는 값 선언 뒤 · html(app.js 앞)
-   ・4절: 일부러 깨 보기
+   ・4절: mutation test
    [실행] 스테이징(node checks/run.js run-diag-minute) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -23,7 +23,7 @@ const GLUE = ['  Presence: Presence,', '  _FB: _FB,', '  _bodyHidden: (...a)=>hi
   '  _frameJsStats: _frameJsStats,', '  _gpuTimer: _gpuTimer,', '  _renderQuality: ()=>_renderQuality,', '  _runLowered: ()=>_runLowered,', '  canvas: canvas,', '  hitShadow: hitShadow,', '  key: key,',
   '  renderer: renderer,', '  runCost: runCost,', '  scene: scene,', '  seats: seats,'];
 const MAKE = 'const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({';
-const DECLS = ['const hitShadow = TwHitShadow.createHitShadow();', 'const _FB = FrameBudget;', 'const _frameBudget = ', 'const _gpuTimer = ', 'const _frameJsStats = ', 'const runCost = TwRunCostDiag.page;', 'const Presence = ', 'const hiddenSeatsMod = '];   // 값으로 넘기는 것 — 만드는 줄보다 먼저
+const DECLS = ['const hitShadow = TwHitShadow.createHitShadow();', 'const _FB = ', 'const _frameBudget = ', 'const _gpuTimer = ', 'const _frameJsStats = ', 'const runCost = TwRunCostDiag.page;', 'const Presence = ', 'const hiddenSeatsMod = '];   // 값으로 넘기는 것 — 만드는 줄보다 먼저
 
 /* 가짜 환경에서 만들고 타이머를 손으로 한 번씩 돌린다. noFB = 프레임 상한 모듈 없음(_frameBudget null) */
 function build(src, opt){
@@ -106,12 +106,12 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 4) say('── 2. 돌려 보기'); if(i === 11) say('── 3. app.js 연결'); chk(ok, msg); });
-say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/run-diag-minute.js"></script>', '')],
   ['deps 하나 빠짐', null, a => a.replace('\n  key: key,\n', '\n'), null],
   ['전역 이름 안 걺', m => m.replace('window.TwRunDiagMinute = api;', ''), null, null],
-  ['만들 때 던짐', m => m.replace('function createRunDiagMinute(deps){', 'function createRunDiagMinute(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createRunDiagMinute(deps){', 'function createRunDiagMinute(deps){ throw new Error("mutation");'), null, null],
   ['실행 화면 확인을 비우기 앞으로', m => m.replace("    if(!document.body.classList.contains('runmode')) return;\n", '').replace('    const t = performance.now();\n', "    if(!document.body.classList.contains('runmode')) return;\n    const t = performance.now();\n"), null, null],
   ['두 줄 차례 바뀜', m => { const a = m.match(/\n    companion\.diagNote\(TwRunCostDiag\.line[^\n]*/)[0], b = m.match(/\n    companion\.diagNote\(_FB\.diagLine[^\n]*/)[0]; return m.replace(a, '\u0000').replace(b, a).replace('\u0000', b); }, null, null],
   ['읽는 함수를 값처럼 씀', m => m.replace('m.q = _renderQuality();', 'm.q = _renderQuality;'), null, null],
@@ -119,7 +119,7 @@ const breaks = [
   ['지도 몫을 실행 화면일 때만 비움', m => m.replace('    const hitMapMin = hitShadow.take();\n', '').replace("    if(!(window.companion && companion.diagNote)) return;\n", "    if(!(window.companion && companion.diagNote)) return;\n    const hitMapMin = hitShadow.take();\n"), null, null],
   ['그림자 조건 빠짐', m => m.replace('cost.casters = key.castShadow ? TwGpuTimer.countCasters(scene) : 0;', 'cost.casters = TwGpuTimer.countCasters(scene);'), null, null],
   ['app.js 에 1분 타이머가 다시 생김', null, a => a + '\nsetInterval(()=>{}, 60000);', null],
-  ['만드는 줄이 값 선언보다 앞', null, a => { const i = a.indexOf('/* 🩺 1분 진단 줄'), j = a.indexOf('\n});', a.indexOf(MAKE)) + 4; const blk = a.slice(i, j); const rest = a.slice(0, i) + a.slice(j); const k = rest.indexOf('const _FB = FrameBudget;'); return rest.slice(0, k) + blk + '\n' + rest.slice(k); }, null],
+  ['만드는 줄이 값 선언보다 앞', null, a => { const i = a.indexOf('/* 🩺 1분 진단 줄'), j = a.indexOf('\n});', a.indexOf(MAKE)) + 4; const blk = a.slice(i, j); const rest = a.slice(0, i) + a.slice(j); const k = rest.indexOf('const _FB = '); return rest.slice(0, k) + blk + '\n' + rest.slice(k); }, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   let m2 = MOD, a2 = SRC, h2 = HTML;

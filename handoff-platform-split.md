@@ -103,6 +103,7 @@ const sysinput = mac ? require('./sysinput-mac') : require('./sysinput-win');  /
 | `LAYERED_ALPHA_ON` / `alpha()` / `setAlpha(v)` / `layeredState()` | 252 / 기본 0 | **빈 값** |
 | `applyLayered(where)` | `setOpacity` | **빈 함수** |
 | `logGeometry(where)` / `logDisplayLayout()` | 진단 로그 | 동일 |
+| `TOP_LEVEL` | `'screen-saver'` | `'status'` (메뉴 막대 메뉴를 덮지 않게) |
 
 ⚠️ **macOS 갭을 12로 시작하지 말 것.** 12는 Windows 크로미움의 가려짐 판정에서 나온 값이다.
 macOS는 `NSWindowOcclusionState`로 다른 판정을 쓴다.

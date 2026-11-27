@@ -1,0 +1,42 @@
+{
+  "name": "web-admin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "vite --mode api",
+    "build": "tsc -b && vite build --mode firebase --outDir node_modules/.tmp/admin-firebase-dist && vite build --mode api",
+    "build:firebase": "tsc -b && vite build --mode firebase",
+    "build:api": "tsc -b && vite build --mode api",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "oxlint && steiger ./src",
+    "format": "prettier --write src tests e2e e2e-api playwright.config.ts playwright.api.config.ts",
+    "format:check": "prettier --check src tests e2e e2e-api playwright.config.ts playwright.api.config.ts",
+    "e2e:api": "cp ../../firebase/firebase-database-rules.json e2e/.database.rules.json && firebase emulators:exec --config e2e/firebase.json --project demo-tw \"playwright test -c playwright.api.config.ts\"",
+    "e2e": "cp ../../firebase/firebase-database-rules.json e2e/.database.rules.json && firebase emulators:exec --config e2e/firebase.json --project demo-tw \"playwright test\""
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.104.1",
+    "fflate": "^0.8.3",
+    "firebase": "^12.19.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@feature-sliced/steiger-plugin": "^0.8.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.81.0",
+    "prettier": "^3.9.9",
+    "steiger": "^0.7.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^4.1.11"
+  }
+}

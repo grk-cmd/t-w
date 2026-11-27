@@ -1,157 +1,286 @@
-/* ═══ 📋 sim-todo-cli.js — 터미널 할 일 도구 scripts/todo.js (2026-10-10 신설) ═══════════════════════════
-   같이 일하는 사람들의 Claude Code 가 작업 전에 할 일(adminTodos)을 찾아보고 · 등록하고 · 머지 뒤 완료 + 버전.
-   이 도구는 gcloud 토큰(IAM)으로 REST 를 불러 **규칙을 거치지 않는다** — 규칙 adminTodos/$id 가 하던 검사를 스스로 한다.
-   ・1절: start 값 — 진행 중 · 작업자 나 · 종류(feat|bug) 필수 · 서버 시각 · rev 0 · 빈 칸은 안 둠
-   ・2절: done 값 — 남의 칸 그대로 · rev + 1 · 만든 사람/시각 고정 · 메모 덧붙이기 · 같은 줄 두 번 안 붙임
-   ・3절: checkValue — 규칙과 같은 모양 검사(모르는 칸 · 길이 · rev · 고친 사람 · 서버 시각)
-   ・4절: 규칙 파일과 상수가 같다(제목 120 · 메모 2000 · 버전 모양)
-   ・5절: find — 대소문자 무시 · 한글 · 많이 맞은 것 먼저 / list 거르기 / brief 요약 · 종류 배지
-   ・6절: brief 는 관리자가 아니어도(gcloud 없음 · DB 못 닿음) 조용히 0 으로 3초 안에 끝난다
-   [실행] scripts/todo.js · firebase-database-rules.json 이 있는 폴더(저장소 루트 · 스테이징)에서. */
+/* ═══ 📋 sim-todo-cli.js — 터미널 할 일 도구 scripts/todo.js ═══════════════════════════
+   같이 일하는 사람들의 Claude Code 가 작업 전에 할 일을 찾아보고 · 등록하고 · 머지 뒤 완료 + 버전.
+   이 도구는 API 서버 `/v2/admin/todos` 를 관리자 Firebase ID 토큰으로 부른다(api/README.md «ops» 와 같은 모양).
+   ・1절: start 본문 — 진행 중 · 작업자 나 · 종류(feat|bug) 필수 · requestId · 빈 칸은 null · 제보는 B-MMDD-n
+   ・2절: done 본문 — 남의 칸 그대로 · 읽은 version · 메모 덧붙이기 · 같은 줄 두 번 안 붙임 · 바꿀 것 없음
+   ・3절: 응답 읽기 — 약속과 다른 칸은 던진다 · 봉투 실패 → 한국어 이유(401 · 403 · 409 · 404)
+   ・4절: find — 대소문자 무시 · 한글 · 제보 번호 · 많이 맞은 것 먼저 / list 쿼리 / brief 요약 · 종류 배지
+   ・5절: 로그인 파일 — 모양 · 토큰 만료 판정 · 권한 600
+   ・6절: brief 는 관리자가 아니어도(setup 안 함 · API 못 닿음) 조용히 0 으로 3초 안에 끝난다
+   ・7절: 가짜 API 서버로 list · find · start · done 을 실제로 돌린다(쪽 이어 받기 · 미리 보기는 안 보냄 · 409 · 403)
+   [실행] node checks/run.js todo-cli */
 'use strict';
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const http = require('http');
+const { spawn } = require('child_process');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
-const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-for(const f of ['scripts/todo.js', 'firebase-database-rules.json']) if(read(f) == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); }
-const T = require(path.resolve('scripts/todo.js'));
+if(!fs.existsSync('scripts/todo.js')){ say('  ? 원본 못 찾음 — scripts/todo.js'); process.exit(2); }
+const SCRIPT = path.resolve('scripts/todo.js');
+const T = require(SCRIPT);
 const me = { uid: 'U1', name: '미희' };
 const throws = (fn, re) => { try{ fn(); return false; }catch(e){ return e instanceof T.TodoError && re.test(e.message); } };
-const SV = (v) => !!v && v['.sv'] === 'timestamp';
+const wire = (o = {}) => ({ todoId: 'tabc', title: '채팅', memo: null, status: 'doing', type: 'bug', assignee: 'U2', assigneeName: '서',
+  reports: ['B-1122-3'], release: null, createdBy: 'U2', createdAt: '2026-11-22T01:00:00Z', updatedBy: 'U2', updatedAt: '2026-11-22T02:00:00Z', version: 3, ...o });
 
-say('── 1. start 값');
+say('── 1. start 본문');
 {
-  const v = T.startValue({ title: '  할 일 도구  ', type: 'feat', memo: ' 메모 ', reports: ['abcdefghij0123456789', 'abcdefghij0123456789'] }, me);
-  chk(v.title === '할 일 도구' && v.memo === '메모', '제목 · 메모 앞뒤 공백을 걷는다');
-  chk(v.status === 'doing' && v.assignee === 'U1' && v.assigneeName === '미희', '진행 중 · 작업자는 나 · 이름표');
-  chk(v.type === 'feat', '종류 칸');
-  chk(v.createdBy === 'U1' && v.updatedBy === 'U1' && v.rev === 0, '만든 · 고친 사람은 나 · rev 0');
-  chk(SV(v.createdAt) && SV(v.updatedAt), '시각은 서버 시각({".sv":"timestamp"}) — 내 컴퓨터 시계 아님');
-  chk(JSON.stringify(v.reports) === '{"abcdefghij0123456789":true}', '제보는 겹치지 않게 {id: true}');
-  const bare = T.startValue({ title: '버그', type: 'bug' }, { uid: 'U1', name: '' });
-  chk(!('memo' in bare) && !('reports' in bare) && !('release' in bare) && !('assigneeName' in bare), '빈 메모 · 제보 · 버전 · 이름은 칸을 두지 않는다(규칙이 빈 글자를 안 받음)');
-  chk(throws(() => T.startValue({ title: '제목' }, me), /--type feat 또는 bug/), '종류가 없으면 묻지 않고 오류 «--type feat 또는 bug»');
-  chk(throws(() => T.startValue({ title: '제목', type: 'chore' }, me), /--type/), '종류는 feat · bug 만');
-  chk(throws(() => T.startValue({ title: ' ', type: 'feat' }, me), /제목/), '빈 제목은 거절');
-  chk(throws(() => T.startValue({ title: 'x'.repeat(121), type: 'feat' }, me), /120자/), '제목 120자 넘으면 거절');
-  chk(throws(() => T.startValue({ title: 'x', type: 'feat', reports: ['짧음'] }, me), /제보 id/), '제보 id 모양이 틀리면 거절');
-  chk(throws(() => T.startValue({ title: 'x', type: 'feat', release: 'v0.11' }, me), /릴리스/), '버전 모양이 틀리면 거절');
-  chk(T.checkValue('tabc', v, null, 'U1') === null, '만든 값은 규칙 검사를 통과');
+  const v = T.startBody({ title: '  할 일 도구  ', type: 'feat', memo: ' 메모 ', reports: ['B-1122-3', 'B-1122-3'] }, me, 'r1');
+  chk(v.title === '할 일 도구' && v.memo === '메모', '제목 · 메모 앞뒤 공백을 뗀다');
+  chk(v.status === 'doing' && v.assignee === 'U1' && v.assigneeName === '미희', '진행 중 · 작업자는 나 · 이름');
+  chk(v.type === 'feat' && v.requestId === 'r1', '종류 · requestId(다시 보내도 한 건)');
+  chk(JSON.stringify(v.reports) === '["B-1122-3"]', '제보 번호는 겹치지 않게');
+  chk(!('version' in v) && !('createdBy' in v), '만들기는 version · 만든 사람을 싣지 않는다(서버가 토큰으로 정함)');
+  const bare = T.startBody({ title: '버그', type: 'bug' }, { uid: 'U1', name: '' });
+  chk(bare.memo === null && bare.release === null && bare.assigneeName === null && bare.reports.length === 0, '빈 메모 · 버전 · 이름은 null · 제보는 빈 배열');
+  chk(/^[0-9a-f-]{36}$/.test(bare.requestId) && bare.requestId !== T.startBody({ title: '버그', type: 'bug' }, me).requestId, 'requestId 는 실행마다 새 uuid');
+  chk(throws(() => T.startBody({ title: '제목' }, me), /--type feat 또는 bug/), '종류가 없으면 오류 «--type feat 또는 bug»');
+  chk(throws(() => T.startBody({ title: '제목', type: 'chore' }, me), /--type/), '종류는 feat · bug 만');
+  chk(throws(() => T.startBody({ title: ' ', type: 'feat' }, me), /제목/), '빈 제목은 거절');
+  chk(throws(() => T.startBody({ title: 'x'.repeat(121), type: 'feat' }, me), /120자/), '제목 120자 넘으면 거절');
+  chk(!throws(() => T.startBody({ title: 'x'.repeat(120), type: 'feat' }, me), /./), '  120자는 받는다');
+  chk(throws(() => T.startBody({ title: 'x', type: 'feat', reports: ['abcdefghij0123456789'] }, me), /B-MMDD-n/), '옛 20자 제보 id 는 거절 — 고정 번호 B-MMDD-n');
+  chk(throws(() => T.startBody({ title: 'x', type: 'feat', reports: Array.from({ length: 31 }, (_, i) => `B-1122-${i + 1}`) }, me), /30개/), '제보 30개 상한');
+  chk(throws(() => T.startBody({ title: 'x', type: 'feat', release: 'v0.13' }, me), /릴리스/), '버전 모양이 틀리면 거절');
+  chk(throws(() => T.startBody({ title: 'x', type: 'feat', release: '0.13.0-beta.123456789' }, me), /릴리스/) &&
+    !throws(() => T.startBody({ title: 'x', type: 'feat', release: '0.13.0-beta.12345678' }, me), /./), '버전 20자 상한(서버와 같음) — 21자는 거절');
 }
 
-say('── 2. done 값');
+say('── 2. done 본문');
 {
-  const raw = { title: '채팅', memo: '처음 메모', status: 'doing', type: 'bug', assignee: 'U2', assigneeName: '서',
-    reports: { abcdefghij0123456789: true }, createdBy: 'U2', createdAt: 5, updatedBy: 'U2', updatedAt: 9, rev: 3 };
-  const v = T.doneValue(raw, { release: '0.11.3', memo: 'PR #99' }, me);
-  chk(v.status === 'done' && v.release === '0.11.3', '완료 · 릴리스 버전');
-  chk(v.rev === 4, 'rev 는 지금 값 + 1');
-  chk(v.createdBy === 'U2' && v.createdAt === 5, '만든 사람 · 시각은 그대로');
-  chk(v.assignee === 'U2' && v.assigneeName === '서' && v.type === 'bug' && v.reports === raw.reports, '작업자 · 종류 · 제보는 남의 것 그대로');
-  chk(v.updatedBy === 'U1' && SV(v.updatedAt), '고친 사람은 나 · 서버 시각');
+  const t = T.toTodo(wire({ memo: '처음 메모' }));
+  const v = T.doneBody(t, { release: '0.13.1', memo: 'PR #99' });
+  chk(v.status === 'done' && v.release === '0.13.1', '완료 · 릴리스 버전');
+  chk(v.version === 3, '읽은 version 그대로(남이 먼저 고쳤으면 서버가 409)');
+  chk(v.assignee === 'U2' && v.assigneeName === '서' && v.type === 'bug' && v.reports.join() === 'B-1122-3' && v.title === '채팅', '작업자 · 종류 · 제보 · 제목은 남의 것 그대로(칸 묶음을 통째로 보낸다)');
   chk(v.memo === '처음 메모\nPR #99', '메모는 덮지 않고 한 줄 덧붙인다');
-  chk(T.doneValue({ ...raw, memo: v.memo, rev: 4 }, { memo: 'PR #99' }, me).memo === v.memo, '같은 줄은 두 번 안 붙인다');
-  chk(raw.status === 'doing' && raw.rev === 3, '읽은 값은 건드리지 않는다');
-  chk(T.checkValue('tOld', v, raw, 'U1') === null, '완료 값은 규칙 검사를 통과');
-  chk(!('release' in T.doneValue({ ...raw }, {}, me)), '버전을 안 주면 칸을 두지 않는다');
-  chk(throws(() => T.doneValue(raw, { release: '1.2' }, me), /릴리스/), '버전 모양이 틀리면 거절');
+  const again = T.doneBody({ ...t, memo: v.memo, status: 'done', release: '0.13.1' }, { release: '0.13.1', memo: 'PR #99' });
+  chk(again.memo === v.memo && T.doneIsNoop({ ...t, memo: v.memo, status: 'done', release: '0.13.1' }, again), '같은 명령 두 번 — 같은 줄은 안 붙고 «바꿀 것 없음»');
+  chk(!T.doneIsNoop(t, v), '  처음 완료는 보낸다');
+  chk(T.doneBody({ ...t, release: '0.13.0' }, {}).release === '0.13.0', '버전을 안 주면 원래 버전을 둔다');
+  const plain = T.toTodo(wire());
+  chk(T.doneBody(plain, {}).release === null && T.doneBody(plain, {}).memo === null, '  메모 · 버전이 둘 다 없으면 null');
+  chk(throws(() => T.doneBody(t, { release: '1.2' }), /릴리스/), '버전 모양이 틀리면 거절');
+  chk(throws(() => T.doneBody({ ...t, memo: 'x'.repeat(1995) }, { memo: '여섯글자넘음' }), /2000자/), '덧붙여 2000자를 넘으면 거절');
 }
 
-say('── 3. checkValue — 규칙과 같은 검사');
+say('── 3. 응답 읽기');
 {
-  const prev = { createdBy: 'U2', createdAt: 5, rev: 3 };
-  const ok = T.doneValue({ title: 't', status: 'doing', createdBy: 'U2', createdAt: 5, updatedBy: 'U2', updatedAt: 1, rev: 3 }, {}, me);
-  chk(T.checkValue('t1', ok, prev, 'U1') === null, '바른 값은 통과');
-  chk(/rev/.test(T.checkValue('t1', { ...ok, rev: 5 }, prev, 'U1')), 'rev + 2 는 거절(남이 먼저 고친 것을 덮지 않게)');
-  chk(/만든/.test(T.checkValue('t1', { ...ok, createdBy: 'U1' }, prev, 'U1')), '만든 사람을 바꾸면 거절');
-  chk(/만든/.test(T.checkValue('t1', { ...ok, createdAt: 6 }, prev, 'U1')), '만든 시각을 바꾸면 거절');
-  chk(/모르는 칸/.test(T.checkValue('t1', { ...ok, extra: 1 }, prev, 'U1')), '모르는 칸은 거절');
-  chk(/빠진 칸/.test(T.checkValue('t1', { ...ok, title: undefined }, prev, 'U1')), '필수 칸이 빠지면 거절');
-  chk(/고친 사람/.test(T.checkValue('t1', ok, prev, 'U9')), '고친 사람이 내가 아니면 거절');
-  chk(/서버 시각/.test(T.checkValue('t1', { ...ok, updatedAt: 123 }, prev, 'U1')), '고친 시각이 숫자면 거절(서버 시각만)');
-  chk(/종류/.test(T.checkValue('t1', { ...ok, type: 'x' }, prev, 'U1')), '종류는 feat · bug');
-  chk(/작업자 이름만/.test(T.checkValue('t1', { ...ok, assignee: undefined, assigneeName: '서' }, prev, 'U1')), '작업자 없이 이름만은 거절');
-  chk(/id/.test(T.checkValue('t/1', ok, prev, 'U1')), 'id 모양(1~32자 · 영문 숫자 _ -)');
-  const fresh = T.startValue({ title: 'x', type: 'feat' }, me);
-  chk(/rev 0/.test(T.checkValue('t2', { ...fresh, rev: 1 }, null, 'U1')), '새 할 일은 rev 0');
-  chk(/내가 만든/.test(T.checkValue('t2', { ...fresh, createdBy: 'U2' }, null, 'U1')), '새 할 일의 만든 사람은 나');
-  chk(/2000자/.test(T.checkValue('t2', { ...fresh, memo: 'x'.repeat(2001) }, null, 'U1')), '메모 2000자 상한');
+  const t = T.toTodo(wire());
+  chk(t.id === 'tabc' && t.memo === '' && t.release === '' && t.version === 3 && t.updatedAt === Date.parse('2026-11-22T02:00:00Z'), '서버 줄 → 화면 줄(null 은 빈 글 · 시각은 ms)');
+  chk(T.toTodo(wire({ type: null, assignee: null, assigneeName: null })).type === null, 'type · assignee null 은 «없음»');
+  for(const [k, v] of [['status', 'open'], ['type', 'chore'], ['version', '3'], ['reports', null], ['memo', 3], ['updatedAt', 'x'], ['title', null]])
+    chk(throws(() => T.toTodo(wire({ [k]: v })), new RegExp(k)), `${k} 가 약속과 다르면 던진다(짐작으로 채우지 않음)`);
+  chk(throws(() => T.toPage({ items: [], nextCursor: 1 }), /nextCursor/) && throws(() => T.toPage({}), /items/), '쪽 모양이 다르면 던진다');
+  chk(T.unwrap(200, { success: true, data: { a: 1 } }).a === 1, '성공 봉투 → data');
+  chk(throws(() => T.unwrap(401, { success: false, code: 'AUTH_REQUIRED' }), /setup 을 다시/), '401 → setup 다시');
+  chk(throws(() => T.unwrap(403, { success: false, code: 'FORBIDDEN' }), /관리자 계정만/), '403 → 관리자만');
+  chk(throws(() => T.unwrap(409, { success: false, code: 'OPS_CONCURRENT_UPDATE' }), /다른 사람이/), '409 → 남이 먼저 바꿈 · 다시 실행');
+  chk(throws(() => T.unwrap(404, { success: false, code: 'OPS_TODO_NOT_FOUND' }), /할 일이 없어요/), '404 OPS_TODO_NOT_FOUND → 없음');
+  chk(throws(() => T.unwrap(502, null), /502/), '봉투가 없는 실패도 상태 번호를 말한다');
 }
 
-say('── 4. 규칙 파일과 같은 상수');
+say('── 4. find · list · brief');
 {
-  const R = JSON.parse(read('firebase-database-rules.json')).rules.adminTodos.$id;
-  chk(R.title['.validate'].includes(`<= ${T.TITLE_MAX}`), `제목 상한 ${T.TITLE_MAX} = 규칙`);
-  chk(R.memo['.validate'].includes(`<= ${T.MEMO_MAX}`), `메모 상한 ${T.MEMO_MAX} = 규칙`);
-  chk(R.updatedAt['.validate'].includes('=== now') && R['.validate'].includes("newData.child('createdAt').val() === now"), '규칙도 서버 시각을 요구한다(그래서 .sv)');
-  chk(R['.validate'].includes("data.child('rev').val() + 1"), '규칙도 rev + 1');
-  for(const s of ['0.11.3', '0.12.0-beta.1']) chk(T.RELEASE_RE.test(s), `버전 ${s} 받음`);
-  for(const s of ['v0.11.3', '0.11', '0.11.3-beta']) chk(!T.RELEASE_RE.test(s), `버전 ${s} 거절`);
-  chk(/^t[0-9a-z]+$/.test(T.newId()) && T.newId().length <= 32, '새 id 는 웹과 같은 모양(t + 시각 + 난수 · 32자 안)');
-}
-
-say('── 5. find · list · brief');
-{
-  const raw = {
-    a: { title: '채팅 이모티콘 버튼', status: 'doing', type: 'bug', assignee: 'U2', assigneeName: '서', createdBy: 'U2', createdAt: 1, updatedBy: 'U2', updatedAt: 30, rev: 0 },
-    b: { title: 'Room Server 이어 붙기', memo: '끊긴 동안 채팅', status: 'todo', createdBy: 'U1', createdAt: 1, updatedBy: 'U1', updatedAt: 20, rev: 0 },
-    c: { title: '캐릭터 용량', status: 'done', type: 'feat', release: '0.11.2', assignee: 'U1', createdBy: 'U1', createdAt: 1, updatedBy: 'U1', updatedAt: 10, rev: 2 },
-    bad: { title: 3, status: 'doing', rev: 0 },
-  };
-  const list = T.toTodos(raw);
-  chk(list.length === 3 && list.map(t => t.id).join() === 'a,b,c', '모양이 틀린 것은 빼고 진행 중 → 할 일 → 완료');
+  const list = [
+    T.toTodo(wire({ todoId: 'a', title: '채팅 이모티콘 버튼', reports: [], updatedAt: '2026-11-22T03:00:00Z' })),
+    T.toTodo(wire({ todoId: 'b', title: 'Room Server 이어 붙기', memo: '끊긴 동안 채팅', status: 'todo', type: null, assignee: null, assigneeName: null, reports: [] })),
+    T.toTodo(wire({ todoId: 'c', title: '캐릭터 용량', status: 'done', type: 'feat', release: '0.13.0', assignee: 'U1', reports: ['B-1120-7'] })),
+  ];
   chk(T.findTodos(list, 'ROOM').map(t => t.id).join() === 'b', '대소문자 무시');
   chk(T.findTodos(list, '채팅').map(t => t.id).join() === 'a,b', '한글 · 메모까지 찾는다');
   chk(T.findTodos(list, '채팅 이모티콘').map(t => t.id)[0] === 'a', '많이 맞은 것 먼저');
-  chk(T.findTodos(list, '용량').map(t => t.id).join() === 'c', '완료된 것도 찾는다(이미 끝난 일인지)');
+  chk(T.findTodos(list, 'b-1120-7').map(t => t.id).join() === 'c', '제보 번호로도 찾는다 · 완료된 것도(이미 끝난 일인지)');
   chk(T.findTodos(list, '  ').length === 0, '빈 낱말은 아무것도');
-  chk(T.filterTodos(list, {}, 'U1').map(t => t.id).join() === 'a,b', 'list 기본은 완료 빼고');
-  chk(T.filterTodos(list, { all: true }, 'U1').length === 3, '--all 은 완료까지');
-  chk(T.filterTodos(list, { doing: true }, 'U1').map(t => t.id).join() === 'a', '--doing 은 진행 중만');
-  chk(T.filterTodos(list, { mine: true, all: true }, 'U1').map(t => t.id).join() === 'c', '--mine 은 작업자가 나');
+  chk(JSON.stringify(T.listQuery({})) === '{"status":"todo,doing"}', 'list 기본은 완료 빼고(서버가 거른다)');
+  chk(JSON.stringify(T.listQuery({ all: true })) === '{}', '--all 은 완료까지');
+  chk(JSON.stringify(T.listQuery({ doing: true, all: true })) === '{"status":"doing"}', '--doing 은 진행 중만');
+  chk(JSON.stringify(T.listQuery({ mine: true })) === '{"status":"todo,doing","assignee":"me"}', '--mine 은 assignee=me(서버가 토큰으로)');
   const b = T.briefText(list, { U2: '서' }, 'U1');
   chk(/진행 중인 할 일 1건/.test(b) && /🐞 채팅 이모티콘 버튼 · 서 \(a\)/.test(b) && !/용량|Room/.test(b), 'brief 는 진행 중만 · 종류 배지 · 작업자 · id');
-  chk(/0\.11\.2/.test(T.line(list[2], {}, 'U1')) && /🆕 \[완료\]/.test(T.line(list[2], {}, 'U1')) && /· 나 ·/.test(T.line(list[2], {}, 'U1')), 'list 줄 — 종류 배지 · 상태 · 나 · 버전');
+  const l = T.line(list[2], {}, 'U1');
+  chk(/0\.13\.0/.test(l) && /🆕 \[완료\]/.test(l) && /· 나 ·/.test(l), 'list 줄 — 종류 배지 · 상태 · 나 · 버전');
+  chk(/^· \[할 일\] .* · 작업자 없음/.test(T.line(list[1], {}, 'U1')), '종류 · 작업자 없는 줄');
   chk(/진행 중인 할 일 없음/.test(T.briefText([], {}, null)), '진행 중이 없으면 한 줄');
-  const o = T.parseArgs(['start', '제목', '하나', '--type', 'bug', '--report', 'r1', '--report', 'r2', '--dry-run']);
-  chk(o.pos.join(' ') === '제목 하나' && o.type === 'bug' && o.reports.join() === 'r1,r2' && o.flags.has('dry-run'), '인자 — 제목 · 종류 · 제보 여러 개 · 미리 보기');
+  const o = T.parseArgs(['start', '제목', '하나', '--type', 'bug', '--report', 'B-1122-1', '--report', 'B-1122-2', '--dry-run', '--dev']);
+  chk(o.pos.join(' ') === '제목 하나' && o.type === 'bug' && o.reports.join() === 'B-1122-1,B-1122-2' && o.flags.has('dry-run') && o.flags.has('dev'), '인자 — 제목 · 종류 · 제보 여러 개 · 미리 보기 · dev');
   chk(throws(() => T.parseArgs(['start', 'x', '--type']), /값을/), '값이 빠진 옵션은 오류');
+  chk(T.ENVS.prod.api === 'https://api.together-working.com' && T.ENVS.dev.api === 'https://api-dev.together-working.com', '주소 — 운영 api · --dev 는 api-dev');
 }
 
-say('── 6. brief 는 관리자가 아니어도 조용히');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-todo-'));
+const NOW = Date.now();
+const authObj = (o = {}) => ({ uid: 'U1', name: '미희', code: 'cozy-xfun', refreshToken: 'rt', idToken: 'it', idTokenExp: NOW + 3600e3, ...o });
+
+say('── 5. 로그인 파일');
 {
-  const t0 = Date.now();
-  const r = spawnSync(process.execPath, ['scripts/todo.js', 'brief'], {
-    encoding: 'utf8', timeout: 10000,
-    env: { PATH: '', TW_TODO_DB: 'http://127.0.0.1:1', TW_TODO_ME: path.resolve('없는-파일.json') },
-  });
-  chk(r.status === 0 && r.stdout === '' && r.stderr === '', 'gcloud 없음 → 아무것도 안 찍고 0');
-  const r2 = spawnSync(process.execPath, ['scripts/todo.js', 'brief'], {
-    encoding: 'utf8', timeout: 10000,
-    env: { PATH: '', TW_TODO_TOKEN: 'x', TW_TODO_DB: 'http://127.0.0.1:1', TW_TODO_ME: path.resolve('없는-파일.json') },
-  });
-  chk(r2.status === 0 && r2.stdout === '' && r2.stderr === '', 'DB 에 못 닿음 → 아무것도 안 찍고 0');
-  chk(Date.now() - t0 < 6000, '둘 다 금방 끝난다(훅 3초 상한 안)');
-  const r3 = spawnSync(process.execPath, ['scripts/todo.js', 'list'], {
-    encoding: 'utf8', timeout: 10000, env: { PATH: '', TW_TODO_DB: 'http://127.0.0.1:1' },
-  });
-  chk(r3.status === 1 && /gcloud 가 없어요/.test(r3.stderr), 'brief 가 아닌 명령은 한국어로 이유를 말하고 1 — gcloud 가 없으면 «gcloud 가 없어요»');
+  chk(T.tokenFresh(authObj(), NOW) === true, '1시간 남은 토큰은 그대로 쓴다');
+  chk(T.tokenFresh(authObj({ idTokenExp: NOW + 30e3 }), NOW) === false, '1분 안에 끝나면 미리 새로 받는다');
+  chk(T.tokenFresh(authObj({ idToken: null }), NOW) === false, '  토큰이 없으면 새로');
+  chk(T.toAuth(authObj()).uid === 'U1' && T.toAuth({ uid: 'U1' }) === null && T.toAuth(null) === null, '모양 — uid · refreshToken 이 없으면 «로그인 안 함»');
+  const prev = process.env.TW_TODO_AUTH;
+  process.env.TW_TODO_AUTH = path.join(tmp, 'sub', 'auth.json');
+  const file = T.writeAuth('prod', authObj());
+  if(prev === undefined) delete process.env.TW_TODO_AUTH; else process.env.TW_TODO_AUTH = prev;
+  if(process.platform !== 'win32') chk((fs.statSync(file).mode & 0o777) === 0o600, '파일 권한 600(남이 못 읽게)');
+  chk(JSON.parse(fs.readFileSync(file, 'utf8')).refreshToken === 'rt' && !fs.readdirSync(path.dirname(file)).some(f => f.endsWith('.tmp')), '바꿔 끼우기 — 임시 파일이 남지 않는다');
+  chk(!/password/i.test(fs.readFileSync(file, 'utf8')), '비밀번호 칸은 없다');
+  const d = T.authFile('dev');
+  chk(/tw-todo[\\/]auth-dev\.json$/.test(d) && !d.startsWith(path.resolve('.')), '기본 자리 ~/.config/tw-todo/auth-<env>.json(저장소 밖) · env 마다 따로');
 }
 
-say('── 7. gcloud 가 없는지 가리기(한국어 Windows 포함)');
-{
-  const no = () => false, yes = () => true;
-  const korean = { status: 1, stderr: Buffer.from([0xbf, 0xdc, 0xba, 0xce]).toString('utf8') };   // cp949 글이 utf8 로 깨져 들어온 모양
-  chk(T.gcloudMissing({ code: 'ENOENT' }, 'linux', yes) === true, '맥 · 리눅스 — 실행 파일이 없으면(ENOENT) 없음');
-  chk(T.gcloudMissing({ stderr: "'gcloud' is not recognized as an internal or external command" }, 'win32', yes) === true, '영어 Windows 오류 글이면 없음');
-  chk(T.gcloudMissing(korean, 'win32', no) === true, '한국어 Windows — 글을 못 읽어도 where 가 못 찾으면 없음(«관리자 계정만» 으로 잘못 나오던 것)');
-  chk(T.gcloudMissing(korean, 'win32', yes) === false, '  where 가 찾으면 gcloud 는 있다 — 로그인 · 권한 문제로 본다');
-  chk(T.gcloudMissing({ status: 1, stderr: 'ERROR: (gcloud.auth.print-access-token) no credentialed accounts' }, 'linux', no) === false, '  맥 · 리눅스에서 로그인 안 됨은 «없음» 이 아니다(where 를 안 본다)');
-  chk(T.gcloudMissing(null, 'darwin', no) === false, '  빈 오류는 «없음» 이 아니다');
+/** 비동기로 실행 — 가짜 서버가 같은 프로세스에서 응답해야 해서 spawnSync 를 쓰지 않는다. */
+function run(args, env){
+  return new Promise((resolve) => {
+    const c = spawn(process.execPath, [SCRIPT, ...args], { env: { PATH: process.env.PATH, HOME: tmp, ...env } });
+    let out = '', err = '';
+    c.stdout.on('data', d => out += d); c.stderr.on('data', d => err += d);
+    const t0 = Date.now();
+    c.on('close', (status) => resolve({ status, out, err, ms: Date.now() - t0 }));
+  });
 }
 
-say(`\n결과: ${pass} 통과 · ${fail} 실패`);
-process.exit(fail ? 1 : 0);
+(async () => {
+  say('── 6. brief 는 관리자가 아니어도 조용히');
+  {
+    const none = path.join(tmp, '없는-파일.json');
+    const r = await run(['brief'], { TW_TODO_AUTH: none, TW_TODO_API: 'http://127.0.0.1:1' });
+    chk(r.status === 0 && r.out === '' && r.err === '', 'setup 안 함 → 아무것도 안 찍고 0');
+    const f = path.join(tmp, 'auth-ok.json');
+    fs.writeFileSync(f, JSON.stringify(authObj()), { mode: 0o600 });
+    const r2 = await run(['brief'], { TW_TODO_AUTH: f, TW_TODO_API: 'http://127.0.0.1:1' });
+    chk(r2.status === 0 && r2.out === '' && r2.err === '', 'API 에 못 닿음 → 아무것도 안 찍고 0');
+    chk(r.ms + r2.ms < 6000, '둘 다 금방 끝난다(훅 3초 상한 안)');
+    const r3 = await run(['list'], { TW_TODO_AUTH: none, TW_TODO_API: 'http://127.0.0.1:1' });
+    chk(r3.status === 1 && /먼저 관리자 계정으로 로그인/.test(r3.err), 'brief 가 아닌 명령은 한국어로 이유를 말하고 1 — «먼저 … setup»');
+    const r4 = await run(['setup', 'cozy-xfun'], { TW_TODO_AUTH: none });
+    chk(r4.status === 1 && /터미널에서 직접/.test(r4.err) && !fs.existsSync(none), 'setup 은 터미널이 아니면 비밀번호를 묻지 않고 멈춘다 · 파일을 만들지 않는다');
+  }
+
+  say('── 7. 가짜 API 서버로 실제로 돌리기');
+  const todos = new Map([
+    ['t1', wire({ todoId: 't1', title: '채팅 이모티콘 버튼', reports: [] })],
+    ['t2', wire({ todoId: 't2', title: '방 이어 붙기', status: 'todo', assignee: 'U1', assigneeName: '미희', reports: ['B-1122-9'], version: 0 })],
+  ]);
+  const seen = [];
+  let forbid = false, stale = false, refreshMode = 'ok', refreshCalls = 0;
+  const server = http.createServer((req, res) => {
+    let raw = '';
+    req.on('data', d => raw += d);
+    req.on('end', () => {
+      const u = new URL(req.url, 'http://x');
+      if(u.pathname === '/token'){
+        // Firebase securetoken 흉내 — grant_type=refresh_token 폼.
+        refreshCalls++;
+        const form = new URLSearchParams(raw);
+        res.writeHead(refreshMode === 'bad' ? 400 : 200, { 'Content-Type': 'application/json' });
+        if(refreshMode === 'bad') return res.end(JSON.stringify({ error: { message: 'INVALID_REFRESH_TOKEN' } }));
+        return res.end(JSON.stringify({ id_token: 'it2', refresh_token: 'rt2', expires_in: '3600',
+          user_id: refreshMode === 'otherUser' ? 'U9' : 'U1', grant: form.get('grant_type'), rt: form.get('refresh_token') }));
+      }
+      const body = raw ? JSON.parse(raw) : undefined;
+      seen.push({ method: req.method, path: u.pathname, q: Object.fromEntries(u.searchParams), auth: req.headers.authorization, body });
+      const send = (status, o) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+      const ok = (data) => send(200, { success: true, data, message: null });
+      if(forbid) return send(403, { success: false, data: null, code: 'FORBIDDEN', message: '권한' });
+      if(u.pathname === '/v2/admin/admins') return ok([{ authUid: 'U2', name: '서버이름' }, { authUid: 'U1', name: '미희' }]);
+      if(u.pathname === '/v2/admin/todos' && req.method === 'GET'){
+        // 한 쪽에 한 건씩 — 이어 받기를 본다. status 거르기는 서버 몫.
+        const st = u.searchParams.get('status');
+        const all = [...todos.values()].filter(t => !st || st.split(',').includes(t.status));
+        const i = Number(u.searchParams.get('cursor') || 0);
+        return ok({ items: all.slice(i, i + 1), nextCursor: i + 1 < all.length ? String(i + 1) : null,
+          total: i ? null : all.length, counts: i ? null : { todo: 1, doing: 1, done: 4 }, releases: i ? null : [] });
+      }
+      if(u.pathname === '/v2/admin/todos' && req.method === 'POST'){
+        const t = wire({ ...body, todoId: '019a-new', createdBy: 'U1', updatedBy: 'U1', version: 0 });
+        delete t.requestId;
+        todos.set(t.todoId, t);
+        return ok(t);
+      }
+      const id = u.pathname.split('/')[4];
+      const cur = todos.get(id);
+      if(!cur) return send(404, { success: false, data: null, code: 'OPS_TODO_NOT_FOUND', message: '없음' });
+      if(req.method === 'GET') return ok(cur);
+      if(req.method === 'PATCH'){
+        if(stale || body.version !== cur.version) return send(409, { success: false, data: null, code: 'OPS_CONCURRENT_UPDATE', message: '충돌' });
+        const next = { ...cur, ...body, version: cur.version + 1, updatedBy: 'U1' };
+        todos.set(id, next);
+        return ok(next);
+      }
+      send(405, { success: false, data: null, code: 'METHOD', message: '' });
+    });
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const f = path.join(tmp, 'auth-ok.json');
+  const env = { TW_TODO_AUTH: f, TW_TODO_API: `http://127.0.0.1:${server.address().port}` };
+  try {
+    const b = await run(['brief'], env);
+    chk(/진행 중인 할 일 1건/.test(b.out) && /채팅 이모티콘 버튼 · 서버이름 \(t1\)/.test(b.out), 'brief — 진행 중 · 작업자 이름은 관리자 목록에서');
+    chk(seen.some(s => s.path === '/v2/admin/todos' && s.q.status === 'doing') && seen.every(s => s.auth === 'Bearer it'), '  status=doing 으로 묻고 · 저장된 ID 토큰을 싣는다');
+    seen.length = 0;
+    const l = await run(['list', '--mine'], env);
+    chk(l.status === 0 && /t1/.test(l.out) && /\[할 일\] 방 이어 붙기 · 나/.test(l.out) && /완료 4건은 --all/.test(l.out), 'list — 쪽을 끝까지 이어 받는다 · 나 · 완료 수는 첫 쪽 counts');
+    chk(seen.filter(s => s.method === 'GET' && s.path === '/v2/admin/todos').map(s => s.q.cursor || '-').join() === '-,1' &&
+      seen.every(s => s.path !== '/v2/admin/todos' || (s.q.assignee === 'me' && s.q.status === 'todo,doing' && s.q.limit === '200')), '  커서 이어 받기 · assignee=me · limit 200');
+    const fd = await run(['find', 'b-1122-9'], env);
+    chk(/겹칠 수 있는 할 일 1건/.test(fd.out) && /t2/.test(fd.out), 'find — 전부 받아 제보 번호로 찾는다');
+    seen.length = 0;
+    const dry = await run(['start', '새 버그', '--type', 'bug', '--report', 'B-1123-1', '--dry-run'], env);
+    chk(dry.status === 0 && /미리 보기/.test(dry.out) && /"B-1123-1"/.test(dry.out) && seen.length === 0, 'start --dry-run — 본문만 보이고 아무것도 보내지 않는다');
+    const st = await run(['start', '새 버그', '--type', 'bug', '--report', 'B-1123-1'], env);
+    const post = seen.find(s => s.method === 'POST');
+    chk(st.status === 0 && /id: 019a-new/.test(st.out) && post && post.body.assignee === 'U1' && post.body.status === 'doing' && /^[0-9a-f-]{36}$/.test(post.body.requestId), 'start — POST(진행 중 · 작업자 나 · requestId) · 서버가 준 id 를 알려 준다');
+    seen.length = 0;
+    const dn = await run(['done', 't1', '--release', '0.13.1', '--memo', 'PR #9'], env);
+    const patch = seen.find(s => s.method === 'PATCH');
+    chk(dn.status === 0 && /완료: 채팅 이모티콘 버튼 · 0\.13\.1/.test(dn.out) && patch.body.version === 3 && patch.body.assignee === 'U2' && patch.body.memo === 'PR #9', 'done — 읽은 version 으로 PATCH · 남의 작업자 그대로 · 메모');
+    const dn2 = await run(['done', 't1', '--release', '0.13.1', '--memo', 'PR #9'], env);
+    chk(dn2.status === 0 && /바꿀 것이 없어요/.test(dn2.out), '  같은 done 두 번 — 보내지 않는다');
+    // mutation test — 읽은 뒤 남이 먼저 고친 상황: GET 은 옛 version 을 주고 PATCH 때 서버 값은 이미 올라가 있다.
+    stale = true;
+    const cf = await run(['done', 't2', '--release', '0.13.1'], env);
+    chk(cf.status === 1 && /다른 사람이 이 할 일을 바꿨어요/.test(cf.err) && todos.get('t2').status === 'todo', 'mutation test — 남이 먼저 고쳤으면(409) 덮지 않고 «다시 실행»');
+    stale = false;
+
+    // refresh — 거의 모든 실행이 이 길(ID 토큰은 1시간).
+    const ex = path.join(tmp, 'auth-expired.json');
+    const exEnv = { ...env, TW_TODO_AUTH: ex, TW_TODO_REFRESH_URL: env.TW_TODO_API + '/token', TW_TODO_FIREBASE_KEY: 'k' };
+    const expired = () => fs.writeFileSync(ex, JSON.stringify(authObj({ idToken: 'old', idTokenExp: NOW - 1 })), { mode: 0o600 });
+    expired(); seen.length = 0; refreshCalls = 0; refreshMode = 'ok';
+    const rf = await run(['list'], exEnv);
+    const saved = JSON.parse(fs.readFileSync(ex, 'utf8'));
+    chk(rf.status === 0 && refreshCalls === 1 && seen.length > 1 && seen.every(x => x.auth === 'Bearer it2'), '만료된 토큰 → list 한 번에 교환 1번 · 새 토큰을 Bearer 로(여러 요청이 같이 나가도)');
+    chk(saved.idToken === 'it2' && saved.refreshToken === 'rt2' && saved.idTokenExp > NOW && (process.platform === 'win32' || (fs.statSync(ex).mode & 0o777) === 0o600), '  파일은 새 값 · 0600');
+    expired(); const before = fs.readFileSync(ex, 'utf8'); refreshMode = 'otherUser'; seen.length = 0;
+    const ou = await run(['list'], exEnv);
+    chk(ou.status === 1 && /계정이 달라요/.test(ou.err) && fs.readFileSync(ex, 'utf8') === before && seen.length === 0, '교환 결과의 user_id 가 다르면 «계정이 달라요» 로 1 · 파일 그대로 · API 는 안 부른다');
+    const oub = await run(['brief'], exEnv);
+    chk(oub.status === 0 && oub.out === '' && oub.err === '', '  brief 는 조용히 0');
+    refreshMode = 'bad';
+    const bd = await run(['list'], exEnv);
+    chk(bd.status === 1 && /setup 을 다시/.test(bd.err) && fs.readFileSync(ex, 'utf8') === before, 'refresh token 이 끊겼으면(400) «setup 다시» · 파일 그대로');
+    const bdb = await run(['brief'], exEnv);
+    chk(bdb.status === 0 && bdb.out === '' && bdb.err === '', '  brief 는 조용히 0');
+    refreshMode = 'ok';
+    if(process.platform !== 'win32'){
+      fs.chmodSync(f, 0o644);
+      const pm = await run(['list'], env);
+      chk(pm.status === 0 && (fs.statSync(f).mode & 0o777) === 0o600 && /600 으로 고쳤어요/.test(pm.err), '로그인 파일 권한이 열려 있으면 600 으로 고치고 한 줄 알린다');
+    }
+    forbid = true;
+    const fb = await run(['list'], env);
+    chk(fb.status === 1 && /관리자 계정만/.test(fb.err), '관리자가 아니면(403) «관리자 계정만»');
+    const fb2 = await run(['brief'], env);
+    chk(fb2.status === 0 && fb2.out === '' && fb2.err === '', '  brief 는 403 이어도 조용히');
+  } finally {
+    server.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  say(`\n결과: ${pass} 통과 · ${fail} 실패`);
+  process.exit(fail ? 1 : 0);
+})();

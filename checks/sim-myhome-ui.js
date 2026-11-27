@@ -3,7 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(renderMhProfileRail)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 24줄 그대로 · 부르는 곳은 myHomeUiMod.이름 · html(app.js 앞)
-   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · myhome-ui.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -17,13 +17,13 @@ const MOD = ["myhome-ui.js","parts/myhome/myhome-ui.js","app/parts/myhome/myhome
 if(!MOD){ say('  ? 원본 못 찾음 — myhome-ui.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_mhApplyVisitUI","_mhCloseStickerAnim","_saveFailMsg","applyDesktopRunClass","closeFriendHomeView","escRegisterWindow","friendsForCheck","friendsRetry","friendsOpen","friendsClose","getDisplayName","getMyUserId","loadMyHomePage","renderMyHomePage","renderMyHomeStickers","toast"];
-const VAL_DEPS = ["FRIEND_MAX","MY_FRIEND_CODE_KEY","friendManage","helpTab","inboxMod","mhScheduler","twNav"];
-const GET_DEPS = ["_mhViewingUserId","_myFriendRequests","_myHomeFriends","isAdmin","myHomeOpen","myHomeSticker"];
+const FN_DEPS = ["_mhApplyVisitUI","_mhCloseStickerAnim","applyDesktopRunClass","closeFriendHomeView","escRegisterWindow","friendsForCheck","friendsRetry","friendsOpen","friendsClose","getMyUserId","loadMyHomePage","renderMyHomePage","renderMyHomeStickers","toast"];
+const VAL_DEPS = ["FRIEND_MAX","MY_FRIEND_CODE_KEY","friendManage","helpTab","inboxMod","mallangMod","giftBox","mhScheduler","twNav"];
+const GET_DEPS = ["friendRequests","_mhViewingUserId","_myFriendRequests","_myHomeFriends","isAdmin","myHomeOpen","myHomeSticker"];
 const SET_DEPS = ["myHomeOpen"];
 const EXPORTS = ["renderMhProfileRail","syncFriendsOpen"];
 const MOVED = ["renderMhProfileRail","_mhSubscribeDMForSelected","syncFriendsOpen"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FRIEND_MAX: FRIEND_MAX,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),","  _mhCloseStickerAnim: (...a)=>mhStLayoutMod._mhCloseStickerAnim(...a),","  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _saveFailMsg: (...a)=>_saveFailMsg(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),","  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),","  friendManage: friendManage,","  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),","  friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),","  friendsOpen: (...a)=>friendsSubMod.open(...a),","  friendsClose: (...a)=>friendsSubMod.close(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  helpTab: helpTabMod,","  inboxMod: inboxMod,","  isAdmin: ()=>isAdmin,","  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  myHomeSticker: ()=>myHomeSticker,","  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  toast: (...a)=>toast(...a),","  setMyHomeOpen: (v)=>{ myHomeOpen = v; },","  twNav: twNav,"];
+const GLUE = ["  FRIEND_MAX: FRIEND_MAX,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),","  _mhCloseStickerAnim: (...a)=>mhStLayoutMod._mhCloseStickerAnim(...a),","  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),","  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),","  friendManage: friendManage,","  friendRequests: ()=>friendRequestsPortMod,","  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),","  friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),","  friendsOpen: (...a)=>friendsSubMod.open(...a),","  friendsClose: (...a)=>friendsSubMod.close(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  helpTab: helpTabMod,","  inboxMod: inboxMod,","  isAdmin: ()=>isAdmin,","  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),","  mallangMod: mallangMod,","  giftBox: giftBoxMod,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  myHomeSticker: ()=>myHomeSticker,","  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  toast: (...a)=>toast(...a),","  setMyHomeOpen: (v)=>{ myHomeOpen = v; },","  twNav: twNav,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -103,7 +103,7 @@ function judgeFriendsOpen(mod){
 }
 say('── 2-2. 친구 목록 열림 · 닫힘');
 judgeFriendsOpen(MOD).forEach(([ok, msg]) => chk(ok, msg));
-say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/myhome/myhome-ui.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -112,7 +112,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* app.js 에 남은 부르는 자리 하나를 옛 이름으로 되돌린다 — 첫 이름을 부르던 곳이 다른 모듈로 옮겨 갔을 수 있어 남은 이름 중에서 고른다 */
   ['부르는 곳이 옛 이름', null, a => { const n = EXPORTS.find(x => a.includes('myHomeUiMod.' + x)); return n ? a.replace('myHomeUiMod.' + n, n) : a; }, null],
-  ['만들 때 던짐', m => m.replace('function createMyHomeUi(deps){', 'function createMyHomeUi(deps){ throw new Error("깨 봄");'), null, null],
+  ['만들 때 던짐', m => m.replace('function createMyHomeUi(deps){', 'function createMyHomeUi(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, from, to] of [
   ['친구 탭을 안 봄(마이홈만 열려도 열림)', " && !!pf && pf.classList.contains('on')", ''],
