@@ -36,7 +36,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 
 ## xmas-tree.js — 3D 트리
 - **책임**: 트리 · 장식 그리기(세로 300 도트 · 색 31단계 · 디더 절반) · 끌어 돌리기 · 휠 확대(1~3배 · 마우스 자리 중심 · 처음보다 작게는 안 됨) · 한마디 라벨 자리(왼클릭만) · 이스터에그(10번 누르기 · 흔들기 — 이 화면에서만 · 저장 안 함) · 내 장식 반짝임 10번 · 우클릭 신고(남의 장식만 — 내 장식이 겹쳐도 뒤의 것).
-- **내놓는 것**: `createXmasTree({ THREE, rules, ps1Dither })` → `{ open(canvas), close(), setOrnaments(list), onSay(fn), onReport(fn) }` · `baseCanvas(kind, doc)`(기본 장식 16칸 그림 — 고르기 단추도 같은 그림 · 점 그림을 16칸 가운데로) · `dotsOffset(rows, size)`(그 가운데 맞춤 칸 수) · `popOut(shader)`(장식 재질 onBeforeCompile — 깊이만 판 반지름만큼 카메라 쪽으로 · three r128 스프라이트 셰이더의 `#include <logdepthbuf_vertex>` 자리에 끼운다 · three 판을 올리면 sim-xmas-tree 가 본다).
+- **내놓는 것**: `createXmasTree({ THREE, rules, ps1Dither })` → `{ open(canvas), close(), setOrnaments(list), onSay(fn), onReport(fn) }` · `baseCanvas(kind, doc, tint)`(기본 장식 16칸 그림 — 고르기 단추도 같은 그림 · 점 그림을 16칸 가운데로) · `dotsOffset(rows, size)`(그 가운데 맞춤 칸 수) · `ornLook(kind, slot)`(트리 위 기본 장식 모양 — 자리 번호로 정함: 양말 뒤집기 · ±30도, 사탕 지팡이 ±30도, 구슬 · 선물 상자 색 번호) · `ORN_TINTS`(구슬 · 상자 색표 — 0 번은 그림 그대로) · `popOut(shader)`(장식 재질 onBeforeCompile — 깊이만 판 반지름만큼 카메라 쪽으로 · three r128 스프라이트 셰이더의 `#include <logdepthbuf_vertex>` 자리에 끼운다 · three 판을 올리면 sim-xmas-tree 가 본다).
 - **함정**: 창마다 WebGL 컨텍스트를 하나 잡는다 — `close()` 에서 rAF 를 멈추고 텍스처 · 지오메트리 · 렌더러를 꼭 버린다. 장식은 `sizeAttenuation:false` · 내 장식은 `depthTest:false` + `renderOrder 999`(늘 앞).
 - 검사: `sim-xmas-tree.js`(WebGL 없이 볼 수 있는 것 — 실제 그림은 브라우저로 확인)
 

@@ -55,6 +55,24 @@ chk(/function open\(canvas\)\{\s*if \(S\) return;/.test(SRC), '이미 열려 있
   const m = { vertexShader: THREE.ShaderLib.sprite.vertexShader.replace(/#include <logdepthbuf_vertex>/g, '') }; X.popOut(m);
   chk(!/twPop/.test(m.vertexShader), '  ↳ mutation — 끼울 자리가 없으면 안 들어간다(이 검사가 잡는다)');
 }
+{ // 트리 위 기본 장식 모양 — 자리 번호로 정한다(모든 사람 화면에서 같은 모양)
+  const SL = [...Array(300).keys()];
+  const same = SL.every(n => ['sock', 'bulb', 'cane', 'gift', 'star'].every(k => JSON.stringify(X.ornLook(k, n)) === JSON.stringify(X.ornLook(k, n))));
+  chk(same, '같은 자리면 늘 같은 모양');
+  const T = Math.PI / 6, rots = (k) => new Set(SL.map(n => Math.round(X.ornLook(k, n).rot / T)));
+  chk(new Set(SL.map(n => X.ornLook('sock', n).flip)).size === 2 && [...rots('sock')].sort().join() === '-1,0,1', '★ 양말 — 좌우 뒤집기 둘 다 · −30 · 0 · +30도');
+  chk([...rots('cane')].sort().join() === '-1,0,1' && SL.every(n => !X.ornLook('cane', n).flip), '★ 사탕 지팡이 — −30 · 0 · +30도(뒤집기 없음)');
+  for (const k of ['bulb', 'gift']){
+    const tints = new Set(SL.map(n => X.ornLook(k, n).tint));
+    chk(tints.size === X.ORN_TINTS[k].length, '★ ' + k + ' — 색 ' + X.ORN_TINTS[k].length + '가지가 다 나온다 (' + tints.size + ')');
+    const pics = X.ORN_TINTS[k].map((_, t) => X.baseCanvas(k, fakeDoc(), t).px.map(p => p.join(',')).join('|'));
+    chk(new Set(pics).size === pics.length, '  ↳ ' + k + ' — 색마다 그림이 다르다(덮는 글자가 그림에 있다)');
+  }
+  chk(SL.every(n => { const l = X.ornLook('star', n); return !l.flip && l.rot === 0 && l.tint === 0; }), '별 — 그대로');
+  const px = (k, t) => X.baseCanvas(k, fakeDoc(), t).px.map(p => p.join(',')).join('|');
+  chk(px('sock', 0) === px('sock', 3) && px('star', 0) === px('star', 2), '색 번호 — 색표 없는 장식은 무시');
+  chk(/map\.repeat\.x = -1; map\.offset\.x = 1;/.test(SRC) && /rotation: look\.rot/.test(SRC) && /baseCanvas\(o\.k, doc, look\.tint\)/.test(SRC), '트리 장식이 ornLook 을 쓴다(뒤집기 · 기울기 · 색)');
+}
 say('── 3절 그리기 약속');
 chk(/sizeAttenuation: false/.test(SRC), '장식은 화면에서 늘 같은 크기(sizeAttenuation:false)');
 chk(/depthTest: !o\.mine, depthWrite: !o\.mine/.test(SRC) && /s\.renderOrder = o\.mine \? 999 : 0/.test(SRC), '내 장식은 깊이를 안 보고 맨 나중에 — 늘 앞');

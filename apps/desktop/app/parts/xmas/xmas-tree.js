@@ -25,10 +25,43 @@ function dotsOffset(rows, size){
   if (x1 < 0) return { x: 0, y: 0 };
   return { x: Math.floor((size - (x1 - x0 + 1)) / 2) - x0, y: Math.floor((size - (y1 - y0 + 1)) / 2) - y0 };
 }
-/** 기본 장식 그림 캔버스(16px) — 창 아래 고르기 단추도 같은 그림을 쓴다 */
-function baseCanvas(kind, doc){
-  const rows = BASE_DOTS[kind];
-  if (!rows) return null;
+/* 장식 색 — 0 번은 그림 그대로. 덮을 글자만(구슬 꼭지 y · Y · 빛 w, 상자 리본 y · Y 는 그대로) */
+const ORN_TINTS = Object.freeze({
+  bulb: Object.freeze([
+    null,
+    { o: '#16295a', r: '#4e7bd8', d: '#3a5fb0', p: '#8fb0f0' },
+    { o: '#6a4a0e', r: '#f2c14e', d: '#c99522', p: '#ffe08a' },
+    { o: '#123f26', r: '#3f9e62', d: '#2a7547', p: '#7fd19c' },
+    { o: '#3b1a5a', r: '#9a63d6', d: '#7344ad', p: '#c7a2f0' },
+    { o: '#3e4a5e', r: '#c9d3e2', d: '#97a5bb', p: '#eef3fb' },
+  ]),
+  gift: Object.freeze([
+    null,
+    { o: '#5a1a22', b: '#d8434b', B: '#a82a35', l: '#ee7a7f', L: '#a82a35' },
+    { o: '#123f26', b: '#3f9e62', B: '#2a7547', l: '#7fd19c', L: '#2a7547' },
+    { o: '#3b1a5a', b: '#9a63d6', B: '#7344ad', l: '#c7a2f0', L: '#7344ad' },
+    { o: '#5a1838', b: '#e86aa0', B: '#c04a80', l: '#f5a3c6', L: '#c04a80' },
+    { o: '#3e4a5e', b: '#e6ecf5', B: '#b7c3d6', l: '#ffffff', L: '#b7c3d6' },
+  ]),
+});
+const TILT = Math.PI / 6;   // 30도
+/**
+ * 트리에 걸린 기본 장식의 모양 — 자리 번호로 정한다(모든 사람 화면에서 같은 장식이 같은 모양 · 서버엔 종류만).
+ * 양말: 좌우 뒤집기 · −30 · 0 · +30도 · 구슬 · 선물 상자: 색(ORN_TINTS 번호) · 사탕 지팡이: −30 · 0 · +30도
+ */
+function ornLook(kind, slot){
+  const h = Math.imul((slot | 0) + 1, 2654435761) >>> 0;
+  if (kind === 'sock') return { flip: ((h >>> 7) & 1) === 1, rot: (((h >>> 10) % 3) - 1) * TILT, tint: 0 };
+  if (ORN_TINTS[kind]) return { flip: false, rot: 0, tint: (h >>> 8) % ORN_TINTS[kind].length };
+  if (kind === 'cane') return { flip: false, rot: (((h >>> 9) % 3) - 1) * TILT, tint: 0 };
+  return { flip: false, rot: 0, tint: 0 };
+}
+/** 기본 장식 그림 캔버스(16px) — 창 아래 고르기 단추도 같은 그림을 쓴다. tint 는 색 번호(ORN_TINTS · 없으면 그림 그대로) */
+function baseCanvas(kind, doc, tint){
+  const base = BASE_DOTS[kind];
+  if (!base) return null;
+  const over = ORN_TINTS[kind] ? ORN_TINTS[kind][tint | 0] : null;
+  const rows = over ? [base[0], Object.assign({}, base[1], over)] : base;
   const c = doc.createElement('canvas'); c.width = c.height = 16;
   const g = c.getContext('2d');
   if (!g) return c;
@@ -148,8 +181,11 @@ function createXmasTree(deps){
   function addOrnament(o){
     const p = SLOTS[o.slot];
     if (!p) return;
-    const src = o.img || baseCanvas(o.k, doc) || baseCanvas('bulb', doc);
-    const mat = new THREE.SpriteMaterial({ map: texOf(src), transparent: true, alphaTest: 0.5, sizeAttenuation: false,
+    const look = o.img ? ornLook('', o.slot) : ornLook(o.k, o.slot);
+    const src = o.img || baseCanvas(o.k, doc, look.tint) || baseCanvas('bulb', doc);
+    const map = texOf(src);
+    if (look.flip){ map.repeat.x = -1; map.offset.x = 1; }
+    const mat = new THREE.SpriteMaterial({ map, rotation: look.rot, transparent: true, alphaTest: 0.5, sizeAttenuation: false,
       depthTest: !o.mine, depthWrite: !o.mine, fog: !o.mine });
     mat.onBeforeCompile = popOut;
     const s = new THREE.Sprite(mat);
@@ -296,7 +332,7 @@ function createXmasTree(deps){
   };
 }
 
-const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
+const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, ornLook, ORN_TINTS, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
 if (typeof window !== 'undefined') window.TwXmasTree = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
