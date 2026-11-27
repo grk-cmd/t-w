@@ -5,6 +5,18 @@ import { HELP_URL, PRIVACY_URL, SITE_ORIGIN } from '@/shared/config';
 import { LANGS, messagesFor, pathFor } from '@/shared/i18n';
 import { FEATURE_SHOTS } from '@/pages/home/model/feature-shots';
 
+/** webp 머리에서 가로 · 세로 — 손실(VP8) · 무손실(VP8L) · 확장(VP8X) 세 모양 */
+function webpSize(b: Buffer): { w: number; h: number } | null {
+  const kind = b.toString('ascii', 12, 16);
+  if (kind === 'VP8 ') return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff };
+  if (kind === 'VP8L') {
+    const n = b.readUInt32LE(21);
+    return { w: (n & 0x3fff) + 1, h: ((n >> 14) & 0x3fff) + 1 };
+  }
+  if (kind === 'VP8X') return { w: b.readUIntLE(24, 3) + 1, h: b.readUIntLE(27, 3) + 1 };
+  return null;
+}
+
 const TEMPLATE = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 describe('미리 그린 페이지', () => {
@@ -69,8 +81,11 @@ describe('미리 그린 페이지', () => {
 
   it('소개는 기능마다 앱 화면이 하나씩 — 언어마다 기능 수와 같고 파일이 있고, 미리 그린 페이지엔 첫 기능 화면', () => {
     for (const lang of LANGS) expect(messagesFor(lang).features).toHaveLength(FEATURE_SHOTS.length);
-    for (const s of FEATURE_SHOTS)
-      expect(existsSync(new URL(`../public${s.src}`, import.meta.url)), s.src).toBe(true);
+    for (const s of FEATURE_SHOTS) {
+      const file = new URL(`../public${s.src}`, import.meta.url);
+      expect(existsSync(file), s.src).toBe(true);
+      expect(webpSize(readFileSync(file)), s.src).toEqual({ w: s.w, h: s.h }); // 표의 크기 = 실제 그림 크기
+    }
     const { body } = renderPage('ko');
     const first = FEATURE_SHOTS[0];
     expect(body).toContain(

@@ -855,9 +855,11 @@ h3 {
   color: var(--ink-soft);
   font-size: 14px;
 }
-/* 앱 캡처는 크기가 제각각 — 칸 너비 · 높이 안에 줄여 넣는다(늘리지 않음) */
+/* 앱 캡처는 크기가 제각각 — 칸 너비 · 높이 안에 줄여 넣는다(늘리지 않음).
+   세로 flex 칸은 기본이 가로로 늘이기(stretch)라 align-self 를 풀지 않으면 비율이 찌그러진다 */
 .feat-shot {
   display: block;
+  align-self: flex-start;
   width: auto;
   height: auto;
   max-width: 100%;
