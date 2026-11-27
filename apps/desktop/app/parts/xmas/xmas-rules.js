@@ -62,7 +62,7 @@ function cleanWord(w){
 /** 트리 층(원뿔) — 3D 와 자리 계산이 같이 쓴다 */
 const TIERS = Object.freeze([ { y: 0.6, h: 1.9, r: 2.05 }, { y: 1.75, h: 1.6, r: 1.6 }, { y: 2.75, h: 1.35, r: 1.15 }, { y: 3.6, h: 1.05, r: 0.72 } ]);
 /**
- * 장식 자리 n 개 — 층 넓이만큼 나눠 원뿔 겉면에 황금각 나선으로(빈자리 자동 배치 · 자리 번호 = 서버 slot).
+ * 장식 자리 n 개 — 층 넓이만큼 나눠 원뿔 겉면(위층에 덮이지 않는 띠)에 황금각 나선으로(빈자리 자동 배치 · 자리 번호 = 서버 slot).
  * 같은 n 이면 늘 같은 자리 → 모든 사람의 화면에서 같은 장식이 같은 곳에 걸린다.
  */
 function slotPositions(n){
@@ -70,9 +70,11 @@ function slotPositions(n){
   let k = 0;
   TIERS.forEach((t, i) => {
     const cnt = i === TIERS.length - 1 ? n - k : Math.round(n * area[i] / sum);
+    // 위층 치마(밑면)보다 높이 달면 그 안쪽에 묻혀 앞에서 안 보인다 — 위층 밑면 아래까지만
+    const hiMax = i < TIERS.length - 1 ? (TIERS[i + 1].y - t.y) / t.h - 0.1 : 0.92;
     for (let j = 0; j < cnt; j++){
       const f = (j + 0.5) / cnt;
-      const hy = 0.12 + 0.8 * f;
+      const hy = 0.12 + (hiMax - 0.12) * f;
       const rr = t.r * (1 - hy) * 1.04 + 0.05;
       const a = (k + j) * 2.39996;
       out.push({ x: Math.cos(a) * rr, y: t.y + t.h * hy, z: Math.sin(a) * rr });
