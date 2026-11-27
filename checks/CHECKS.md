@@ -502,7 +502,7 @@
 | **sim-char-measure.js** | 195 | **14dcc38fe94b** |
 | **sim-rest-pose.js** | 126 | **a91802c7c8ed** |
 | **sim-fit-watch.js** | 135 | **2d87ae2df94b** |
-| **sim-body-measure.js** | 655 | **c9c87bf64031** |
+| **sim-body-measure.js** | 655 | **3bd2b7179a08** |
 | **sim-glow.js** | 99 | **e04d9f55145f** |
 | **sim-stage.js** | 156 | **58cf5d8e495f** |
 | **sim-floor-snap-diag.js** | 142 | **eaa354193bfa** |
