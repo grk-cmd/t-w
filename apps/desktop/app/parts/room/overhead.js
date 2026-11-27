@@ -1,11 +1,11 @@
-/* overhead.js — 💬 머리 위 말풍선 · 회사원 모드 라벨 · 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너
+/* overhead.js — 💬 머리 위 말풍선 · 회사원 모드 라벨 · 🏷️ 머리 위 이름표 · 공지 배너
    app.js «💬 머리 위 말풍선 · 회사원 모드 라벨» · «🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너» 두 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 34번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 3줄 —
      focusLevelMod · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 6개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: setSeatMenu · setLabelDrag · bindLabelDrag · NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · applyChipOrientation · chipHorizontal · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate — app.js 는 overheadMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: setSeatMenu · setLabelDrag · bindLabelDrag · NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate — app.js 는 overheadMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwOverhead — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-overhead.js */
@@ -50,14 +50,16 @@ const labelMeasure = TwLabelMeasure.createLabelMeasure({
         자동으로 폭이 늘어나서 잘릴 일이 없음. 3) 픽셀 단위 오프셋(예: 3px)을 정확히 줄 수 있음(3D 월드좌표는 근사치만 가능).
    위치 갱신은 상태칩(updateMyStatusChipPosition)과 완전히 같은 방식: 3D 월드좌표 → project(camera) → 화면 픽셀. ── */
 let nameplateEnabled = (localStorage.getItem('tw.nameplate') !== '0');   // 기본 켜짐
-/* 상태칩 배치 — 'v'(세로, 기본) | 'h'(가로). 설정 > 화면표시에서 전환, localStorage에 유지.
-   CSS는 #myStatusChip.horz 로 방향만 바꾸고, 화면상 위치는 updateMyStatusChipPosition이 분기 처리한다. */
-let chipHorizontal = (localStorage.getItem('tw.chipHorz') === '1');
-function applyChipOrientation(){
-  const chip = document.getElementById('myStatusChip');
-  if(chip) chip.classList.toggle('horz', chipHorizontal);
+/* 눌러 지운 상태 말풍선(«📱 앱» · 내 상태)의 기억 — 순수(sim-overhead 4절). 지운 그 상태(seat._statusDismissedFor)가
+   이어지는 동안 채팅 · 다른 조작 뒤에도 다시 안 뜬다. 다른 상태(다른 앱 · 다른 문구)가 오면 기억을 지우고 다시 보인다.
+   ⚠️ «설정에서 상태 말풍선 끔» 은 여기가 아니라 부르는 쪽(app.js 말풍선 갈래)이 정한다 — 무엇을 보일지는 app.js 한 곳. */
+const STATUS_BUBBLE_KEY = 'tw.statusBubble';   // 💭 머리 위 상태 말풍선 — 설정 › 디스플레이(이 PC 에만 · 기본 켜짐)
+function statusBubbleGate(seat, text){
+  if(seat._statusDismissedFor === undefined) return text;
+  if(text !== seat._statusDismissedFor){ seat._statusDismissedFor = undefined; return text; }
+  return null;
 }
-try{ applyChipOrientation(); }catch(_){}
+let statusBubbleEnabled = (localStorage.getItem(STATUS_BUBBLE_KEY) !== '0');
 // 저장된 이름표 크기(--nameplate-size)를 페이지 로드 시점에 즉시 CSS 변수에 반영. 설정 패널을 안 열어도 유지됨.
 (function _applySavedNameplateSize(){
   try{
@@ -471,6 +473,7 @@ function _bubSnapTransform(el, invert){
 }
 function setSeatHeadBubble(seat, text, think){
   const el=ensureSeatBubbleEl(seat); if(!el) return;
+  if(think) text = statusBubbleGate(seat, text);   // 상태 말풍선만 — 눌러 지운 상태 기억(채팅 뒤에도)
   /* 🏢 회사원 모드 — 같은 요소를 '한 줄 라벨' 모양으로 바꾼다.
      ⚠️ 글자 변환을 아래 dismiss·중복 판정보다 **먼저** 해야 한다. 모드를 켜고 끄면 같은 대사라도
         표시 문자열이 달라지는데, 뒤에서 바꾸면 seat._lastBubble 비교가 예전 문자열을 물고 있어
@@ -585,6 +588,7 @@ function setSeatHeadBubble(seat, text, think){
   if(seat._bubbleDismissedFor !== undefined && seat._bubbleDismissedFor === text){ return; }
   if(seat._lastBubble===text) return;
   seat._lastBubble=text;
+  seat._lastBubbleThink = !!think;   // 지울 때 상태 말풍선이었는지(dismissSeatHeadBubble)
   seat._bubbleDismissedFor = undefined;
   if(!text){ el.style.display='none'; return; }
   // ★ 주사위 마커 [dice:N]이면 SVG로 렌더(1=빨간점). 그 외엔 기존대로 순수 텍스트(안전).
@@ -644,6 +648,7 @@ function dismissSeatHeadBubble(seat){
   if(!seat.bubbleEl || seat.bubbleEl.style.display==='none') return;
   seat.bubbleEl.style.display='none';
   seat._bubbleDismissedFor = seat._lastBubble;
+  if(seat._lastBubbleThink && seat._lastBubble) seat._statusDismissedFor = seat._lastBubble;   // 상태 말풍선이면 채팅 뒤에도 기억(statusBubbleGate)
 }
 
 /* 좌석이 제거될 때(친구 퇴장, 좌석 전체 리셋 등) 이름표/말풍선 DOM 요소도 같이 정리 — 안 하면 고아 DOM이 계속 쌓임 */
@@ -667,13 +672,12 @@ return {
   nameplateHeight,
   _officeDemojiHtml,
   _seatLabelName,
-  applyChipOrientation,
-  chipHorizontal: ()=>chipHorizontal,   // 읽는 함수
-  setChipHorizontal: (v)=>{ chipHorizontal = v; },   // 쓰는 함수 — app.js 가 비운다
   dismissSeatHeadBubble,
   ensureSeatLabelsLayer,
   nameplateEnabled: ()=>nameplateEnabled,   // 읽는 함수
   setNameplateEnabled: (v)=>{ nameplateEnabled = v; },   // 쓰는 함수 — app.js 가 비운다
+  statusBubbleEnabled: ()=>statusBubbleEnabled,   // 💭 머리 위 상태 말풍선 — 읽는 함수
+  setStatusBubbleEnabled: (v)=>{ statusBubbleEnabled = !!v; try{ localStorage.setItem(STATUS_BUBBLE_KEY, v ? '1' : '0'); }catch(_){} },   // 쓰는 함수 — 이 PC 에 저장
   projectWorldToScreenPx,
   removeSeatLabels,
   setSeatHeadBubble,

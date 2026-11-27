@@ -28,6 +28,8 @@ if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-wor
 const { createDevtoolsGate } = require('./devtools-gate');
 const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
 const { createUpdateDiag } = require('./update-diag');   // 🩺 업데이트 진행 · 실패를 진단 기록에
+const { createUpdateRecheck, installDirWritable } = require('./update-recheck');   // 켜 둔 동안 새 판 다시 확인 · 설치 폴더에 쓸 수 있나
+const { createUpdatePlatform, RELAUNCH: UPDATE_RELAUNCH } = require('./update-platform');   // 플랫폼마다 다시 확인 · 끌 때 설치 · 재시작 · 옮기기
 const { createErrorLog } = require('./error-log');   // 🧯 오류만 모으는 파일(tw-error.log)
 const { createQuitHold } = require('./quit-hold');   // 🚪 끄기 전 렌더러의 못 올린 저장을 기다린다(상한 있음)
 /* 오류 기록 — 경로는 적을 때 찾는다(ready 전에도 userData 는 읽힌다 · 실패는 error-log 가 삼킨다) */
@@ -95,6 +97,7 @@ sysinput.init({
 });
 /* 🖱 호버 찌르기 판단(제보 #5) — 판단만 떼어 낸 모듈이다. 타이머 · IPC 는 아래 _syncHoverWatcher. */
 const HoverPoke = require('./hover-poke');
+const GoogleOAuth = require('./google-oauth');   // 🔑 구글 로그인 — 기본 브라우저로 받기(루프백)
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
@@ -111,6 +114,7 @@ const { isSystemPrompt } = require('./app/parts/shared/system-prompt');   // �
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
+const { createWinDrag } = require('./win-drag');   // 🖱 수동 창 끌기 — 자리는 main 이 마우스 자리로 정한다(배율이 다른 모니터)
 const MhPadPos = require('./app/parts/myhome/mh-pad-pos');   // 🎨 마이홈 창 자리 — 스티커 여백을 뺀 자리로 기억
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
    ⚠️ 화살표 상수가 아니라 **함수 선언**이다. 원래가 그랬고(호이스팅), 여기서 모양을 바꾸면
@@ -194,17 +198,30 @@ app.disableDomainBlockingFor3DAPIs();
 
 let mainWindow = null;
 
-// ---- 자동 업데이트 (electron-updater + GitHub Releases) ----
-// package.json의 build.publish에 설정된 GitHub 저장소(grk-cmd/t-w)의 Releases를 확인해서,
-// 새 버전이 있으면 백그라운드로 내려받고, renderer(설정 패널 등)에 상태를 알려서 사용자가 재시작 버튼을
-// 누르면 설치가 적용되게 함. 다운로드까지는 자동, "지금 재시작해서 적용"은 사용자 확인을 받음(작업 중 갑자기
-// 꺼지는 것 방지).
+// ---- 자동 업데이트 (electron-updater + GitHub Releases · package.json build.publish) ----
+/* 새 판은 백그라운드로 받는다(autoDownload). 설치는 두 때뿐이다 — 쓰는 도중에는 절대 하지 않는다:
+   ① 사용자가 띠 · 업데이트 창의 [재시작] 을 누를 때(companion:installUpdate → quitAndInstall)
+   ② 사용자가 앱을 끌 때 — 받아 둔 판을 조용히 설치한다(autoInstallOnAppQuit). 끄는 것은 사용자가 고른 일이라 다시 켜지 않는다.
+      윈도우는 electron-updater 가 app 'quit' 에서 설치를 건다 — before-quit 를 _quitHold 가 붙잡아 렌더러 저장을 끝낸 뒤에야 'quit' 이 온다.
+   ⚠️ 윈도우에서 끄기가 사용자 뜻이 아닌 길(OS 세션 종료 · 중복 실행 정리 _exitNow · 재시작)은 설치를 끈다(_skipInstallOnQuit) —
+      OS 가 끄는 중에 설치 파일을 띄우거나, 다시 켜는 앱과 설치가 부딪히지 않게. 받은 판은 남아 다음에 끌 때 설치된다.
+   ⚠️ 맥(Squirrel.Mac)은 다 받는 즉시 설치 준비를 끝내 어떻게 꺼지든 설치된다 — 재시작은 _relaunchOrInstall 이 «설치하고 다시 켜기» 로 바꾼다.
+   ⚠️ 바꿔 끼울 폴더에 쓸 수 없으면(윈도우 모든 사용자 설치 · 맥 관리자 폴더) 끌 때 설치를 켜지 않는다 — 띠의 [재시작] 으로만.
+   플랫폼 판단은 update-platform.js 한 곳(다시 확인 · 설치 폴더 · 끌 때 설치 · 재시작 · 응용 프로그램 폴더로 옮기기). */
+const _updatePlatform = createUpdatePlatform({
+  platform: process.platform, execPath: process.execPath, isPackaged: app.isPackaged, path,
+  inApplications: () => app.isInApplicationsFolder(),
+  writable: (dir) => installDirWritable({ fs, path, dir, pid: process.pid }),
+});
 autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = false;   // 사용자가 명시적으로 재시작 버튼을 눌러야 설치되게(예상치 못한 종료 방지)
+autoUpdater.autoInstallOnAppQuit = _updatePlatform.installOnQuit();
+function _skipInstallOnQuit(){ autoUpdater.autoInstallOnAppQuit = false; }   // 윈도우: 'quit' 때 다시 읽는다(electron-updater BaseUpdater.addQuitHandler) · 맥은 받을 때 읽는다
+let _updateStaged = false;   // Squirrel 이 설치 준비를 끝냈다(맥) — 재시작 판단(_relaunchOrInstall) · 한 번 서면 그 실행 동안 내리지 않는다(뒤 확인의 오류는 준비를 되돌리지 않는다)
 const _updateDiag = createUpdateDiag({ log: (m) => _diagLog(m), home: require('os').homedir() });
 autoUpdater.logger = _updateDiag.logger;   // 조각만 받기 · 통째로 받기 · 오류를 electron-updater 가 스스로 적는다
 
 function sendUpdateStatus(status, extra){
+  _updateRecheck.status(status);
   if(mainWindow && !mainWindow.isDestroyed()){
     mainWindow.webContents.send('companion:updateStatus', { status, ...extra });
   }
@@ -214,89 +231,51 @@ autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateSt
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
 autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
 autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
-autoUpdater.on('error', (e) => { _errorLog.write('ERROR', '업데이트', e); sendUpdateStatus('error', { message: String(e && e.message || e) }); });
+if(_updatePlatform.nativeStaging) require('electron').autoUpdater.on('update-downloaded', () => { _updateStaged = true; });   // electron-updater MacUpdater 의 nativeUpdater 와 같은 것
+let _bgUpdateErrLogged = false;   // 켜 둔 동안 다시 확인의 실패(오프라인 등)는 오류 파일에 한 번만 — 진단 기록에는 updateDiag 가 매번 남긴다
+autoUpdater.on('error', (e) => { const bg = _updateRecheck.fromTick(); if(!bg || !_bgUpdateErrLogged) _errorLog.write('ERROR', '업데이트', e); if(bg) _bgUpdateErrLogged = true; sendUpdateStatus('error', { message: String(e && e.message || e) }); });
 
-/* ── 🍎 맥은 자동 업데이트를 안 한다 (0.9.7~) ───────────────────────────────
-   맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml`
-   을 전제로 하므로, 올려 봐야 설치 단계에서 실패한다. 그래서 릴리즈에 맥용 yml 을 아예 안 올리고
-   **dmg 직접 받기**로 간다(arm64 = 애플 실리콘 · x64 = 인텔).
-   ⇒ `checkForUpdates()` 를 맥에서 부르면 켤 때마다 yml 404 로 실패해 'error' 만 쌓인다.
-     아래 `startUpdateCheck()` 가 플랫폼을 갈라 **맥에서는 부르지 않는다.**
-   대신 릴리즈의 최신 태그만 읽어서 새 버전이면 «받으러 가기» 안내를 렌더러에 보낸다 —
-   내려받기·설치는 사용자가 브라우저에서 한다(renderer 의 `#updateReadyBanner` 재활용).
-   ★ 나중에 애플 개발자 프로그램으로 서명·공증을 하면 이 갈래를 지우고 zip + `latest-mac.yml` 을
-     릴리즈에 함께 올리면 원래대로 돌아온다. 지울 곳은 여기와 `startUpdateCheck()` 두 군데뿐. */
+/* 켜 둔 동안 다시 확인(조용히) — 켤 때 첫 확인은 렌더러가 묻는다(update-flow.js). */
+const _updateRecheck = createUpdateRecheck({ check: () => startUpdateCheck(), setTimeout, clearTimeout, random: Math.random });
 
-/* 릴리즈 주소는 package.json 의 build.publish 에서 읽는다 — 저장소 이름을 여기 또 적으면
-   저장소를 옮길 때 한쪽만 바뀐다(맥 안내만 옛 저장소를 가리키는 조용한 고장). */
-function githubRepoInfo(){
-  try{
-    const pub = require('./package.json').build.publish;
-    const gh = (Array.isArray(pub) ? pub : [pub]).find(p => p && p.provider === 'github');
-    if(gh && gh.owner && gh.repo) return { owner: gh.owner, repo: gh.repo };
-  }catch(_){}
-  return null;
-}
-
-/* '0.9.7' · 'v0.10.0' → 숫자 비교. 자리 수가 다르면 없는 자리를 0 으로 본다.
-   ⚠️ 문자열 비교로 하면 '0.10.0' < '0.9.7' 이 된다 — 두 자리 마이너가 나오는 순간 조용히 틀린다. */
-function isNewerVersion(tag, cur){
-  const pick = (s) => String(s || '').replace(/^v/i, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
-  const a = pick(tag), b = pick(cur);
-  for(let i = 0; i < Math.max(a.length, b.length); i++){
-    const x = a[i] || 0, y = b[i] || 0;
-    if(x !== y) return x > y;
-  }
-  return false;
-}
-
-/* 맥: 최신 릴리즈 태그만 한 번 읽는다. 어떻게 끝나든 렌더러에 상태를 정확히 한 번 보낸다 —
-   새 판 있음 'mac-available' · 없음 'none' · 못 읽음 'error'(켤 때 업데이트 창이 답을 기다리므로 말없이 끝내면 시간 초과까지 로그인이 늦어진다).
-   앱은 그대로 돈다(안내가 없을 뿐). ⚠️ 주기적으로 다시 읽지 않는다 — 켤 때 한 번이면 «새 버전 나왔다» 를 알리기에 충분하다. */
-function checkMacUpdate(){
-  let sent = false;
-  const done = (status, extra) => { if(sent) return; sent = true; sendUpdateStatus(status, extra); };
-  const info = githubRepoInfo();
-  if(!info){ done('error', { message: 'no repo info' }); return; }
-  const opt = {
-    host: 'api.github.com',
-    path: `/repos/${info.owner}/${info.repo}/releases/latest`,
-    headers: { 'User-Agent': 'together-working', 'Accept': 'application/vnd.github+json' },
-    timeout: 8000,
-  };
-  let req;
-  try{
-    req = require('https').get(opt, (res) => {
-      if(res.statusCode !== 200){ res.resume(); done('error', { message: 'HTTP ' + res.statusCode }); return; }
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', (c) => { body += c; if(body.length > 262144) req.destroy(new Error('too large')); });
-      res.on('error', (e) => done('error', { message: String(e && e.message || e) }));
-      res.on('close', () => done('error', { message: 'closed' }));   // 'end' 가 먼저 오면 이미 보냈으니 무시된다
-      res.on('end', () => {
-        try{
-          const j = JSON.parse(body);
-          const tag = j && (j.tag_name || j.name);
-          if(!tag){ done('error', { message: 'no tag' }); return; }
-          if(!isNewerVersion(tag, app.getVersion())){ done('none'); return; }
-          /* 주소도 응답에서 받은 것만 쓴다(직접 조립하지 않는다). https 가 아니면 안 보낸다 —
-             렌더러는 이 값을 그대로 openBrowser 에 넘긴다. */
-          const url = (j.html_url && /^https:\/\//i.test(j.html_url)) ? j.html_url : null;
-          if(!url){ done('none'); return; }
-          done('mac-available', { version: String(tag).replace(/^v/i, ''), url });
-        }catch(e){ done('error', { message: 'parse' }); }
-      });
-    });
-  }catch(e){ done('error', { message: 'request' }); return; }
-  req.on('timeout', () => { try{ req.destroy(new Error('timeout')); }catch(_){} });
-  req.on('error', (e) => done('error', { message: String(e && e.message || e) }));
-}
-
-/* 업데이트 확인의 **유일한 입구.** 플랫폼 갈래를 여기 한 곳에만 둔다 —
-   호출부에 `process.platform` 을 흩어 놓으면 나중에 한 군데를 빠뜨린다. */
+/* 업데이트 확인의 유일한 입구 — 켤 때(렌더러) · 다시 확인(타이머) · 강제 창 [다시 시도] 가 모두 여기로. */
 function startUpdateCheck(){
-  if(process.platform === 'darwin'){ checkMacUpdate(); return; }
   autoUpdater.checkForUpdates().catch(() => {});
+}
+
+/* 재시작(계정 정리 · 망가진 창 다시 띄우기) — 맥에서 받아 둔 판이 있으면 설치하고 다시 켠다(update-platform.js 머리말).
+   exit 는 relaunch 뒤 끄는 방법(app.quit · _exitNow), install 은 설치하고 다시 켜는 방법(저장을 기다릴지는 부르는 쪽이 정한다). */
+function _relaunchOrInstall(exit, install){
+  if(_updatePlatform.relaunchAction(_updateStaged) === UPDATE_RELAUNCH.INSTALL){
+    _diagLog('[재시작] 받아 둔 판이 있어 설치하고 다시 켠다(맥)');
+    install();
+    return;
+  }
+  _skipInstallOnQuit();   // 다시 켜는 앱과 설치가 부딪히지 않게 — 받은 판은 다음에 끌 때
+  try{ app.relaunch(); }catch(e){ _diagLog('[재시작] relaunch 실패 — 종료만 합니다 ' + (e && e.message)); }
+  exit();
+}
+
+/* 맥: 응용 프로그램 폴더 밖(다운로드 · dmg 안)에서 켰으면 처음 한 번 옮기기를 묻는다 — 밖에서는 자동 업데이트가 실패한다.
+   옮기면 Electron 이 새 자리에서 다시 켜므로 true(부르는 쪽은 창을 띄우지 않는다). 거절 · 실패면 false 로 그대로 켠다. */
+let _macMoveAsked = false;
+async function _offerMoveToApplications(){
+  if(!_updatePlatform.shouldOfferMove(_macMoveAsked)) return false;
+  _macMoveAsked = true;
+  try{ saveSettings(); }catch(_){}
+  let r = null;
+  try{
+    r = await dialog.showMessageBox({
+      type: 'question', title: 'Together Working',
+      message: '«응용 프로그램» 폴더로 옮길까요?',
+      detail: '지금은 응용 프로그램 폴더 밖에서 켜져 있어요. 응용 프로그램 폴더에 있어야 새 버전이 자동으로 설치돼요.\n\n'
+        + '[옮기기] 를 누르면 옮긴 뒤 다시 켜져요.',
+      buttons: ['옮기기', '그대로 쓰기'], defaultId: 0, cancelId: 1,
+    });
+  }catch(_){ return false; }
+  if(!r || r.response !== 0) return false;
+  try{ return app.moveToApplicationsFolder() === true; }
+  catch(e){ _errorLog.write('ERROR', '응용 프로그램 폴더로 옮기기', e); return false; }
 }
 
 // 사용자가 타이틀바를 드래그해서 옮긴 창 위치 — 모드(launcher/creator)별로 각각 기억해뒀다가
@@ -465,7 +444,7 @@ function loadSettings(){
         overlay.setGap(fileGap);
       }
     }
-    /* 🎬 레이어드 알파 — 설정 → 시스템 → '영상 겹침 실험' 토글이 쓰는 값(켜짐 252 / 꺼짐 0).
+    /* 🎬 레이어드 알파 — 설정 → 디스플레이 → '영상 겹침 실험' 토글이 쓰는 값(켜짐 252 / 꺼짐 0).
        ⚠️ 갭과 **별개 통로**다. 토글은 갭을 건드리지 않는다 — 갭 0 은 "최대화 방어를 끈다"는
          뜻이라 제보자에게는 순손해이고, 우리가 갈래를 가를 때만 파일로 직접 넣는 값이다. */
     if(typeof data.overlayLayeredAlpha === 'number' && isFinite(data.overlayLayeredAlpha)){
@@ -475,6 +454,7 @@ function loadSettings(){
        createWindow 의 did-finish-load 에서 applyUiZoom 이 실제로 건다. */
     if(typeof data.uiZoom === 'number' && isFinite(data.uiZoom)) uiZoom = _clampZoom(data.uiZoom);
     if(data.labVideoAsked === true) _labVideoAsked = true;
+    if(data.macMoveAsked === true) _macMoveAsked = true;
     /* 🗑️ [2026-08-26] `overlayNoActivate` 는 **읽지 않는다.** 아래 saveSettings 도 안 쓴다.
        NOACTIVATE 실험이 폐기됐기 때문이다(핸드오프5 §7). 옛 파일에 값이 남아 있어도 그냥 무시되고,
        다음 저장 때 키가 사라진다 — 실험을 켠 채로 제보한 사용자가 앱만 새로 받으면 복구된다. */
@@ -569,13 +549,23 @@ function _modeSize(mode){
   const p = (mode === 'myhome') ? _mhPad : { x: 0, y: 0 };
   return { w: Math.round((s.w + 2 * p.x) * z), h: Math.round((s.h + 2 * p.y) * z) };
 }
+/* 🖱 수동 창 끌기 — 끄는 동안 자리를 기억하고(끌기 도중의 setConfigMode · 다음 실행이 옛 자리로 되돌리지 않게),
+   끝나면 놓인 모니터의 작업영역 · 크기로 한 번 맞춘다(배율 · 해상도가 다른 모니터로 옮긴 경우). 실행 화면(run)은 옮기기만 한다. */
+const _winDrag = createWinDrag({
+  getCursor: () => screen.getCursorScreenPoint(),
+  getBounds: () => mainWindow.getBounds(),
+  setBounds: (r) => { mainWindow.setBounds(r); },
+  onMove: (r) => { const m = _cfgModeForZoom(); if(m) _rememberPos(m, r); },
+  onEnd: () => { const m = _cfgModeForZoom(); if(m) _refitConfigForZoom(m, '끌기 끝'); },
+});
 function _cfgModeForZoom(){
   try{
     if(!_isConfigMode || !mainWindow || mainWindow.isDestroyed()) return null;
     return _configModeNow();
   }catch(_){ return null; }
 }
-function _refitConfigForZoom(m){
+/* why — 진단 줄 머리(없으면 줌). 줌 · 창 끌기 끝이 같이 부른다 */
+function _refitConfigForZoom(m, why){
   if(!mainWindow || mainWindow.isDestroyed()) return;
   const b = mainWindow.getBounds();
   const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
@@ -586,7 +576,7 @@ function _refitConfigForZoom(m){
   mainWindow.setResizable(false);
   _noteApplied(rect, false);
   _rememberPos(m, rect);
-  _diagLog('[창] 줌 ' + Math.round(uiZoom * 100) + '% — ' + m + ' 창 크기 맞춤 ' + rect.width + 'x' + rect.height);
+  _diagLog('[창] ' + (why || '줌 ' + Math.round(uiZoom * 100) + '%') + ' — ' + m + ' 창 크기 맞춤 ' + rect.width + 'x' + rect.height);
 }
 const _zoomIn  = v => v * uiZoom;   // CSS px → DIP
 /* 🩹 [2026-10-02 제보 #10] 줌이 바뀌면 BGM(유튜브) 창도 새 배율로 다시 놓는다.
@@ -625,21 +615,28 @@ function _lockChildZoom(win){
   wc.on('zoom-changed', (event) => { event.preventDefault(); try{ wc.setZoomFactor(1); }catch(_){} });
   wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
 }
-/* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
+/* 윈도우 세션 종료 · 중복 실행 정리가 부른다(세션 종료는 메인 창 'session-end' — createWindow).
+   OS 종료 때 정리 도중 끊기면 0x80000003(STATUS_BREAKPOINT) 오류창과 «이 앱 때문에 종료할 수 없습니다» 가 떴다 — 훅이 살아 있는 채 뜯기고 창이 제때 안 닫혀서.
+   그래서 기다리지 않고 바로 끝낸다 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
    ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다) — 예외 하나: 몰아 두던 런처 자리(옮기고 400ms 안에 껐을 때만 ·
      작은 파일 한 번). 훅 · 타이머를 내린 뒤에 쓴다. quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
 function _exitNow(){
+  try{ _skipInstallOnQuit(); _updateRecheck.stop(); }catch(_){}   // 사용자가 끈 것이 아니다 — 받은 판은 다음에 끌 때 설치
   try{ sysinput.stopGlobalHooks(); }catch(_){}
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
   try{ if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } }catch(_){}
   try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
-  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
+  _destroyAllWindows();
   try{ app.exit(0); }catch(_){}
 }
+/* 창을 닫지 않고 바로 없앤다 — 닫기(close)는 멈춘 렌더러의 beforeunload 를 기다릴 수 있다. _exitNow · 맥 «설치하고 다시 켜기»(_relaunchFresh)가 쓴다. */
+function _destroyAllWindows(){
+  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
+}
 /* 🚪 app.quit() 으로 끄는 길(제목줄 × · 내 정보 · 다른 기기 안내 · Cmd+Q · 재시작) · 메인 창 닫기 · 업데이트 설치를 한 곳에서 붙잡아
-   렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow · session-end 는 거치지 않는다 — OS 종료를 막지 않게. */
+   렌더러가 못 올린 캐릭터 고침을 끝내기를 기다린다(없으면 바로 · 상한 있음). _exitNow(OS 세션 종료 · 중복 실행 정리)는 거치지 않는다 — OS 종료를 막지 않게. */
 const _quitHold = createQuitHold({ getWindow: () => mainWindow, ipcMain, quit: () => app.quit(), platform: process.platform, setTimeout, clearTimeout });
 let _saveFailLogged = false;
 function saveSettings(){
@@ -654,6 +651,7 @@ function saveSettings(){
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
       labVideoAsked: _labVideoAsked,          // 🎬 초기화로 꺼진 실험을 «다시 켤까요?» 로 이미 물었는가
+      macMoveAsked: _macMoveAsked,            // 맥: 응용 프로그램 폴더로 옮기기를 이미 물었는가(_offerMoveToApplications)
       launcherPos: savedPos.launcher,         // 🪟 런처 자리 — _rememberPos 가 몰아서 저장(_saveLauncherPosSoon)
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
@@ -1076,7 +1074,7 @@ function _kbShowGuide(){
     detail: '타이핑해도 캐릭터가 작업 중으로 인식하지 못해요.\n\n'
       + '・키보드 보안 프로그램(TouchEn nxKey · AhnLab Safe Transaction 등 은행·공공기관용)이 켜져 있으면 키 입력을 막을 수 있어요. 잠시 꺼 보거나 PC 를 다시 시작해 확인해 주세요.\n'
       + '・작업 중인 프로그램을 «관리자 권한으로 실행» 했다면, Together Working 도 관리자 권한으로 실행해야 키를 볼 수 있어요. (관리자 권한으로 실행하면 컴퓨터 켤 때 자동 실행은 Windows 가 막아요)\n'
-      + '・둘 다 아닌데도 계속 이 알림이 뜨면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
+      + '・둘 다 아닌데도 계속 이 알림이 뜨면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 정보 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
     buttons: ['확인'], defaultId: 0, cancelId: 0,
     checkboxLabel: '다시 보지 않기',
   };
@@ -1502,14 +1500,13 @@ let lastForeignWindow = null;   // { key, name, path, title } — key 가 판정
 /* 🧭 [2026-10-11 제보: 한글 · PDF · 크롬이 포커싱 등록이 안 된다] 슬롯 좌클릭 «자동 등록» 이 집는 창.
    lastForeignWindow 는 바탕화면 · 작업표시줄(explorer.exe) · 시작 메뉴 · 검색 같은 **셸 창도** 받는다 — 문서 창에서
    작업표시줄을 거쳐 투게더워킹을 누르면 그 사이 셸 창이 마지막 앞창이 되어, 한글 대신 explorer.exe 가 등록됐다.
-   ⇒ 등록용은 셸 목록(sysinput.WINLIST_SKIP — 「목록에서 직접 고르기」 가 거르는 것과 같은 목록)을 건너뛴 마지막 창.
+   ⇒ 등록용은 셸 창(sysinput.isShellWindow — 「목록에서 직접 고르기」 가 거르는 것과 같은 판정)을 건너뛴 마지막 창.
    lastForeignWindow(진단 로그 «앞창=») 는 그대로 둔다 — 로그는 실제 앞창을 보여야 한다. */
 let lastRegistrableWindow = null;
 function _noteForeignWindow(exeName, ownerPath, w){
   lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
-  let shell = false;
-  try{ shell = !!(sysinput.WINLIST_SKIP && sysinput.WINLIST_SKIP.has(exeName)); }catch(_){}
-  if(!shell) lastRegistrableWindow = lastForeignWindow;
+  /* 셸 판정은 sysinput 한 곳 — 파일 탐색기 폴더 창(w.folder)은 explorer.exe 여도 등록 후보다 */
+  if(!sysinput.isShellWindow(exeName, w)) lastRegistrableWindow = lastForeignWindow;
 }
 
 // uiohook 전역 클릭/키 이벤트에 실어 보낼, 매 순간의 "활성 프로세스 판정" 캐시.
@@ -1561,7 +1558,8 @@ function startActiveWinPolling(){
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
       const activeKey = focusKeyOf(exeName);
       const activeKeyAlt = legacyKeyOf(ownerPath, activeKey);   // 🕰️ 옛 규칙 키(mac ≤0.10.0 저장물) — 없으면 ''
-      const isFocusedAppRegistered = !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
+      /* 바탕화면 · 작업표시줄(w.desktop)은 파일 탐색기와 같은 explorer.exe 라 키가 같다 — explorer 를 등록해도 거기서는 집중으로 세지 않는다 */
+      const isFocusedAppRegistered = !w.desktop && !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
       /* 🩺 [2026-09-16 제보 1 · E] 활성 창 키가 **바뀔 때마다** 진단 로그에 한 줄 — 콘솔을 못 보는 환경용.
          [왜] 게임 클라이언트를 등록했는데 카운팅이 안 되는 제보. 목록에 뜨고 등록도 되는데 안 잡히면
            «등록된 키와 활성 창 키가 서로 다른 문자열» 이 가장 유력하다(런처 exe ≠ 실제 프로세스).
@@ -1584,7 +1582,7 @@ function startActiveWinPolling(){
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
       _onSysPromptFront(isSystemPrompt(activeKey));
-      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };   // isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE, desktop: !!w.desktop };   // desktop: 바탕화면 · 작업표시줄(폴더 창과 키가 같다 — 달성표가 세지 않게) · isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
       let frontFull = null;   // null = 크기를 못 읽음(맥 · 실패) — 비율 분모에서 뺀다
       /* 우리 창이 있는 모니터와 견준다(실행 화면이면 실행 모니터) — getRunDisplay 는 저장 · 로그가 딸려 있어 0.5초마다 부르지 않는다 */
       try{ if(w.bounds && mainWindow && !mainWindow.isDestroyed()) frontFull = FrontDiag.coversDisplay(w.bounds, screen.getDisplayMatching(mainWindow.getBounds()).bounds); }catch(_){}
@@ -2017,6 +2015,8 @@ function _applyConfigMode(isConfig, mode, extra){
   const prevMode = _curMode;   // creator 로 들어올 때 «지금 config 창인가(그 자리를 잇는다) · 실행 화면인가(중앙)» 판단용
   _curMode = isConfig ? (MODE_SIZE[mode] ? mode : 'launcher') : 'run';   // 🪟 창 모드 한 값(위 _curMode 주석)
   _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
+  /* 🖱 끄는 도중 모드가 바뀌면 끌기를 놓는다 — 창 사각형의 주인이 새 모드로 넘어간다(시작 크기로 계속 놓으면 새 모드 창과 서로 당긴다) */
+  if(_curMode !== prevMode) _winDrag.cancel();
   if (!mainWindow) return;
   // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
   //   다르게 지정해둔 듀얼 모니터 환경에서, 런처와 동떨어진 엉뚱한 모니터에 뜨던 문제를 방지.
@@ -2033,6 +2033,8 @@ function _applyConfigMode(isConfig, mode, extra){
     /* 🎨 스티커 여백 — 크기(_modeSize)가 읽으니 재기 전에 바꾼다. 옛 렌더러(셋째 인자 없음)면 0 */
     if(mode==='myhome') _mhPad = _mhPadOf(extra);
     const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
+    /* 🖱 같은 모드로 끄는 동안은 창 사각형의 주인이 끌기다(win-drag.js) — 여기서 맞추면 서로 당긴다. 끌기가 끝날 때 한 번 맞춘다(_winDrag onEnd) */
+    if(_winDrag.active()) return;
     /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
        고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
        그걸 판정 전에 부르면 isResizable() 이 항상 true 가 되어 판정이 영영 성립하지 않는다.
@@ -2090,6 +2092,7 @@ function _applyConfigMode(isConfig, mode, extra){
    화면은 런처로 돌아오는데 창만 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남으면 덮인 채 아무것도 못 누른다(새 렌더러가 제 모드를 다시 보낸다).
    ⚠️ 로그 «<why> 창을 런처로 되돌림» 은 e2e launcher/renderer-crash 가 글자로 찾는다(«다시 불러오기 전 창을 런처로 되돌림»). */
 function _resetWindowToLauncher(why){
+  _winDrag.cancel();   // 렌더러가 죽으면 뗌 신호가 안 온다 — 끌기가 남으면 아래 되돌리기가 창을 못 건드린다
   if(!mainWindow || mainWindow.isDestroyed()) return;
   _applyConfigMode(true, 'launcher');
   _lastIgnoreRequested = false;
@@ -2252,8 +2255,8 @@ function _showLabBlockedGuide(){
     type: 'warning', title: 'Together Working',
     message: '«영상 겹침 실험» 이 켜져 있지만 적용되지 못했어요',
     detail: '그래서 유튜브 · 디스코드 · 트위치 화면이 검어지거나 깜빡일 수 있어요.\n\n'
-      + '① 설정 › 시스템 › 영상 겹침 실험 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
-      + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
+      + '① 설정 › 디스플레이 › 영상 겹침 실험 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
+      + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 정보 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
     buttons: ['확인'], defaultId: 0, cancelId: 0,
     checkboxLabel: '다시 보지 않기',
   }).then(r=>{
@@ -2278,7 +2281,7 @@ function _askLabVideoRestore(){
     message: '«영상 겹침 실험» 을 다시 켤까요?',
     detail: '업데이트하면서 화면 설정을 기본값으로 되돌려 이 실험이 꺼졌어요.\n\n'
       + '이전에 켜서 유튜브 · 디스코드 · 트위치 화면이 검어지거나 깜빡이는 것을 막았다면 [다시 켜기] 를 눌러 주세요.\n'
-      + '나중에 설정 › 시스템 › 영상 겹침 실험 에서도 켜고 끌 수 있어요.',
+      + '나중에 설정 › 디스플레이 › 영상 겹침 실험 에서도 켜고 끌 수 있어요.',
     buttons: ['다시 켜기', '그대로 두기'], defaultId: 0, cancelId: 1,
   }).then(r=>{
     if(!r || r.response !== 0 || !mainWindow || mainWindow.isDestroyed()) return;
@@ -2532,7 +2535,12 @@ function createWindow() {
   mainWindow.webContents.on('did-finish-load', () => { try{ applyUiZoom(uiZoom, 'boot'); }catch(_){} });
 
   mainWindow.on('close', (e) => { _quitHold.windowClose(e); });   // 저장을 기다린 뒤 — 윈도우 · 리눅스(Alt+F4 · 작업표시줄)는 끄기, 맥은 창만 닫는다(Dock 에 남음)
+  /* 윈도우 세션 종료(로그오프 · 재시작 · 끄기) — Electron 은 이 신호를 창 이벤트로만 준다(app 에는 'session-end' 가 없다).
+     묻는 단계에서 끌 때 설치부터 끄고(OS 가 끄는 중에 설치 파일을 띄우지 않게 · 끄기를 취소하면 이번 실행만 설치 없음), 끝낼 때 기다리지 않고 바로 끝낸다(아래 _exitNow 주석). */
+  mainWindow.on('query-session-end', () => { _skipInstallOnQuit(); });
+  mainWindow.on('session-end', () => { _exitNow(); });
   mainWindow.on('closed', () => {
+    _winDrag.cancel();   // 끄는 중에 창이 닫혔다 — 새 창의 setConfigMode 가 막히지 않게
     // BGM 자식창을 수동으로 정리 (parent를 안 쓰기 때문에 자동 소멸이 없음)
     if(bgmWin && !bgmWin.isDestroyed()){ try{ bgmWin.destroy(); }catch(e){} }
     bgmWin = null; bgmView = null; bgmMainMoveHandler = null;
@@ -2550,6 +2558,7 @@ function createWindow() {
     try{ mainWindow.flashFrame(false); }catch(_){}
   });
   mainWindow.on('blur', () => {
+    try{ _winDrag.end(); }catch(_){}   // 끄는 중에 다른 창으로 넘어갔다 — 뗌 신호를 못 받아도 여기서 닫는다
     try{ _fdOnBlur(); }catch(_){}   // 🩺 [진단] 활성 유지 시간 — "뚝뚝 끊긴다"의 리듬이 여기서 나온다
     setTimeout(async () => {
       try{
@@ -2704,10 +2713,35 @@ function _setupMainOnce() {
   try{ _oauthCfg = require('./oauth-config'); }catch(_){}
   const GOOGLE_OAUTH_CLIENT_ID     = _oauthCfg.clientId     || '';
   const GOOGLE_OAUTH_CLIENT_SECRET = _oauthCfg.clientSecret || '';
-  /* 가로채기용 주소. 실제로 여기 듣는 서버는 없다 — 이동 직전에 가로채기 때문이다.
-     ⚠️ 구글 콘솔의 '승인된 리디렉션 URI' 에 이 주소를 그대로 넣어야 한다. */
+  /* 돌아오는 주소 — 기본 브라우저 길은 여기서 실제로 듣고(google-oauth.js), 앱 안 창 길은 이동 직전에 가로챈다.
+     ⚠️ 구글 콘솔의 '승인된 리디렉션 URI' 와 같아야 한다. */
   const GOOGLE_OAUTH_REDIRECT = 'http://127.0.0.1:52736/tw-oauth';
   let googleAuthWin = null;
+  /* code → id_token(Node 쪽 fetch — 렌더러 CSP 와 무관). 기본 브라우저 길 · 앱 안 창 길이 같이 쓴다 */
+  const _googleExchange = (code, verifier) => fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_OAUTH_CLIENT_ID, client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
+      code, code_verifier: verifier, grant_type: 'authorization_code', redirect_uri: GOOGLE_OAUTH_REDIRECT,
+    }),
+  })
+    .then(res => res.json())
+    .then(j => (j && j.id_token) ? { ok:true, idToken: j.id_token } : { ok:false, reason:'구글 토큰을 받지 못했어요' + (j && j.error ? (' (' + j.error + ')') : '') })
+    .catch(() => ({ ok:false, reason:'네트워크 오류 — 연결을 확인해 주세요' }));
+  /* 기본 브라우저 로그인 흐름(google-oauth.js createGoogleSignIn) — 안내 창 · 브라우저 · 앱 창 당기기만 여기서 잇는다 */
+  const googleSignIn = GoogleOAuth.createGoogleSignIn({
+    http: require('http'), redirect: GOOGLE_OAUTH_REDIRECT, log: _diagLog,
+    openExternal: (u) => shell.openExternal(u),
+    openWait: (onCancel) => {
+      const parent = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+      let workArea = null;
+      try{ workArea = screen.getDisplayMatching(parent ? parent.getBounds() : screen.getPrimaryDisplay().bounds).workArea; }catch(_){}
+      return GoogleOAuth.openWaitWindow({ BrowserWindow, parent, workArea, icon: APP_ICON, devTools: devtoolsGate.always, onCancel });
+    },
+    focusMain: () => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); },
+    exchange: (code, verifier) => _googleExchange(code, verifier),
+  });
 
   ipcMain.handle('companion:signInWithGoogle', async ()=>{
     if(!GOOGLE_OAUTH_CLIENT_ID || !GOOGLE_OAUTH_CLIENT_SECRET){
@@ -2726,17 +2760,15 @@ function _setupMainOnce() {
     const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
     const state     = b64url(crypto.randomBytes(16));
 
-    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
-      + '?client_id='     + encodeURIComponent(GOOGLE_OAUTH_CLIENT_ID)
-      + '&redirect_uri='  + encodeURIComponent(GOOGLE_OAUTH_REDIRECT)
-      + '&response_type=code'
-      + '&scope='         + encodeURIComponent('openid email profile')
-      + '&code_challenge=' + challenge
-      + '&code_challenge_method=S256'
-      + '&state='         + state
-      /* select_account — 안 넣으면 이미 브라우저에 로그인된 계정으로 조용히 통과해서,
-         '다른 계정으로 로그인'이 불가능해진다. 한 컴퓨터를 나눠 쓸 때 이게 필요하다. */
-      + '&prompt=select_account';
+    /* 동의 화면 주소(PKCE S256 · code 흐름 · select_account) — 만드는 곳은 google-oauth.js 한 곳 */
+    const authUrl = GoogleOAuth.buildAuthUrl({ clientId: GOOGLE_OAUTH_CLIENT_ID, redirect: GOOGLE_OAUTH_REDIRECT, challenge, state });
+
+    /* 🌐 기본 브라우저로 먼저 — 앱 안 창은 구글이 «안전하지 않은 브라우저» 로 막거나 맞는 비밀번호도 거절할 때가 있다(google-oauth.js).
+       리디렉션 주소는 위와 같아 구글 콘솔은 그대로다. 기다리는 동안 작은 안내 창의 [취소] · × 로 끝낼 수 있다
+       (화면의 구글 버튼은 결과가 올 때까지 잠겨 있어서). 포트를 못 잡을 때만 아래 앱 안 창으로 대신한다. */
+    const viaBrowser = await googleSignIn.run({ authUrl, state, verifier });
+    if(!viaBrowser.fallback) return viaBrowser;
+    _diagLog('[구글] 기본 브라우저 대기를 열지 못해 앱 안 창으로 — ' + viaBrowser.reason);
 
     return await new Promise(resolve=>{
       let settled = false;
@@ -2772,41 +2804,15 @@ function _setupMainOnce() {
         /* 여기서 막지 않으면 창이 127.0.0.1 로 이동해 '연결할 수 없음' 오류 페이지를 띄운다.
            유저에게는 로그인이 실패한 것처럼 보인다. */
         try{ e.preventDefault(); }catch(_){}
-        let q = null;
-        try{ q = new URL(url).searchParams; }catch(_){}
-        if(!q){ finish({ ok:false, reason:'로그인 응답을 읽지 못했어요' }); return; }
-        /* 🩹 [2026-10-02 제보 #5] 오류 코드를 버리지 않는다 — 예전엔 무엇이든 «로그인이 취소됐어요» 였다.
-           access_denied 는 사람이 [취소]를 누른 경우와 **구글이 막은 경우**(동의 화면 테스트 모드의 미등록 계정,
-           회사·학교 계정 정책)가 같은 코드로 온다. 그래서 둘 다 말해 준다. */
-        if(q.get('error')){
-          const _ge = String(q.get('error') || '');
-          _diagLog('[구글] 로그인 오류 응답: ' + _ge + (q.get('error_description') ? (' — ' + q.get('error_description')) : ''));
-          finish({ ok:false, reason: _ge === 'access_denied'
-            ? '구글이 로그인을 허용하지 않았어요 — 직접 취소했거나, 이 구글 계정(회사·학교 계정 등)이 막혀 있어요'
-            : ('구글 로그인 오류 (' + _ge + ')') });
-          return;
-        }
-        if(q.get('state') !== state){ finish({ ok:false, reason:'로그인 응답이 올바르지 않아요' }); return; }
-        const code = q.get('code');
-        if(!code){ finish({ ok:false, reason:'로그인 응답에 코드가 없어요' }); return; }
-
-        fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: GOOGLE_OAUTH_CLIENT_ID,
-            client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
-            code, code_verifier: verifier,
-            grant_type: 'authorization_code',
-            redirect_uri: GOOGLE_OAUTH_REDIRECT,
-          }),
-        })
-        .then(res => res.json())
-        .then(j => {
-          if(j && j.id_token) finish({ ok:true, idToken: j.id_token });
-          else finish({ ok:false, reason:'구글 토큰을 받지 못했어요' + (j && j.error ? (' (' + j.error + ')') : '') });
-        })
-        .catch(()=> finish({ ok:false, reason:'네트워크 오류 — 연결을 확인해 주세요' }));
+        /* 판정 · 오류 문구 · 토큰 교환은 기본 브라우저 길과 한 벌(google-oauth.js · _googleExchange) */
+        let search = null;
+        try{ search = new URL(url).search; }catch(_){}
+        if(search === null){ finish({ ok:false, reason:'로그인 응답을 읽지 못했어요' }); return; }
+        const r = GoogleOAuth.parseCallback(search, state);
+        if(r.error){ _diagLog(GoogleOAuth.errorLogText(r)); finish({ ok:false, reason: GoogleOAuth.errorReason(r.error) }); return; }
+        if(r.noCode){ finish({ ok:false, reason: GoogleOAuth.NO_CODE_TEXT }); return; }
+        if(!r.ok){ finish({ ok:false, reason:'로그인 응답이 올바르지 않아요' }); return; }
+        _googleExchange(r.code, verifier).then(finish);
       };
       googleAuthWin.webContents.on('will-redirect', handle);
       googleAuthWin.webContents.on('will-navigate', handle);
@@ -2842,7 +2848,7 @@ function _setupMainOnce() {
 
   // 업데이트 확인은 렌더러가 켤 때(로그인 전 — shared/update-flow.js) companion:checkUpdate 로 묻는다 — 창이 구독을 건 뒤라 답을 놓치지 않는다.
   // 개발 중(npm start)엔 electron-updater가 "패키징 안 된 앱"이라며 에러를 내는 게 정상이라 무시해도 됨.
-  // 🍎 맥은 autoUpdater 를 안 탄다 — 갈래는 startUpdateCheck() 안에 있다(위 주석).
+  if(_updatePlatform.backgroundRecheck) _updateRecheck.start();   // 켜 둔 동안 다시 확인 — 첫 차례는 4~5시간 뒤(켤 때 확인과 겹치지 않음)
 
   // 렌더러가 "지금 재시작해서 설치" 버튼을 눌렀을 때 — 다운로드 완료된 업데이트를 설치하며 앱 재시작
   ipcMain.on('companion:installUpdate', () => { _quitHold.flushThen(() => autoUpdater.quitAndInstall()); });   // 설치는 창부터 닫아(맥) before-quit 로는 못 묻는다 — 먼저 묻는다
@@ -2868,11 +2874,12 @@ function _setupMainOnce() {
        'playlist' : 상태칩 플레이리스트. 마이홈과 무관하게 화면 우하단 작은 창으로 뜬다.
        'listen'   : 🎧 같이 듣기(방 DJ 의 곡을 같은 위치로). 배치는 playlist 와 같고, 반복은 늘 끄며,
                     곡 끝 · 하트비트 신호는 따로 companion:listenSignal 로만 보낸다(docs/LISTEN_TOGETHER.md 4장).
+       'xmas'     : 🎄 크리스마스 편지 추천곡(일회성 — 다음 업데이트에서 걷는다). 배치는 playlist 와 같고, 신호 없이 마이홈처럼 되풀이한다.
      규칙은 **나중에 튼 쪽이 이긴다.** 모드가 바뀌면 renderer에 알려서 진 쪽이 자기 표시를 내린다.
      ⚠️ 창을 둘로 나누면 소리가 겹쳐 나온다 — 그래서 하나로 유지하고 소유권만 넘긴다. */
   let bgmMode = 'home';
-  // 패널 뒤에 숨는(마이홈을 따라가지 않는) 모드 — 플레이리스트 · 같이 듣기
-  function bgmPanelMode(m){ return m === 'playlist' || m === 'listen'; }
+  // 패널 뒤에 숨는(마이홈을 따라가지 않는) 모드 — 플레이리스트 · 같이 듣기 · 크리스마스 추천곡
+  function bgmPanelMode(m){ return m === 'playlist' || m === 'listen' || m === 'xmas'; }
   // 주입 스크립트의 TWPL 신호를 renderer 로 넘길 채널 — 받는 쪽이 한 곳이게 모드마다 나눈다. 마이홈은 신호를 안 쓴다.
   function bgmSignalChannel(m){ return m === 'playlist' ? 'companion:bgmTrackEnd' : m === 'listen' ? 'companion:listenSignal' : null; }
   /* 🔊 음량 0~1 — 플레이리스트 슬라이더가 정한다.
@@ -3042,7 +3049,7 @@ function _setupMainOnce() {
     const safe = String(title || 'YouTube BGM').replace(/[<>&"]/g, '');
     return 'data:text/html;charset=utf-8,' + encodeURIComponent(
       '<!doctype html><html><head><meta charset="utf-8"></head>'+
-      '<body style="margin:0;overflow:hidden;background:#c0c0c0;font-family:Tahoma,sans-serif;height:100vh;box-sizing:border-box;'+
+      '<body style="margin:0;overflow:hidden;background:#c0c0c0;font-family:Tahoma,\'Malgun Gothic\',\'Apple SD Gothic Neo\',sans-serif;height:100vh;box-sizing:border-box;'+
       'border:2px solid;border-color:#ffffff #404040 #404040 #ffffff;">'+
       '<div style="height:22px;margin:2px;padding:0 5px;display:flex;align-items:center;justify-content:space-between;'+
       'background:linear-gradient(90deg,#7a7a7a,#a8a8a8);color:#fff;font-size:11px;font-weight:bold;user-select:none;">'+
@@ -3365,6 +3372,8 @@ function _setupMainOnce() {
   ipcMain.on('companion:openBgm', (e, url, title) => { bgmOpen(url, title, 'home'); });
   // 🎵 상태칩 플레이리스트 — 같은 창을 쓰지만 마이홈에 종속되지 않는 배치로 한 곡을 재생한다.
   ipcMain.on('companion:openPlaylistTrack', (e, url, title) => { bgmOpen(url, title, 'playlist'); });
+  // 🎄 크리스마스 편지 추천곡(일회성) — 같은 창 · 나중에 튼 쪽이 이긴다
+  ipcMain.on('companion:openXmasSong', (e, url, title) => { bgmOpen(url, title, 'xmas'); });
   /* 🎧 같이 듣기 — DJ 의 곡을 그 위치(초)부터 연다. 위치는 유튜브 주소의 t 로 싣는다(앞광고만큼 늦는 건 렌더러의 어긋남 맞추기가 덮는다). */
   function bgmListenUrl(url, start){
     try{
@@ -3817,11 +3826,12 @@ function _setupMainOnce() {
   // mode: 'launcher' | 'creator' | 'run'
   ipcMain.on('companion:setConfigMode', (e, isConfig, mode, extra) => { _applyConfigMode(isConfig, mode, extra); });
 
-  // 창 드래그 이동 (run 모드 deskBar grip 등, 수동 dx/dy 방식이 필요한 경우용)
-  ipcMain.on('companion:moveWindow', (e, dx, dy) => {
-    if (!mainWindow) return;
-    const b = mainWindow.getBounds();
-    mainWindow.setBounds({ x: b.x + dx, y: b.y + dy, width: b.width, height: b.height });
+  // 창 드래그 이동 (마이홈 제목줄 · run 모드 deskBar grip — 수동 끌기). phase: 'start' | 'move' | 'end' — 자리 계산은 win-drag.js
+  ipcMain.on('companion:dragWindow', (e, phase) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if(phase === 'start') _winDrag.start();
+    else if(phase === 'move') _winDrag.move();
+    else _winDrag.end();
   });
 
   // 타이틀바 X 버튼 — 앱 완전 종료
@@ -3836,8 +3846,7 @@ function _setupMainOnce() {
        있어서 한 곳만 빠뜨려도 두 계정이 섞인다. 재시작은 그 위험이 구조적으로 없다.
      ⚠️ relaunch() 는 '다음에 켤 것'을 예약할 뿐이다. quit() 을 반드시 이어 불러야 실제로 껐다 켜진다. */
   ipcMain.on('companion:relaunchApp', () => {
-    try{ app.relaunch(); }catch(e){ console.warn('[재시작] relaunch 실패 — 종료만 합니다', e); }
-    app.quit();
+    _relaunchOrInstall(() => app.quit(), () => _quitHold.flushThen(() => autoUpdater.quitAndInstall()));
   });
 
   /* 🔔 작업표시줄 버튼 깜빡임 (카카오톡 방식). Windows FlashWindowEx 를 Electron 이 감싼 것.
@@ -3904,12 +3913,11 @@ function _setupMainOnce() {
     _reapplyIgnoreMouse();
   });
 
-  /* 🎬 '영상 겹침 실험' 토글 — 설정 → 시스템.
+  /* 🎬 '영상 겹침 실험' 토글 — 설정 → 디스플레이.
      읽기: Promise<{on:boolean, alpha:number}>  ·  쓰기: Promise<{ok, on}>
      ⚠️ **알파만** 다룬다. 갭(overlayBottomGap)은 절대 건드리지 않는다 — 이유는 loadSettings 주석.
-     ⚠️ 이 토글은 **성공하면 지운다.** 레이어드 알파가 실기기에서 효과가 확인되면 기본 동작으로
-       올리고 이 통로와 UI 를 함께 걷어낼 것. 한 번 내보낸 토글은 켜 둔 사용자가 생겨서
-       나중에 지우기 어려워진다 — 폐기된 🔀 실험실 칸이 정확히 그 이유로 위험해졌다. */
+     ⚠️ 지우지 말 것 — 영상 · 화면공유가 검어지는 사람이 켜야 하는 해결책이다(도움말 5-1 «🎬 영상 겹침 실험»).
+       기본이 꺼짐인 까닭은 overlay-win.js 주석. 기본 동작으로 올리기로 하면 이 통로 · preload · 설정 칸을 함께 정리한다. */
   /* 🧹 옛 설정 초기화 안내 — 렌더러가 부팅 때 한 번 묻는다. 한 번 돌려주면 끈다(창을 다시 불러도 두 번 안 뜬다). */
   ipcMain.handle('companion:takeSettingsNotice', () => {
     const r = { reset: _settingsResetNotice };
@@ -4146,25 +4154,7 @@ function _setupMainOnce() {
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
   if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
-  app.on('before-quit', (e) => { if(_quitHold.beforeQuit(e)) return; try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
-  /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
-     [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
-       종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
-     [원인] 0x80000003 은 STATUS_BREAKPOINT — 정상 종료 코드가 아니라 '정리 도중에 끊겼다'는 뜻이다.
-       Windows는 WM_QUERYENDSESSION 을 보내고 짧은 시간 안에 창이 사라지길 기다리는데,
-       이 앱은 그 경로에 아무 처리가 없어서
-         ・전체화면 always-on-top 오버레이 + BGM 자식창이 제 시간에 안 닫히고 → '종료를 막는 앱'
-         ・그 상태로 OS가 프로세스를 끊는 순간 저수준 전역 훅(uIOhook)·창 관리 네이티브 모듈이
-           스레드가 살아 있는 채로 뜯겨 나가며 브레이크포인트 예외
-       가 된다. 종료 순간에만 나므로 평소 사용에는 흔적이 안 남는다.
-     [대응] 세션 종료 신호를 받으면 **기다릴 것 없이 즉시** 끝낸다.
-       ・네이티브 훅과 타이머를 먼저 정리 — 뜯기기 전에 우리가 먼저 내려놓는다
-       ・모든 창을 destroy — close 이벤트/blur 자동닫힘 등 비동기 경로를 타지 않는다
-       ・app.exit(0) — before-quit/will-quit 을 건너뛰고 그 자리에서 종료 코드 0으로 끝낸다
-         (app.quit()은 창을 하나씩 닫으며 이벤트를 도는데, 그 시간이 곧 '종료를 막는 앱'이 된다)
-     ⚠️ 이 경로에서는 저장을 하지 않는다. 설정은 바뀔 때마다 이미 파일에 쓰고 있으므로
-       여기서 추가로 쓸 것이 없고, 쓰기를 넣으면 다시 같은 문제(느려서 종료를 막음)가 된다. */
-  app.on('session-end', () => { _exitNow(); });
+  app.on('before-quit', (e) => { if(_quitHold.beforeQuit(e)) return; try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } try { _updateRecheck.stop(); } catch (_) {} try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
 }
 
 /* 🔁 두 번째 실행 때 옛 인스턴스를 어떻게 할지 — 순수 판정(검사 sim-second-instance).
@@ -4194,8 +4184,8 @@ function _mainWindowHealth(){
    ⚠️ relaunch() 는 예약일 뿐이라 _exitNow() 를 꼭 이어 부른다. 멈춘 렌더러를 기다리지 않게 quit() 이 아니라 exit(0). */
 function _relaunchFresh(s){
   _diagLog('[중복 실행] 옛 창을 쓸 수 없어 정리하고 새로 띄움 — ' + JSON.stringify(s));
-  try{ app.relaunch(); }catch(e){ _diagLog('[중복 실행] relaunch 실패 — ' + (e && e.message)); }
-  _exitNow();
+  // 맥 quitAndInstall 은 창부터 닫는다(close) — 멈춘 렌더러를 기다리지 않게 먼저 없앤다
+  _relaunchOrInstall(_exitNow, () => { _destroyAllWindows(); autoUpdater.quitAndInstall(); });
 }
 
 // 앱 중복 실행 방지 — 이미 하나 켜져있는데 또 실행하면(바탕화면 아이콘 재클릭 등),
@@ -4229,6 +4219,7 @@ if (!gotLock) {
     FOCUS_APPS_FILE = path.join(app.getPath('userData'), 'focus-apps.json');
     focusApps = loadFocusApps();   // ★ 이전에 등록해둔 포커싱 어플 복원
     _applyAppMenu();   // 기본 메뉴 걷기 — 창보다 먼저(APP_MENU_TEMPLATE 주석)
+    if(await _offerMoveToApplications()) return;   // 맥: 옮기면 새 자리에서 다시 켜진다 — 이 실행은 창을 띄우지 않는다
     _bootDone = true;
     createWindow();
     /* 💤 절전 · 잠금에서 돌아옴 — 렌더러의 realtime 연결이 살아 있는지 한 번 확인한다(rt-hub checkAlive · 끊겼으면 다시 붙음) */

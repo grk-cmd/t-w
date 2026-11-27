@@ -1,4 +1,4 @@
-/* @tw/char-core 0.5.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
+/* @tw/char-core 0.6.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
 "use strict";
 var TwCharCore = (() => {
   var __defProp = Object.defineProperty;
@@ -783,9 +783,10 @@ vec3 twHsv2Rgb(vec3 c){
   vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
   return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
-vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
+vec3 twHueShift(vec3 rgb, float hue, float sat, float val, float rot){
   vec3 hsv = twRgb2Hsv(rgb);
-  hsv.x = hue;
+  /* 돌리기면 무늬의 여러 색이 같이 돌고 0 이 원본이다. 덮기(옛 저장값)는 모든 픽셀이 한 색조가 된다. */
+  hsv.x = (rot > 0.5) ? fract(hsv.x + hue) : hue;
   /* 채도는 0 이 중립. 양수는 진한 쪽을 따라가고(흑백 텍스처에 색), 음수는 원본에 (1+sat) 을 곱해 내린다(-1 = 회색).
      ⚠️ 음수 쪽을 max() 로 하면 절대 안 내려간다. */
   hsv.y = (sat >= 0.0) ? max(hsv.y, sat * 0.9) : hsv.y * (1.0 + sat);
@@ -873,21 +874,22 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
         shader.uniforms.uSat = u.uSat;
         shader.uniforms.uVal = u.uVal;
         shader.uniforms.uOn = u.uOn;
-        shader.fragmentShader = "uniform float uHue;\nuniform float uSat;\nuniform float uVal;\nuniform float uOn;\n" + HUE_GLSL + shader.fragmentShader;
+        shader.uniforms.uRot = u.uRot;
+        shader.fragmentShader = "uniform float uHue;\nuniform float uSat;\nuniform float uVal;\nuniform float uOn;\nuniform float uRot;\n" + HUE_GLSL + shader.fragmentShader;
         shader.fragmentShader = shader.fragmentShader.replace(
           "#include <map_fragment>",
-          "#include <map_fragment>\n  if(uOn > 0.5){ diffuseColor.rgb = twHueShift(diffuseColor.rgb, uHue, uSat, uVal); }"
+          "#include <map_fragment>\n  if(uOn > 0.5){ diffuseColor.rgb = twHueShift(diffuseColor.rgb, uHue, uSat, uVal, uRot); }"
         );
         shader.fragmentShader = shader.fragmentShader.replace(
           "#include <emissivemap_fragment>",
-          "#include <emissivemap_fragment>\n  if(uOn > 0.5){ totalEmissiveRadiance = twHueShift(totalEmissiveRadiance, uHue, uSat, uVal); }"
+          "#include <emissivemap_fragment>\n  if(uOn > 0.5){ totalEmissiveRadiance = twHueShift(totalEmissiveRadiance, uHue, uSat, uVal, uRot); }"
         );
       };
     }
     function ensureHueUniforms(mat) {
       if (mat.userData && mat.userData._hueU) return mat.userData._hueU;
       mat.userData = mat.userData || {};
-      const u = { uHue: { value: 0 }, uSat: { value: 0 }, uVal: { value: 1 }, uOn: { value: 0 } };
+      const u = { uHue: { value: 0 }, uSat: { value: 0 }, uVal: { value: 1 }, uOn: { value: 0 }, uRot: { value: 0 } };
       mat.userData._hueU = u;
       mat.onBeforeCompile = hueOBC(u);
       mat.needsUpdate = true;
@@ -904,14 +906,52 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
         u.uHue.value = hsvOpt.h || 0;
         u.uSat.value = hsvOpt.s == null ? 0 : hsvOpt.s;
         u.uVal.value = hsvOpt.v == null ? 1 : hsvOpt.v;
+        u.uRot.value = hsvOpt.rot ? 1 : 0;
       } else {
         const hsv = rgbHexToHsv(hex);
         u.uHue.value = hsv.h;
         u.uSat.value = hsv.s;
         u.uVal.value = 1;
+        u.uRot.value = 0;
       }
       u.uOn.value = 1;
       return true;
+    }
+    function hueShiftHex(hex, hsv) {
+      const c = new THREE.Color(hex);
+      const r = c.r, g = c.g, b = c.b;
+      const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+      let h = 0;
+      if (d > 0) {
+        if (max === r) h = (g - b) / d / 6;
+        else if (max === g) h = ((b - r) / d + 2) / 6;
+        else h = ((r - g) / d + 4) / 6;
+        if (h < 0) h += 1;
+      }
+      let s = max === 0 ? 0 : d / max;
+      let v = max;
+      const hue = hsv.h || 0, sat = hsv.s == null ? 0 : hsv.s, val = hsv.v == null ? 1 : hsv.v;
+      h = hsv.rot ? ((h + hue) % 1 + 1) % 1 : hue;
+      s = sat >= 0 ? Math.max(s, sat * 0.9) : s * (1 + sat);
+      s = Math.min(1, Math.max(0, s));
+      v = Math.min(1, Math.max(0, v * val));
+      const f = (n) => {
+        const k = (n + h * 6) % 6;
+        return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+      };
+      return "#" + new THREE.Color(f(5), f(3), f(1)).getHexString();
+    }
+    function tintPartMesh(m, hex, hsv) {
+      if (!m || !m.material) return;
+      if (isHueTintMesh(m)) {
+        applyHueTint(m, hex, hsv);
+        m.material.needsUpdate = true;
+        return;
+      }
+      const c = hsv && hsv.rot ? hueShiftHex("#" + (m.userData && m.userData.origColor || "ffffff"), hsv) : hex;
+      if (m.material.color) m.material.color.set(c);
+      if (m.material.emissive) m.material.emissive.set(c).multiplyScalar(baseFlatOf(m.material));
+      m.material.needsUpdate = true;
     }
     return {
       FLAT_EMISSIVE: FLAT,
@@ -924,7 +964,9 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
       isHueTintMesh,
       hueOBC,
       ensureHueUniforms,
-      applyHueTint
+      applyHueTint,
+      hueShiftHex,
+      tintPartMesh
     };
   }
 
@@ -1433,17 +1475,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
       if (xf.color && wrp.userData.colorGroups) {
         for (const key in wrp.userData.colorGroups) {
           const c = xf.color[key];
-          if (c) wrp.userData.colorGroups[key].forEach((m) => {
-            if (!m.material) return;
-            if (deps.tone.isHueTintMesh(m)) {
-              deps.tone.applyHueTint(m, c, xf.colorHSV && xf.colorHSV[key]);
-              m.material.needsUpdate = true;
-              return;
-            }
-            if (m.material.color) m.material.color.set(c);
-            if (m.material.emissive) m.material.emissive.set(c).multiplyScalar(deps.tone.baseFlatOf(m.material));
-            m.material.needsUpdate = true;
-          });
+          if (c) wrp.userData.colorGroups[key].forEach((m) => deps.tone.tintPartMesh(m, c, xf.colorHSV && xf.colorHSV[key]));
         }
       }
       if (o.applyPic) o.applyPic(wrp, xf.pic);
@@ -1467,7 +1499,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
 
   // src/index.ts
   var THREE_REVISION = "128";
-  var VERSION = "0.5.0";
+  var VERSION = "0.6.0";
   function createCharCore(deps) {
     const THREE = deps?.THREE;
     if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");

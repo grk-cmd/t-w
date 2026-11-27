@@ -10,7 +10,7 @@
   import { getDatabase, ref as _dbRef, get as _sdkGet, forceWebSockets } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";   // 남은 DB 읽기는 점검 칸(config/maintenance) 하나
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
-    getStorage, ref as _stRef, uploadString, getDownloadURL, deleteObject
+    getStorage, ref as _stRef, uploadString, uploadBytesResumable, getDownloadURL, deleteObject
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
   /* 🔑 Auth — 구글 계정으로 신원을 서버가 보증하게 만든다.
      ★ 왜 필요한가 — 이 앱의 신원은 지금까지 localStorage 의 `tw.myUserId` 한 줄뿐이었다.
@@ -24,8 +24,8 @@
        (identitytoolkit / securetoken 이 그 아래다). 토큰 교환은 main.js(Node)가 하므로
        렌더러 CSP 와 무관하다. script-src 도 gstatic 이 이미 있다. */
   import {
-    getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword,
-    linkWithCredential, reauthenticateWithCredential, EmailAuthProvider,
+    getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword, getAdditionalUserInfo, deleteUser,
+    reauthenticateWithCredential, EmailAuthProvider,
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
@@ -233,6 +233,13 @@
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
       subscribeSince: (room, tab, since, onMsg, onReady, onFail) => window.TwChatRt.store.subscribeSince(room, tab, since, onMsg, onReady, onFail),
       clearLog: (room, tab) => window.TwChatRt.store.clear(room, tab) }),
+    /* 🖼 내 그림 바이트를 그 경로에 올리고 다운로드 주소 — 경로 · 이름 · 시간 상한은 shared/own-image.js 가 정한다(users/{내 코드}/…).
+       → { done: Promise<주소>, cancel() }. 끊을 수 있게 resumable 로 올린다 — 공용 maxUploadRetryTime 은 방 얼굴 · GLB 도 쓰므로 바꾸지 않는다 */
+    putOwnFile(path, bytes, contentType){
+      const r = sref(storage, path);
+      const task = uploadBytesResumable(r, bytes, { cacheControl: STORAGE_CACHE, contentType });
+      return { done: task.then(() => getDownloadURL(r)), cancel: () => task.cancel() };
+    },
     /* 😊 내 이모티콘 그림 올리기 — 서버가 받는 자리 users/{내 코드}/emojis/{칸}.png|gif 에만. 칸 저장 · 지우기는 API(chat-rt.js). 반환: 내려받기 주소 */
     async uploadEmojiImage(userCode, slot, dataUrl, isGif){
       const storageRef = sref(storage, `users/${userCode}/emojis/${slot | 0}.${isGif ? 'gif' : 'png'}`);
@@ -253,13 +260,15 @@
     /* 지금 로그인 → { uid, anonymous } | null — login-flow.js 의 판정 재료 */
     authUser(){ const u = auth && auth.currentUser; return u ? { uid: u.uid, anonymous: !!u.isAnonymous } : null; },
 
-    /* 구글 ID 토큰으로 로그인 → { ok, uid, email } | { ok:false, reason } */
+    /* 구글 ID 토큰으로 로그인 → { ok, uid, fresh, email } | { ok:false, reason } — fresh = 이 로그인으로 Auth 사용자가 새로 생김 */
     async authSignInWithGoogle(idToken){
       if(!auth) return { ok:false, reason:'로그인 기능을 쓸 수 없어요 (초기화 실패)' };
       if(!idToken) return { ok:false, reason:'구글 토큰이 없어요' };
       try{
         const cred = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
-        return { ok:true, uid: cred.user.uid, email: cred.user.email || null };
+        let fresh = false;
+        try{ const info = getAdditionalUserInfo(cred); fresh = !!(info && info.isNewUser); }catch(_){}
+        return { ok:true, uid: cred.user.uid, fresh, email: cred.user.email || null };
       }catch(e){
         const c = String((e && e.code) || e || '');
         if(c.includes('operation-not-allowed')) return { ok:false, reason:'Firebase 콘솔에서 [Google] 로그인을 켜주세요' };
@@ -286,23 +295,20 @@
         return { ok:false, reason:'로그인에 실패했어요 (' + (k || '알 수 없음') + ')' };
       }
     },
-    /* 🔗 지금 로그인(비밀번호로 가입)에 구글을 **붙인다** — 같은 authUid 그대로. 그 구글이 이미 다른 계정 것이면 거절(자동 병합 없음).
-       TODO: 서버 경로가 없다(지도 6장 ⑧) — 생기면 서버 경로로 옮긴다. */
-    async authLinkGoogle(idToken){
+    /* 🔄 서버가 로그인 수단을 바꾼 뒤(구글 붙이기 · 바꾸기 — /v2/me/google) 이 세션의 providerData 를 새로 받는다 — 계정 탭이 다시 그린다.
+       붙이기 · 바꾸기는 서버가 한다(앱이 Firebase 에 직접 붙이면 서버가 «남의 계정 구글» 을 가르지 못한다). → { ok } | { ok:false, reason } */
+    async authReload(){
       if(!auth || !auth.currentUser) return { ok:false, reason:'로그인 상태가 아니에요 — 다시 시도해 주세요' };
-      try{
-        const cred = await linkWithCredential(auth.currentUser, GoogleAuthProvider.credential(idToken));
-        const g = (cred.user.providerData || []).find(p => p && p.providerId === 'google.com');
-        return { ok:true, email: (g && g.email) || null };
-      }catch(e){
-        const k = String((e && e.code) || e || '');
-        if(k.includes('credential-already-in-use') || k.includes('email-already-in-use')) return { ok:false, reason:'이 구글 계정은 이미 다른 계정에 쓰이고 있어요' };
-        if(k.includes('provider-already-linked')) return { ok:true, already:true, email:null };
-        if(k.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' };
-        return { ok:false, reason:'구글을 연결하지 못했어요 (' + (k || '알 수 없음') + ')' };
-      }
+      try{ await auth.currentUser.reload(); return { ok:true }; }
+      catch(_){ return { ok:false, reason:'로그인 정보를 새로 받지 못했어요 — 앱을 다시 시작하면 보여요' }; }
     },
     async authSignOut(){ if(auth){ try{ await fbSignOut(auth); }catch(_){} } },
+    /* 방금 만든 구글 로그인(서버 계정 없음)의 Auth 사용자를 지운다 — 지금 로그인이 그 uid 일 때만. 지우면 로그인도 풀린다 → { ok } */
+    async authDeleteNewLogin(uid){
+      const cu = auth && auth.currentUser;
+      if(!cu || !uid || cu.uid !== uid) return { ok:false };
+      try{ await deleteUser(cu); return { ok:true }; }catch(_){ return { ok:false }; }
+    },
 
     /* 🔐 로그인 수단 — 계정 탭이 «구글 · 친구 코드+비밀번호» 를 보인다. authProviders() → null(세션 없음) | { authUid, anonymous, google, googleEmail, password, passwordEmail } */
     authProviders(){ return _providersOf(auth && auth.currentUser); },

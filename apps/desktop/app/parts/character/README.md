@@ -59,19 +59,21 @@
 ## catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)
 
 - **책임**: 카탈로그 인덱스엔 `glbUrl` 만 오는데 앱 곳곳은 `rec.glb`(base64)를 본다 — 쓰는 때에 채운다. 차례: 세션 메모리 → 영구 캐시(`shared/glb-idb-cache.js`) → 서버(`catalogApiMod.fetchGlb`).
+  영구 캐시 열쇠는 내용 해시(`sha256:` + `rec.modelHash`) — 주소가 바뀌어도 같은 파일은 다시 받지 않는다. 찾을 때 옛 판의 주소 열쇠(지금 `glbUrl` · 0.13 서버 endpoint `catalogApiMod.legacyGlbUrl(해시)`)도 보고, 찾으면 해시 열쇠로 옮겨 적는다.
 - **만드는 법**: `const catalogGlbMod = TwCatalogGlb.createCatalogGlb({ catalogApiMod, glbIdbMod });`
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
-  - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
+  - `resolveCatalogGlbCached(rec)` → 메모리 · 영구 캐시에서만(네트워크 없음).
+  - `resolveCatalogGlbAll(recs, cachedOnly)` → 새로 채운 수 — 스냅샷(객체 · 배열) 전부를 나란히 채우고 영구 캐시 치우기를 부른다. `cachedOnly` 면 서버로 안 나간다.
   - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(연결이 안 되거나 받는 도중 끊김 — 차단 · DNS · 연결) · `fail … 403 Nms`(응답 번호) · 실패한 적 없으면 빈 글). 책상 카드(만들기 E-CHAR-14 · 꾸미기 책상 탭 E-CHAR-13)가 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
   ```js
-  catalogApiMod.subscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
+  catalogApiMod.subscribe('items', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj, true); merge(obj); });   // 첫 화면 전 — 캐시만
   ```
 - **확장할 때 고칠 자리**: 받는 길이 바뀌면 `catalog-api.js` 의 `fetchGlb` 쪽 — 이 모듈은 그대로.
 - **함정**
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
   - 실패는 기억하지 않는다(다음에 다시 받는다 — `glbFailWhy` 는 이유만 적어 둘 뿐 막지 않고, 받으면 지운다) · 영구 캐시 넣기는 기다리지 않는다.
-  - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부).
+  - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부 · 캐시만 · 해시 열쇠 · 옛 주소 열쇠 옮기기).
 
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
 
@@ -408,6 +410,28 @@
 
 - **책임**: 서버에서 받은 칸을 화면 캐릭터로 앉히고(`applySlotObjs(arr, which)`), `saveSlots` 가 «지금 화면 → 저장 모양» 직렬화 결과(`lastOut`)와 달라졌는지를 알린다(`onSaved`). 이 PC 에 저장하지 않는다. 빈 그림 방어 · 이미지 복원 실패 칸(`_imgBroken`) 저장 제외는 직전 직렬화 결과 기준.
 - **함정**: `which` 로 고른 칸만 앉히면 나머지 칸의 캐릭터 객체는 그대로다(책상 위 좌석이 붙들고 있다). `pullForward(i)` 는 서버가 휴지통 · 보관함 이동 뒤 당기는 것과 같은 규칙. 검사: `checks/sim-slot-save.js`.
+
+## gacha-album.js — 📚 도감 규칙
+
+- **책임**: 꾸미기 창 «📚 도감» 탭의 줄 · 쪽 규칙(순수 함수 · DOM · firebase 없음). 도감 = «⭐ 상시» + 시즌(봄 · 여름 · 가을 · 겨울) — 파츠가 하나라도 있는 것만 줄을 세운다. 그리기는 `gacha.js`.
+- **만드는 법**: classic script(`window.TwGachaAlbum`) — html 이 `gacha.js` 앞에 싣고, `gacha.js` 가 `const gachaAlbum = TwGachaAlbum;` 로 받는다.
+- **내놓는 것**: `ALBUM_KEYS` · `ALBUM_LABEL` · `ALBUM_THUMBS`(3) · `isAlbumKey` · `albumParts(parts, key)` · `albumList(parts, count)` → `[{ key, label, owned, total, thumbs }]` · `albumPct` · `pageCount` · `clampPage` · `pageOf`.
+- **함정**:
+  - 줄 그림은 **뽑은 파츠에서만** 고른다 — 안 뽑은 파츠는 도감 안에서도 «???» 다.
+  - 모르는 시즌 이름(rec.season)은 어느 도감에도 넣지 않는다 — 뽑기 풀도 아는 시즌만 돈다.
+  - 도감 화면 흐름: 꾸미기 창(`wardrobe.js`)이 «도감» 탭을 그릴 때 `#gachaInvHost` 를 만들고 `gachaMod.renderGachaInv()` 를 부른다 · 탭이 보이기 시작하면 `gachaMod.onAlbumShow()`(서버와 한 번 맞춤). 단축키는 F2(꾸미기 창) 하나 — 따로 T 키는 없다 · 뽑기 창 [도감으로] 는 창 열기 통로(`twNav.NAV.WARDROBE_ALBUM`).
+  - 라이선스가 없으면 꾸미기 창은 «도감» 탭만 연다(다른 탭은 잠금 안내 · [라이선스 등록하러 가기]). 뽑은 가챠 파츠는 카테고리 칸에도 🎰 로 보인다.
+  - 검사: `checks/sim-gacha-album.js`(규칙 · 연결 · mutation test) · `checks/sim-gacha.js` 5절(도감 화면) · `checks/sim-wardrobe.js` 2-2절(탭 · 라이선스) · `checks/sim-wardrobe-panel.js` 2-2절(F2 · T 고리 없음 · [도감으로]).
+
+## wardrobe-place.js — 📐 꾸미기 창 · 미리보기 창 자리
+
+- **책임**: 🎨 꾸미기 창(`#wardrobePanel`)과 👀 미리보기 창(`#wdPreviewPanel`)을 어디에 둘지(순수 함수 · DOM · 저장 없음). 두 창은 한 몸 — 미리보기는 늘 꾸미기 창 왼쪽에 붙는다. 기억이 없으면 둘을 묶어 화면 가운데.
+- **만드는 법**: classic script(`window.TwWardrobePlace`) — html 이 `wardrobe.js` 앞에 싣고, `wardrobe.js` 가 `TwWardrobePlace.placeGroup` 을 부른다.
+- **내놓는 것**: `GAP`(8) · `MARGIN`(8) · `isPos(s)` · `placeGroup({ vw, vh, panel:{w,h}, preview:{w,h}, saved })` → `{ panel:{x,y}, preview:{x,y} }`.
+- **함정**:
+  - 자리 기억은 꾸미기 창 왼쪽 위 하나(`tw.wdWinPos` — `wardrobe.js` 가 읽고 쓴다). 어느 쪽 제목줄을 끌어도 같이 움직인다.
+  - 화면이 좁아 둘이 다 안 들어가면 꾸미기 창을 먼저 화면 안으로 · 미리보기는 겹쳐도 화면 안으로만.
+  - 검사: `checks/sim-wardrobe-place.js`.
 
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 

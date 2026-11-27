@@ -37,7 +37,7 @@ const getMyUserId = deps.getMyUserId;
 const getDisplayName = deps.getDisplayName;
 const asyncPrompt = deps.asyncPrompt;                // 🎵 링크 추가 · 곡 제목 묻기(window.prompt 는 Electron 에서 no-op)
 // 👤 명함 — 레벨 · 🌟 회차 배지(«🏅 레벨 티어» 구역 · 포커스 기록)
-const getFocusLevel = deps.getFocusLevel;
+const shownFocusLevel = deps.shownFocusLevel;   // 내 레벨 — 서버 진척을 못 받았으면 null(배지를 비운다)
 const myFocusShow = deps.myFocusShow;
 const starFromRemote = deps.starFromRemote;
 const lvBadgeClass = deps.lvBadgeClass;
@@ -56,6 +56,8 @@ const bringWinToFront = deps.bringWinToFront;
 const escRegisterWindow = deps.escRegisterWindow;
 const _escEditable = deps.escEditable;
 const plApi = deps.playlistApi;                      // 🌐 서버 목록 provider(playlist-api.js) — 내 목록 읽기 · 저장 · 파도타기
+const plLikeUi = deps.playlistLikeUi;                // 👍 반응 — [💬 반응] 서랍 · 내 목록의 👍 수(playlist-like-ui.js)
+// TODO: 👍 반응은 아직 Firebase DB(playlistLikes)를 직접 읽고 쓴다 — 0.13 은 DB 쓰기가 잠겨 서버 경로로 옮겨야 한다
 /* ═══ 🎵 상태칩 플레이리스트 ═════════════════════════════════════════════
    유튜브 링크를 여러 개 담아 순서대로 듣는 목록 + 🌊 남의 목록으로 파도타기 + 재생.
 
@@ -669,9 +671,18 @@ async function _plLoadMyCard(){
     if(c){ _plMyCard = c; _plRenderHead(); }
   }catch(e){ notifyError('E-PL-03', e); }   // 못 받음 — 이름 · 사진이 빈 채로 그려진다(Firebase 로 물러나지 않는다)
 }
+/* 👍 반응 칸 — 창이 펼쳐져 보일 때만 «누구의 몇 번 프리셋» 을 넘긴다(닫혀 있거나 접혔으면 null — 읽지 않는다) */
+function _plLikeSync(){
+  const box = document.getElementById('myPlaylistBox');
+  const shown = !!box && !box.classList.contains('hidden') && !box.classList.contains('mini');
+  if(!shown){ plLikeUi.render(null); return; }
+  plLikeUi.render(_plReadOnly() ? { ro: true, ownerId: _plView.uid, setIdx: _plView.setIdx }
+                                : { ro: false, ownerId: getMyUserId(), setIdx: _plCur });
+}
 function _plRenderHead(){
   const wrap = document.getElementById('myPlProfile');
   if(!wrap) return;
+  _plLikeSync();
   const ro = _plReadOnly();
   const card = ro ? (_plViewCard || {}) : (_plMyCard || {});
 
@@ -682,7 +693,7 @@ function _plRenderHead(){
   if(nickEl){ nickEl.textContent = nick; nickEl.title = nick; }
 
   const lv = ro ? (card.level != null ? card.level : null)
-                : getFocusLevel();
+                : shownFocusLevel();
   const st = ro ? starFromRemote(card) : myFocusShow();   // 🌟 회차면 별 배지(개정 70)
   _plFillLv(document.getElementById('myPlLv'), lv, st);
 
@@ -1031,6 +1042,7 @@ function _plApplyMini(){
   const box = document.getElementById('myPlaylistBox');
   if(!box) return;
   box.classList.toggle('mini', _plMini);
+  _plLikeSync();
   const btn = document.getElementById('myPlMin');
   if(btn){
     btn.textContent = _plMini ? '□' : '－';
@@ -1236,7 +1248,7 @@ async function _plPeekFriend(fid, name){
   /* ★ "친구지만 목록이 비었다"를 그대로 말해준다 — 무작위 파도타기의 '아직 파도탈 목록이 없어요'와
      뭉뚱그리면 내 친구가 목록을 안 만든 건지 앱이 고장난 건지 구분이 안 된다. */
   if(!r){ toast(TwPersonName.shown(name) + ' 님은 아직 공개한 목록이 없어요'); return; }
-  _plView = { uid:r.uid, name:name || '', items:r.items,
+  _plView = { uid:r.uid, name:name || '', items:r.items, setIdx:r.setIdx,
     bio:r.bio || '', homePublic:!!r.homePublic };
   _plSel = -1;   // 🎵 재생 위치는 그대로 — 무작위 파도타기와 같은 규칙이다(듣던 곡이 안 끊긴다)
   _plCloseFriendPick();
@@ -1794,6 +1806,7 @@ function _plApplyVolSoon(){
     if(willOpen){ _closeChipPopups('myPlaylistBox'); box._cascadeFlipped = false; _plLoadMyCard(); _plRetryOnOpen(); _plRender(); }   // 새로 열 땐 항상 우측부터 판정
     box.classList.toggle('hidden', !willOpen);
     btn.classList.toggle('on', willOpen);
+    _plLikeSync();   // 👍 반응 칸 — 펼쳐진 뒤에야 읽는다(위 _plRender 는 아직 닫힌 채 돈다)
     // 🪟 열 때는 맨 앞으로 — 채팅창이 이미 떠 있으면 그 뒤에서 열려 "안 열렸다"로 보인다.
     //   (칩째 올린다 — bringWinToFront 주석 참고)
     if(willOpen) bringWinToFront('myStatusChip');
@@ -1804,7 +1817,7 @@ function _plApplyVolSoon(){
     head.addEventListener('pointerdown', _plHeadPointerDown);
     head.addEventListener('dblclick', e=>{ e.stopPropagation(); _plResetPos(); });
   }
-  function _plClose(){ box.classList.add('hidden'); btn.classList.remove('on'); _plCloseFriendPick(); _plCloseSetPick(); _plCloseGrabPick(); }
+  function _plClose(){ box.classList.add('hidden'); btn.classList.remove('on'); _plCloseFriendPick(); _plCloseSetPick(); _plCloseGrabPick(); _plLikeSync(); }
   /* ⎋ ESC 스택에 태운다 — 옛 캡처 핸들러(이 IIFE 끝에 있었다)를 대신한다. 그쪽 주석의 규약은
      그대로다: 바깥 클릭으로는 안 닫히고, 닫는 길은 ✕ 과 ESC 둘뿐이다.
      ★ 옛 핸들러와 달라진 것 하나 — **입력칸에서는 안 닫힌다.** bio 를 고치다 ESC 를 누르면

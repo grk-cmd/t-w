@@ -56,6 +56,7 @@ const _chatFlyRefreshUI = deps.chatFlyRefreshUI;
 const _flySizeOk = deps.flySizeOk;
 const FLY_COLOR_LEVEL = deps.FLY_COLOR_LEVEL;          // 🎨 색 해금 레벨(상수)
 const getFocusLevel = deps.getFocusLevel;
+const shownFocusLevel = deps.shownFocusLevel;   // 안내에 쓰는 내 레벨 — 못 받았으면 null
 const isAdmin = deps.isAdmin;                          // 읽는 함수 — app.js 의 let(로그인할 때 다시 대입 · 이 줄보다 뒤에 선언)
 // 🔇 채팅 잠금 · 🗑 기록 삭제
 const _chatOffToggleClick = deps.chatOffToggleClick;
@@ -96,7 +97,7 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
     title.addEventListener('pointerdown', e=>{
       /* 닫기 버튼과 투명도 슬라이더는 드래그 시작 안 함 — 타이틀바가 드래그 핸들이라
          여기서 빼주지 않으면 슬라이더를 잡는 순간 창이 끌려가 값을 못 바꾼다
-         (#gachaInvHead 의 closeSel 예외와 같은 관례). */
+         (#gachaDrawHead 의 closeSel 예외와 같은 관례). */
       // ▁ 최소화 버튼도 드래그 예외 — 안 넣으면 누를 때마다 창이 따라 움직인다
       if(e.target.closest && e.target.closest('#chatCloseBtn, #chatMinBtn, #chatOpacity')) return;
       dragging=true;
@@ -363,7 +364,7 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
          고장으로 읽힌다. 바로 위 채널·레벨 게이트가 이미 같은 방식으로 안내한다. */
     if(officeMode()){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
     const lv = getFocusLevel();
-    if(lv < FLY_MIN_LEVEL){ toast('💣 는 레벨 ' + FLY_MIN_LEVEL + '부터 쓸 수 있어요 (지금 레벨 ' + lv + ')'); return; }
+    if(lv < FLY_MIN_LEVEL){ const shown = shownFocusLevel(); toast('💣 는 레벨 ' + FLY_MIN_LEVEL + '부터 쓸 수 있어요' + (shown != null ? ' (지금 레벨 ' + shown + ')' : '')); return; }
     if(!seats.some(s=>s.remote)){ toast('방에 다른 분이 있어야 해요'); return; }
     setFlyAiming(!_flyAiming());
   };

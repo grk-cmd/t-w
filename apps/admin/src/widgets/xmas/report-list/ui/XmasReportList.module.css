@@ -1,0 +1,56 @@
+.item {
+  align-items: flex-start;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.orn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.thumb {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  /* 투명한 그림이 바탕색에 묻히지 않게 체크무늬를 깐다. */
+  background: repeating-conic-gradient(var(--line) 0% 25%, var(--card) 0% 50%) 0 0 / 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.thumb img {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+.text {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reasons {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+}

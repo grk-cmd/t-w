@@ -81,11 +81,11 @@ function refreshMyStatusUI(){
   // ✨ 커스텀 상태는 등록한 문구/이모지로 해석해야 하므로 statusConfFor를 통해 얻음(내 좌석 기준).
   const c = userStatus ? statusConfFor(null, userStatus) : null;
   if(c){
-    // 세로 배열 A안: 라벨 요소는 없앴고 대신 title(툴팁)로 현재 상태 표시. dot 색은 그대로 상태 시각화.
-    btn.title = (c.emo ? c.emo+' ' : '') + c.label;
+    // ▾ 버튼 앞 점 색 = 지금 상태 · 이름은 툴팁으로
+    btn.title = '메뉴 — 지금 상태: ' + (c.emo ? c.emo+' ' : '') + c.label;
     if(dot){ dot.style.background = TwSafeHtml.cssColor(c.dot||'#9dba8a'); dot.style.boxShadow='0 0 0 2px '+statusHooks.hexToRgba(c.dot||'#9dba8a',.18); }
   } else {
-    btn.title = '상태';
+    btn.title = '메뉴';
     if(dot){ dot.style.background = '#9dba8a'; dot.style.boxShadow='0 0 0 2px rgba(157,186,138,.18)'; }
   }
   /* ⚠️ data-st 가 있는 항목만 본다. ✨ 커스텀 상태 항목은 data-st 가 없어서 ''===''(온라인)로

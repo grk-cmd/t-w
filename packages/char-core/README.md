@@ -9,7 +9,7 @@
 | 🧍 사람 몸(기본 몸 불러오기 · 복제 · 크기 맞추기 · 조립 · 대신 몸) | `src/body.ts` → `TwCharCore.createBody` | `app.js` 의 `bodyCore` — 몸 모델 바이트 · 재질 톤 · 귀 · 커미션 배율은 앱이 넘긴다(`defToBase` · `instantiateBase` · `normalizeModel` 이름 그대로) |
 | 🙂 얼굴 · 피부 그림판(512 캔버스 · 대칭축 · 피부 5종 · 피부 위에 그림 얹기 · «완전히 비었나») | `src/face.ts` → `TwCharCore.createFace` | `app.js` 의 `faceCore` — 이름(`compositeFace` · `newCanvas` · `_isBlankDraw` · `skinCanvases` …) 그대로. 피부 그림 불러오기(`loadSkins`)는 앱 몫 |
 | 🎀 파츠를 캐릭터에 붙일 한 벌로(복제 · 재질 · `_col` · `_pic` · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋 · 다중 인스턴스) | `src/parts.ts` → `TwCharCore.createParts` | `app.js` 의 `partsCore` — 장착 차례 · 옷 겹침 · 귀 · 애니메이션 · 책상 파츠 · 좌석 저장은 `equipPartOnSeat` 에 남는다(코어는 책상 · 좌석을 모른다) |
-| 💡 재질 톤(얼굴 맵 · 몸 평탄 조명 · 파츠 톤 · baseFlat · 텍스처 파츠 색조 셰이더) · 파츠 xf 적용 | `src/tone.ts` → `TwCharCore.createTone` · `src/parts.ts` `applyXfToWrapper` | `shared/light-tone.js` 가 화면 밝기 예산(FLAT_EMISSIVE)으로 만들어 `toneCore` 로 내놓는다(책상 · 아이템 톤은 앱). `mat-tone.js` 는 🐾 동물 귀 깜빡임만 더한다 |
+| 💡 재질 톤(얼굴 맵 · 몸 평탄 조명 · 파츠 톤 · baseFlat · 텍스처 파츠 색조 셰이더) · 파츠 xf 적용 | `src/tone.ts` → `TwCharCore.createTone` · `src/parts.ts` `applyXfToWrapper` | `shared/light-tone.js` 가 화면 밝기 예산(FLAT_EMISSIVE)으로 만들어 `toneCore` 로 내놓는다(책상 · 아이템 톤은 앱). 색조 저장값(`xf.colorHSV`)에 `rot` 이 있으면 «돌리기»(0 = 원본 · 무늬 색이 같이 돈다), 없으면 옛 «덮기»(모든 픽셀을 h 로) — 단색 메쉬 · 스와치는 같은 규칙의 `hueShiftHex` · 메쉬 하나에 거는 곳은 `tintPartMesh`. `mat-tone.js` 는 🐾 동물 귀 깜빡임만 더한다 |
 
 | 새로 생긴 것(앱에는 아직 부르는 곳 없음) | 파일 | 쓰는 곳 |
 |---|---|---|

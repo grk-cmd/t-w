@@ -82,6 +82,31 @@
             }
           }
         },
+        "_notice": {
+          ".write": true,
+          ".validate": "newData.hasChildren()",
+          "$nid": {
+            ".write": true,
+            ".validate": "$room.matches(/^SCRT-/) && $nid.matches(/^n([1-9]|1[0-9]|20)$/) && newData.hasChildren(['text','ts']) && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 300 && newData.child('ts').isNumber() && (!newData.child('pin').exists() || newData.child('pin').val() === true)",
+            "text": { ".validate": true },
+            "ts": { ".validate": true },
+            "pin": { ".validate": true },
+            "$other": { ".validate": false }
+          }
+        },
+        "_focus": {
+          "$uid": {
+            ".write": true,
+            ".validate": "$room.matches(/^SCRT-/) && $uid.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $uid !== 'undefined' && newData.hasChildren()",
+            "n": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "o": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360000000 && (!data.exists() || newData.val() >= data.val())" },
+            "d": {
+              ".validate": "newData.hasChildren()",
+              "$day": { ".validate": "$day.matches(/^20[0-9]{6}$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 86400 && (!data.exists() || newData.val() >= data.val())" }
+            },
+            "$other": { ".validate": false }
+          }
+        },
         "_music": {
           ".write": "!newData.exists() || newData.parent().child('_meta').child('music').val() === true",
           ".validate": "newData.hasChildren(['id','title','by','at','paused','pos','seq']) && (!data.exists() || newData.child('seq').val() > data.child('seq').val())",
@@ -520,6 +545,20 @@
             ".validate": "!$date.matches(/^(null|undefined|NaN)$/) && !$date.beginsWith(' ') && !$date.endsWith(' ') && (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100)"
           }
         },
+        "mallangSent": {
+          ".validate": "newData.hasChildren()",
+          ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+          "$giftId": {
+            ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && newData.hasChildren(['to', 'src', 'ts'])",
+            "to": { ".validate": "newData.isString() && newData.val().matches(/^[uU][0-9a-zA-Z]{8,40}$/)" },
+            "toName": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "src": { ".validate": "newData.isString() && newData.val().length <= 1000 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')" },
+            "img": { ".validate": "newData.isString() && newData.val().length <= 1000 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')" },
+            "ts": { ".validate": "newData.isNumber() && newData.val() > 0" },
+            "msg": { ".validate": "newData.isString() && newData.val().length <= 50" },
+            "$other": { ".validate": false }
+          }
+        },
         "mallangGiftSeen": {
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           ".validate": "newData.isNumber()"
@@ -811,6 +850,16 @@
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           ".validate": "newData.isNumber() && (newData.val() === 60 || newData.val() === 80 || newData.val() === 100)"
         },
+        "themeCustom": {
+          ".validate": "newData.hasChildren()",
+          ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+          "$t": {
+            ".validate": "($t === 'default' || $t === 'bubble') && newData.hasChildren(['a', 'b'])",
+            "a": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-F]{6}$/)" },
+            "b": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-F]{6}$/)" },
+            "$other": { ".validate": false }
+          }
+        },
         "advBg": {
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           ".validate": "(!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 500)) && (!newData.child('color').exists() || (newData.child('color').isString() && newData.child('color').val().length <= 20))"
@@ -860,6 +909,164 @@
         "n": { ".validate": true },
         "ts": { ".validate": true },
         "$other": { ".validate": false }
+      }
+    },
+    "xmasMeta": {
+      ".read": "auth != null && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+      ".write": false
+    },
+    "xmasTrees": {
+      "$t": {
+        ".validate": "$t.matches(/^[1-9][0-9]{0,3}$/)",
+        ".read": "auth != null && ((root.child('xmasMine/'+auth.uid+'/t').exists() && root.child('xmasMine/'+auth.uid+'/t').val() + '' === $t) || (root.child('xmasMeta/cur').exists() && root.child('xmasMeta/cur').val() + '' === $t) || (!root.child('xmasMeta/cur').exists() && $t === '1') || root.child('admins').child(auth.uid).val() === true) && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": false,
+        "o": {
+          "$s": {
+            ".validate": "$s.matches(/^[0-9]{1,3}$/)",
+            ".write": false
+          }
+        }
+      }
+    },
+    "xmasImg": {
+      "$t": {
+        ".validate": "$t.matches(/^[1-9][0-9]{0,3}$/)",
+        ".read": "auth != null && ((root.child('xmasMine/'+auth.uid+'/t').exists() && root.child('xmasMine/'+auth.uid+'/t').val() + '' === $t) || (root.child('xmasMeta/cur').exists() && root.child('xmasMeta/cur').val() + '' === $t) || (!root.child('xmasMeta/cur').exists() && $t === '1') || root.child('admins').child(auth.uid).val() === true) && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": false,
+        "$s": {
+          ".validate": "$s.matches(/^[0-9]{1,3}$/)",
+          ".write": false
+        }
+      }
+    },
+    "xmasOwners": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": false,
+      "$t": {
+        ".validate": "$t.matches(/^[1-9][0-9]{0,3}$/)",
+        "$s": {
+          ".validate": "$s.matches(/^[0-9]{1,3}$/)",
+          ".write": false
+        },
+        ".write": false
+      }
+    },
+    "xmasMine": {
+      "$authUid": {
+        ".validate": "$authUid.matches(/^[A-Za-z0-9]{10,40}$/)",
+        ".read": "auth != null && auth.uid === $authUid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": false
+      }
+    },
+    "xmasLetters": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$authUid": {
+        ".validate": "$authUid.matches(/^[A-Za-z0-9]{10,40}$/)",
+        ".read": "auth != null && auth.uid === $authUid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        "$lid": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $authUid && now < 1798124400000",
+          ".validate": "$lid.matches(/^l[1-5]$/) && newData.hasChildren(['text','ts']) && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 500 && newData.child('ts').isNumber() && newData.child('ts').val() <= now + 60000",
+          "text": {
+            ".validate": true
+          },
+          "ts": {
+            ".validate": true
+          },
+          "song": {
+            ".validate": "newData.hasChildren(['id']) && newData.child('id').isString() && newData.child('id').val().matches(/^[A-Za-z0-9_-]{11}$/) && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length <= 40))",
+            "id": {
+              ".validate": true
+            },
+            "title": {
+              ".validate": true
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "xmasGot": {
+      "$authUid": {
+        ".validate": "$authUid.matches(/^[A-Za-z0-9]{10,40}$/)",
+        ".read": "auth != null && auth.uid === $authUid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": false,
+        "$n": {
+          ".validate": "$n.matches(/^[1-9][0-9]?$/)",
+          ".write": false
+        }
+      }
+    },
+    "xmasGotFrom": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": false,
+      "$authUid": {
+        ".validate": "$authUid.matches(/^[A-Za-z0-9]{10,40}$/)",
+        "$n": {
+          ".validate": "$n.matches(/^[1-9][0-9]?$/)",
+          ".write": false
+        },
+        ".write": false
+      }
+    },
+    "xmasReturned": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$authUid": {
+        ".validate": "$authUid.matches(/^[A-Za-z0-9]{10,40}$/)",
+        ".read": "auth != null && auth.uid === $authUid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        "$lid": {
+          ".validate": "$lid.matches(/^l[1-5]$/)",
+          ".write": "auth != null && auth.uid === $authUid && !newData.exists()"
+        }
+      }
+    },
+    "xmasReports": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$key": {
+        ".validate": "$key.matches(/^(o-[1-9][0-9]{0,3}-[0-9]{1,3}|g-[A-Za-z0-9]{10,40}-[1-9][0-9]?)$/)",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$authUid": {
+          ".write": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && auth.uid === $authUid && !data.exists() && newData.exists() && now < 1798729200000 && ($key.beginsWith('o-') || $key.beginsWith('g-' + auth.uid + '-'))",
+          ".validate": "newData.hasChildren(['ts']) && newData.child('ts').isNumber() && newData.child('ts').val() <= now + 60000 && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 40))",
+          "ts": {
+            ".validate": true
+          },
+          "note": {
+            ".validate": true
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "playlistLikes": {
+      "$ownerId": {
+        ".validate": "$ownerId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $ownerId !== 'undefined'",
+        "$preset": {
+          ".validate": "$preset.matches(/^[0-2]$/)",
+          "count": {
+            ".read": "auth != null && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+            ".write": "auth != null && newData.exists()",
+            ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && newData.parent().child('last').isString() && newData.parent().child('by/' + newData.parent().child('last').val()).exists() && !data.parent().child('by/' + newData.parent().child('last').val()).exists()"
+          },
+          "last": {
+            ".write": "auth != null && newData.isString() && newData.val() === auth.uid",
+            ".validate": "newData.isString() && root.child('userAuth/'+$ownerId).val() !== auth.uid && newData.parent().child('by/' + newData.val()).exists() && !data.parent().child('by/' + newData.val()).exists()"
+          },
+          "by": {
+            "$authUid": {
+              ".read": "auth != null && auth.uid === $authUid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+              ".write": "auth != null && auth.uid === $authUid && !data.exists() && newData.exists()",
+              ".validate": "newData.val() === true && newData.parent().parent().child('last').val() === $authUid && newData.parent().parent().child('count').val() === (data.parent().parent().child('count').exists() ? data.parent().parent().child('count').val() : 0) + 1"
+            }
+          },
+          "$other": { ".validate": false }
+        }
       }
     },
     "playlistPriv": {
@@ -1172,10 +1379,11 @@
         ".validate": "$toId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $toId !== 'undefined'",
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         "$fromId": {
-          ".write": true,
+          ".write": "(!data.exists() && !newData.exists()) || (!root.child('userAuth/'+$fromId).exists() || root.child('userAuth/'+$fromId).val() === auth.uid) || (data.exists() && !newData.exists() && (!root.child('userAuth/'+$toId).exists() || root.child('userAuth/'+$toId).val() === auth.uid))",
           ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined' && (newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('ts').isNumber())",
           "name": { ".validate": true },
           "ts": { ".validate": "(root.child('users/'+$fromId+'/presence/ver').exists() || root.child('users/'+$fromId+'/presence/online').val() !== true)" },
+          "msg": { ".validate": "newData.isString() && newData.val().length <= 100" },
           "$other": { ".validate": false }
         }
       }
@@ -1185,7 +1393,7 @@
         ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined'",
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         "$toId": {
-          ".write": true,
+          ".write": "(!data.exists() && !newData.exists()) || (!root.child('userAuth/'+$fromId).exists() || root.child('userAuth/'+$fromId).val() === auth.uid) || (data.exists() && !newData.exists() && (!root.child('userAuth/'+$toId).exists() || root.child('userAuth/'+$toId).val() === auth.uid))",
           ".validate": "$toId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $toId !== 'undefined' && (newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('toName').exists() || (newData.child('toName').isString() && newData.child('toName').val().length <= 20)) && (!newData.child('toCode').exists() || (newData.child('toCode').isString() && newData.child('toCode').val().length <= 12)))",
           "ts": { ".validate": "(root.child('users/'+$fromId+'/presence/ver').exists() || root.child('users/'+$fromId+'/presence/online').val() !== true)" },
           "toName": { ".validate": true },
@@ -1502,7 +1710,7 @@
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         ".write": "((!root.child('userAuth/'+$uid).exists() || root.child('userAuth/'+$uid).val() === auth.uid) && (root.child('users/'+$uid+'/presence/ver').exists() || root.child('users/'+$uid+'/presence/online').val() !== true)) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
         "$msgId": {
-          ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['tag','title','ts']) && newData.child('tag').isString() && newData.child('tag').val().matches(/^(notice|update|reward|bug)$/) && newData.child('title').isString() && newData.child('title').val().length <= 80 && (!newData.child('body').exists() || (newData.child('body').isString() && newData.child('body').val().length <= 600)) && newData.child('ts').isNumber() && (!newData.child('read').exists() || newData.child('read').isBoolean()) && (!newData.child('bugId').exists() || (newData.child('bugId').isString() && newData.child('bugId').val().length <= 40)))",
+          ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['tag','title','ts']) && newData.child('tag').isString() && newData.child('tag').val().matches(/^(notice|update|reward|bug|xmas)$/) && newData.child('title').isString() && newData.child('title').val().length <= 80 && (!newData.child('body').exists() || (newData.child('body').isString() && newData.child('body').val().length <= 600)) && newData.child('ts').isNumber() && (!newData.child('read').exists() || newData.child('read').isBoolean()) && (!newData.child('bugId').exists() || (newData.child('bugId').isString() && newData.child('bugId').val().length <= 40)))",
           "tag": { ".validate": true },
           "title": { ".validate": true },
           "body": { ".validate": true },

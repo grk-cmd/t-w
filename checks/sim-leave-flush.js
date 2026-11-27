@@ -121,7 +121,7 @@ function mkCloset(clock, opt){
   vm.createContext(ctx); vm.runInContext(o.closetSrc || CLOSET, ctx);
   const C = ctx.window.TwCloset.createCloset({
     CHAR_SLOT_MAX: 5, closetApi: api, codec, roomFaceCache: { load: () => ({}), save(){} }, slots, slotSave,
-    getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError: () => {}, renderLauncher(){}, creatorOpen: () => false,
+    getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError: () => {}, renderLauncher(){}, creatorOpen: () => false, curSlot: () => 0,
     storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 },
   });
   C.useSession({ setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, on: (u) => u, onReset(){} });
@@ -330,7 +330,7 @@ say('── 4. 배선');
   chk(/app\.on\('before-quit', \(e\) => \{ if\(_quitHold\.beforeQuit\(e\)\) return; try \{ sysinput\.stopGlobalHooks/.test(MAIN), '  before-quit 맨 앞 — 붙잡았으면 훅 · 타이머 정리를 건너뛴다(기다리는 동안 앱이 그대로 돈다)');
   chk(/mainWindow\.on\('close', \(e\) => \{ _quitHold\.windowClose\(e\); \}\)/.test(MAIN), '  메인 창 닫기(Alt+F4)도 끄기로 모은다');
   chk(/ipcMain\.on\('companion:installUpdate', \(\) => \{ _quitHold\.flushThen\(\(\) => autoUpdater\.quitAndInstall\(\)\); \}\)/.test(MAIN), '  업데이트 설치 앞에서 묻는다');
-  chk(/ipcMain\.on\('companion:quitApp', \(\) => \{ app\.quit\(\); \}\)/.test(MAIN) && /app\.on\('session-end', \(\) => \{ _exitNow\(\); \}\)/.test(MAIN) && !/_quitHold/.test((MAIN.match(/function _exitNow\(\)\{[\s\S]*?\n\}/) || [''])[0]),
+  chk(/ipcMain\.on\('companion:quitApp', \(\) => \{ app\.quit\(\); \}\)/.test(MAIN) && /mainWindow\.on\('session-end', \(\) => \{ _exitNow\(\); \}\)/.test(MAIN) && !/_quitHold/.test((MAIN.match(/function _exitNow\(\)\{[\s\S]*?\n\}/) || [''])[0]),
     '  제목줄 × 는 그대로 app.quit(부르는 곳마다 코드 없음) · OS 세션 종료 · _exitNow 는 붙잡지 않는다');
   const L = loadQH();
   chk(PRE.includes("ipcRenderer.on('" + L.CH.ASK + "'") && PRE.includes("ipcRenderer.send('" + L.CH.DONE + "')") && PRE.includes("ipcRenderer.send('" + L.CH.READY + "')"), 'preload — 채널 이름 셋이 quit-hold.js CH 와 같다');

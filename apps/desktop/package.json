@@ -27,6 +27,7 @@
     "appId": "com.togetherworking.app",
     "productName": "Together Working",
     "asar": true,
+    "afterPack": "scripts/mac-adhoc-sign.js",
     "files": [
       "main.js",
       "preload.js",
@@ -35,17 +36,24 @@
       "sysinput-win.js",
       "sysinput-mac.js",
       "native-peek.js",
+      "win-drag.js",
       "pad-worker.js",
       "pad-xinput.js",
+      "win-class.js",
+      "win-class-worker.js",
       "hover-poke.js",
       "devtools-gate.js",
+      "google-oauth.js",
       "http-cache-reset.js",
       "quit-hold.js",
       "update-diag.js",
+      "update-recheck.js",
+      "update-platform.js",
       "error-log.js",
       "home-mask.js",
       "oauth-config.js",
-      "app/**/*"
+      "app/**/*",
+      "!node_modules/uiohook-napi/prebuilds/!(darwin|${os}*)-*${/*}"
     ],
     "asarUnpack": [
       "node_modules/uiohook-napi/**/*",
@@ -54,6 +62,8 @@
       "node_modules/@koromix/**/*",
       "pad-worker.js",
       "pad-xinput.js",
+      "win-class.js",
+      "win-class-worker.js",
       "**/*.node"
     ],
     "directories": {
@@ -71,20 +81,8 @@
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
+        "dmg",
+        "zip"
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,

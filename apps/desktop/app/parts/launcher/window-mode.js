@@ -72,6 +72,8 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   const lobbyOv = document.getElementById('inviteOverlay');
   const lobbyOn = !!(lobbyOv && lobbyOv.classList.contains('on'));
   const showMyHomeSized = (mhOn || lobbyOn) && launcherOn;
+  const xmasOv = document.getElementById('xmasOverlay');   // 🎄 크리스마스 창도 런처에서 열리면 마이홈 크기(스티커 여백 없이)
+  const xmasSized = !!(xmasOv && xmasOv.classList.contains('on')) && launcherOn;
   const config = launcherOn || creatorOpen();
   const runOverlay = launcherState.appMode()==='run' && !config;
   document.body.classList.toggle('runmode', runOverlay);
@@ -79,7 +81,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
   key.castShadow = FrameBudget.castShadowFor(runOverlay);   // 바닥이 없으니 그림자도 안 만든다(frame-budget.js)
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
-  const mode = creatorOpen() ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
+  const mode = creatorOpen() ? 'creator' : ((showMyHomeSized || xmasSized) ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
   const extra = (mode === 'myhome' && mhOn) ? mhStLayoutMod._mhStickerOverhang() : null;
   if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);

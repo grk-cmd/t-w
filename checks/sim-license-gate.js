@@ -18,13 +18,13 @@ const MOD = ["license-gate.js","parts/account/license-gate.js","app/parts/accoun
 if(!MOD){ say('  ? 원본 못 찾음 — license-gate.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_loginDoFriendCode","_loginDoGoogle","_enterAccount","_wipeAccountLocal","notifyError","applyDeskCatalogRefToSeat","applyDeskItemsTo","getMyUserId","refreshAccountTab","refreshCustomStatusMenuItem","refreshLicenseUI","renderCrItems","toast","_acctRelaunchAfterDetach","_rcStore","takeLeft"];
-const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","loginFlowMod","userApiMod","inviteIds","twNav","seats","onPremiumChanged"];
+const FN_DEPS = ["refreshTheme","refreshFont","_loginDoFriendCode","_loginDoGoogle","_enterAccount","_wipeAccountLocal","notifyError","applyDeskCatalogRefToSeat","applyDeskItemsTo","getMyUserId","refreshAccountTab","refreshCustomStatusMenuItem","refreshLicenseUI","renderCrItems","toast","_acctRelaunchAfterDetach","_rcStore","takeLeft"];
+const VAL_DEPS = ["googleConfirmMod","DEFAULT_DESK_OVERRIDE_ID","loginFlowMod","userApiMod","inviteIds","twNav","seats","onPremiumChanged"];
 const GET_DEPS = ["FRIEND_CODE_LOGIN_RE","awayPicMod","creatorOpen","refreshLauncherPreview"];
 const SET_DEPS = [];
 const EXPORTS = ["INVITE_GRANT_MAX","checkInviteGate","refreshInviteBtn"];
 const MOVED = ["_rcStore","inviteGateOn","INVITE_PASS_KEY","INVITE_TOKEN_KEY","_inviteTokenLoad","_inviteTokenFor","_inviteFinishPending","INVITE_GRANDFATHER_COUNT","INVITE_GRANT_MAX","_genInviteCode","SIGNUP_PENDING_KEY","_signupPendingLoad","_signupPendingSave","_signupPendingEnsure","_signupClaimCode","_signupFinishLocal","_signupDoPassword","_signupDoGoogle","existingSignupOn","_existingSignupCode","_existingSignupNeed","_existingSignupDoPassword","_existingSignupCheck","_showExistingSignup","_showSignupDone","_hideSignupDone","_needLoginNeed","_needLoginCheck","_showNeedLogin","checkInviteGate","_markInvitePassed","_showInviteGate","refreshInviteBtn","issueInviteAndShow","_inviteConfirmIssue","LICENSE_KEY_STORAGE","_setPremium","_genLicenseKey","verifyLicense","loadLicenseFromStorage","_licenseSnapPushNow","_licenseSnapForPush","activateLicense","deactivateLicense","_refreshPremiumGatedUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,","  _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),","  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),","  _enterAccount: (...a)=>accountMod._enterAccount(...a),","  twNav: twNav,","  _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  loginFlowMod: loginFlowMod,","  userApiMod: userApiMod,","  inviteIds: TwRequestId.createPending(),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  awayPicMod: ()=>awayPicMod,","  creatorOpen: ()=>creatorOpen,","  getMyUserId: (...a)=>getMyUserId(...a),","  refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),","  refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),","  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),","  seats: seats,","  toast: (...a)=>toast(...a),","  onPremiumChanged: acctStateMod.onPremiumChanged,","  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),","  takeLeft: ()=>acctStateMod.takeLeft(),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),"];
+const GLUE = ["  googleConfirmMod: googleConfirmMod,","  refreshTheme: (...a)=>themeUiMod.refreshCustom(...a),","  refreshFont: (...a)=>fontUiMod.premiumChanged(...a),","  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,","  _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),","  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),","  _enterAccount: (...a)=>accountMod._enterAccount(...a),","  twNav: twNav,","  _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  loginFlowMod: loginFlowMod,","  userApiMod: userApiMod,","  inviteIds: TwRequestId.createPending(),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  awayPicMod: ()=>awayPicMod,","  creatorOpen: ()=>creatorOpen,","  getMyUserId: (...a)=>getMyUserId(...a),","  refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),","  refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),","  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),","  seats: seats,","  toast: (...a)=>toast(...a),","  onPremiumChanged: acctStateMod.onPremiumChanged,","  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),","  takeLeft: ()=>acctStateMod.takeLeft(),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -243,6 +243,71 @@ async function gateLoginRun(src, how, switched, left){
   for(let i = 0; i < 5; i++) await tick();
   return { ev: ev.join(','), settled, ret, closed: els.inviteGateOverlay.style.display === 'none' };
 }
+/* 가입 카드 두 갈래를 진짜 _showInviteGate 로 돌린다 — o.how: 'other'(구글 가입 묻기에서 [다른 계정으로 로그인]) · 'link'(비밀번호 가입 → 완료 화면 [구글도 연결하기])
+   o.pick: pickForLink 답 · o.link: linkGoogle 이 던질 오류(없으면 성공) → { els, calls, reloads, settled } */
+async function signupCardRun(src, o){
+  const any = anything();
+  const els = {};
+  const el = (id) => els[id] || (els[id] = { id, style: {}, value: '', textContent: '', disabled: false, focus(){}, innerHTML: '', addEventListener(){}, removeEventListener(){} });
+  const doc = { getElementById: (id) => el(id), readyState: 'complete', addEventListener(){}, removeEventListener(){} };
+  const me = { userCode: 'u1', friendCode: 'MATE-AAAA' };
+  const calls = []; let reloads = 0;
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  Object.assign(deps, {
+    takeLeft: () => null, toast: () => {}, getMyUserId: () => null, FRIEND_CODE_LOGIN_RE: () => /^MATE-[A-Z0-9]{4}$/,
+    _enterAccount: () => ({ ok: true, switched: false }), _acctRelaunchAfterDetach: () => {},
+    twNav: { NAV: { ACCOUNT_ENTERED: 'accountEntered' }, go: () => {} },
+    googleConfirmMod: { pickForLink: async () => (o.pick || { ok: true, idToken: 'G-TOK' }) },
+    userApiMod: { checkInvite: async () => ({ usable: true, code: 'INV' }), inviteReasonOf: () => '', reasonOf: (e) => 'R:' + ((e && e.code) || ''),
+      linkGoogle: async (t) => { calls.push(t); if(o.link) throw o.link; return me; } },
+    loginFlowMod: {
+      confirm: async () => ({ state: 'login' }), identity: () => ({}), release: async () => {},
+      joinGoogle: async () => (o.join || { ok: false, canceled: true, other: true, reason: '' }), joinPassword: async () => ({ ok: true, me }),
+      waitForServer: () => {}, retryNow: async () => null, goOnline: () => {},
+    },
+  });
+  const winT = {};
+  const win = new Proxy(winT, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const fapi = { authReload: async () => { reloads++; return { ok: true }; } };
+  const comp = { signInWithGoogle: async () => ({ ok: true, idToken: 'G-TOK' }) };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'companion', 'setTimeout', 'module', src + '\nreturn window.TwLicenseGate;')(win, doc, { getItem: () => null, setItem(){}, removeItem(){} }, fapi, comp, () => 0, undefined);
+  if(!('TwLicenseGate' in winT)) throw new Error('window.TwLicenseGate 를 안 걺');
+  let settled = false;
+  api.createLicenseGate(deps).checkInviteGate().then(() => { settled = true; });
+  const tick = () => new Promise(r => setImmediate(r));
+  for(let i = 0; i < 5; i++) await tick();
+  el('inviteGateInput').value = 'INV'; await els.inviteGateOk.onclick(); for(let i = 0; i < 3; i++) await tick();
+  if(o.how === 'other'){ await els.signupGoogleBtn.onclick(); }
+  else {
+    el('signupPw').value = 'secret1'; el('signupPw2').value = 'secret1';
+    await els.signupOk.onclick(); for(let i = 0; i < 5; i++) await tick();
+    await els.sdGoogle.onclick();
+  }
+  for(let i = 0; i < 5; i++) await tick();
+  return { els, calls, reloads, settled };
+}
+async function signupCardRows(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  let x = await signupCardRun(src, { how: 'other' });
+  t(x.els.signupCard.style.display === 'none' && x.els.inviteGateCard.style.display === '' && x.els.inviteGateOk.disabled === false && /다른 계정/.test(x.els.inviteGateLoginMsg.textContent) && !x.settled,
+    '★ 구글 가입 묻기에서 [다른 계정으로 로그인] — 가입 카드를 닫고 로그인 카드로(들어가지 않음)');
+  x = await signupCardRun(src, { how: 'other', join: { ok: false, canceled: true, other: false, reason: '' } });
+  t(x.els.signupCard.style.display === 'block' && x.els.inviteGateCard.style.display === 'none' && !x.els.inviteGateLoginMsg.textContent && !x.els.signupMsg.textContent && x.els.signupGoogleBtn.disabled === false && !x.settled,
+    '  묻기를 닫음(다른 계정 아님) — 가입 카드에 그대로 · 조용히 · 버튼 다시 켬');
+  x = await signupCardRun(src, { how: 'link' });
+  t(x.calls.join() === 'G-TOK' && x.reloads === 1 && /연결됐어요/.test(x.els.sdMsg.textContent) && x.els.sdGoogle.textContent === '✅ 구글 연결됨', '★ [구글도 연결하기] — 그 토큰으로 linkGoogle 한 번 · 성공 뒤 authReload 한 번');
+  x = await signupCardRun(src, { how: 'link', link: { kind: 'request', code: 'USER_GOOGLE_IN_USE' } });
+  t(x.calls.length === 1 && x.reloads === 0 && x.els.sdMsg.textContent === 'R:USER_GOOGLE_IN_USE' && x.els.sdGoogle.disabled === false, '  실패 — authReload 없음 · 서버 문구 · 버튼 다시 켬');
+  x = await signupCardRun(src, { how: 'link', link: { kind: 'request', code: 'USER_REAUTH_REQUIRED' } });
+  t(x.reloads === 0 && /계정 탭/.test(x.els.sdMsg.textContent), '  오래된 로그인 — 계정 탭에서 다시 하라고');
+  x = await signupCardRun(src, { how: 'link', pick: { ok: false, canceled: true } });
+  t(x.calls.length === 0 && x.reloads === 0 && !x.els.sdMsg.textContent, '  구글 창 · 묻기를 닫음 — 조용히 끝(linkGoogle 0)');
+  return r;
+}
 async function gateLoginRows(src){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
@@ -316,6 +381,8 @@ say('── 2-4. 켤 때 판정 갈래 — 진짜 함수를 돌려 센다');
 (await gateRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 2-5. 초대 게이트 로그인 · 가입 뒤 «들어감» — 진짜 _showInviteGate 를 돌려 센다');
 (await gateLoginRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+say('── 2-6. 가입 카드 — [다른 계정으로 로그인] · [구글도 연결하기](진짜 _showInviteGate · _showSignupDone)');
+(await signupCardRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace("  if(!getMyUserId()){ _setInviteBtn(btn,", "  if(false){ _setInviteBtn(btn,");
@@ -358,11 +425,15 @@ const breaks = [
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const licenseGateMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('licenseGateMod.' + x)); if(n){ ls[i] = ls[i].replace('licenseGateMod.' + n, n); return ls.join('\n'); } } return a; }, null],
   ['만들 때 던짐', m => m.replace('function createLicenseGate(deps){', 'function createLicenseGate(deps){ throw new Error("mutation");'), null, null],
+  ['[다른 계정]을 무시', m => m.replace("        if(r && r.other){", "        if(false){"), null, null],
+  ['연결 뒤 로그인 정보를 안 새로 받음', m => m.replace("        try{ await firebaseAPI.authReload(); }catch(_){}\n        if(warn)", "        if(warn)"), null, null],
+  ['연결 실패에도 새로 받음', m => m.replace("          gBtn.disabled = false; return;\n        }", "          try{ await firebaseAPI.authReload(); }catch(_){} gBtn.disabled = false; return;\n        }"), null, null],
+  ['구글 창을 닫아도 연결', m => m.replace("        if(!g.ok){ say(g.canceled ? '' : g.reason, true); gBtn.disabled = false; return; }", ""), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
-  let rows2; try{ rows2 = judgeAll(m2, a2, h2); if(m2 !== MOD) rows2 = rows2.concat(await gateRows(m2), await gateLoginRows(m2)); }catch(_){ rows2 = [[false, '던짐']]; }
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2); if(m2 !== MOD) rows2 = rows2.concat(await gateRows(m2), await gateLoginRows(m2), await signupCardRows(m2)); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

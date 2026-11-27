@@ -134,7 +134,8 @@ if (RULES) {
   chk(!!r.sentFriendRequests, '규칙에 sentFriendRequests 노드가 있다');
   const node = (r.sentFriendRequests || {})['$fromId'] || {};
   chk(node['.read'] === true, '내 보낸 목록을 읽을 수 있다 ($fromId/.read)');
-  chk(((node['$toId'] || {})['.write']) === true, '미러 한 줄을 쓰고 지울 수 있다 ($toId/.write)');
+  /* 쓰기는 «보낸 사람 = 로그인 본인 · 받는 사람은 지우기만» — 실제 판정은 sim-friendreq-rules.js 가 식을 돌려 본다 */
+  chk(/userAuth\/'\+\$fromId/.test(String((node['$toId'] || {})['.write'])), '미러 한 줄은 보낸 사람 본인이 쓰고 지운다 ($toId/.write — sim-friendreq-rules)');
   // 존재 확인이 되려면 진짜 요청 쪽 읽기가 열려 있어야 한다 — 이게 (나)를 자가 치유시키는 근거다
   chk((((r.friendRequests || {})['$toId'] || {})['.read']) === true,
       'friendRequests/$toId 가 읽기 가능하다 (존재 확인이 성립하는 근거)');

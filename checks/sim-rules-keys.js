@@ -54,6 +54,9 @@ const KIND = {
   '/rooms/$room/chatLog/$msgId': 'other',
   '/rooms/$room/_chatTab/$tabId': 'own',
   '/rooms/$room/_chatTab/$tabId/$msgId': 'other',
+  '/rooms/$room/_notice/$nid': 'own',
+  '/rooms/$room/_focus/$uid': 'own',
+  '/rooms/$room/_focus/$uid/d/$day': 'own',
   '/rooms/$room/_photo/slots/$i': 'own',
   '/rooms/$room/_photo/frames/$i': 'own',
   '/rooms/$room/_photo/p/$i': 'own',
@@ -95,6 +98,8 @@ const KIND = {
   '/users/$userId/playlist/sets/$s/items/$i': 'other',
   '/users/$userId/emojis/$slot': 'other',
   '/users/$userId/chalPaidTags/$tag': 'other',
+  '/users/$userId/mallangSent/$giftId': 'other',   // 🎁 보낸 말랑이 — 받는 쪽 선물 id(push)
+  '/users/$userId/themeCustom/$t': 'own',     // 👑 내 색 — 'default' · 'bubble' 둘만
   '/playlistIndex/$uid': 'user',
   '/mobileKeys/$userId': 'user',
   '/mobileLink/$userId': 'userPadded',
@@ -112,6 +117,8 @@ const KIND = {
   '/reports/$target/$reporter': 'user',
   '/bookmarks/$userId': 'user',
   '/playlistPriv/$userId': 'user',
+  '/playlistLikes/$ownerId': 'user',                // 👍 플레이리스트 반응 — 주인
+  '/playlistLikes/$ownerId/$preset': 'own',         //   프리셋 자리 0~2
   '/playlistPriv/$userId/sets/$s': 'own',
   '/playlistPriv/$userId/sets/$s/items/$i': 'other',
   '/bookmarks/$userId/items/$bid': 'other',
@@ -129,6 +136,9 @@ const KIND = {
   '/inbox/$uid/$msgId': 'other',
   '/roomInvites/$toId': 'user',
   '/roomInvites/$toId/$fromId': 'user',
+  '/xmasLetters/$authUid/$lid': 'own',                  // 🎄 편지 칸 l1~l5
+  '/xmasReports/$key': 'own',                       // 🎄 신고 대상 o-{트리}-{자리} · g-{받은 사람}-{번호}
+  '/xmasReturned/$authUid/$lid': 'own',             // 🎄 반송된 편지 칸 l1~l5(본인은 지우기만)
 };
 /* 검사 안 하는 변수 — 이유가 «관리자만» 이면 일반 사용자 · 로그인 안 한 쪽의 쓰기가 정말 막혔는지 아래에서 돌려 본다 */
 const SKIP = {
@@ -136,9 +146,15 @@ const SKIP = {
   '/authUsers/$authUid': 'self',    // 내 auth uid 칸만(auth.uid === $authUid)
   '/bugBoard/prv/$authUid': 'self',
   '/bugBoard/likes/$id/$authUid': 'self',
+  '/playlistLikes/$ownerId/$preset/by/$authUid': 'self',   // 👍 누른 표시 — 로그인 토큰 칸(친구 코드는 새로 만들 수 있어 신원이 못 된다)
   '/roomDir/$code': 'closed',       // .write false — 방 서버(관리자 SDK)만 쓴다
   '/admins/$uid': 'closed',
   '/apiBots/$uid': 'closed',
+  // 🎄 크리스마스(일회성) — 함수(관리자 SDK)만 쓴다. 본인 칸은 로그인 토큰(auth.uid === $authUid)
+  '/xmasTrees/$t': 'closed', '/xmasTrees/$t/o/$s': 'closed', '/xmasImg/$t': 'closed', '/xmasImg/$t/$s': 'closed',
+  '/xmasOwners/$t': 'closed', '/xmasOwners/$t/$s': 'closed', '/xmasMine/$authUid': 'closed',
+  '/xmasGot/$authUid': 'closed', '/xmasGot/$authUid/$n': 'closed', '/xmasGotFrom/$authUid': 'closed', '/xmasGotFrom/$authUid/$n': 'closed',
+  '/xmasLetters/$authUid': 'self', '/xmasReports/$key/$authUid': 'self', '/xmasReturned/$authUid': 'self',
   // 서버 상품 API 의 원본 — 서버 봇(apiBots)만 읽고 쓴다. 키(상품 id · 파일 해시) 모양은 서버가 검사한다
   '/products/$id': 'bot',
   '/listings/$id': 'bot',

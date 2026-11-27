@@ -1,4 +1,4 @@
-/* user-status-table.js — 🍚 상태 표 · 커스텀 상태 저장값(계정 칸) — 밥 · 자리비움 · 빡일중 · 게임 · 커스텀의 이모지 · 이름 · 점 색 · 동작 깃발과 tw.customStatus
+/* user-status-table.js — 🍚 상태 표 · 커스텀 상태 저장값(계정 칸) — 밥 · 자리비움 · 집중(grind) · 게임 · 커스텀의 이모지 · 이름 · 점 색 · 동작 깃발과 tw.customStatus
    책임: «활동 상태» 의 값 표 하나와 커스텀 상태 문구 저장값(불러오기 · 자르기) — DOM · 방 통신 없음(아래층).
      내 상태 값(userStatus) · 풀이(statusConfFor) · 칩 반영 · 커스텀 저장(saveCustomStatusConf — 방에 알림 · 메뉴 갱신)은 user-status.js(앱 FSD 분리 M9)에 있다 — 이 표를 읽어 쓴다. 상태칩 · 포커스 공유 · 방 알림은 그 모듈이 attachStatusHooks 알림으로 받는다.
    받는 deps: statusAccountStore(계정 칸). 내보내는 것: USER_STATUSES · CUSTOM_STATUS_KEY · CUSTOM_STATUS_MAXLEN · customStatusConf()/setCustomStatusConf(v)(읽는 · 쓰는 함수) · loadCustomStatusFromStorage.
@@ -17,7 +17,7 @@ const statusAccountStore = deps.statusAccountStore;   // 🗂️ 계정별 칸(s
 const USER_STATUSES = {
   meal:   {emo:'🍚',   label:'밥 먹는 중', idleTweak:true, dot:'#e89b7d'},
   away:   {emo:'🫧',   label:'자리비움',   forceSleep:true, opacity:0.0,  dot:'#9aa0a8'},
-  grind:  {emo:'🔥',   label:'빡일중',     idleTweak:true,                 dot:'#e07a55'},
+  grind:  {emo:'🔥',   label:'집중',       idleTweak:true,                 dot:'#e07a55'},
   gaming: {emo:'🎮',   label:'게임 중',    dot:'#8a8ec9'},
   // ✨ 커스텀 상태 (프리미엄) — emo/label은 유저가 등록한 값으로 렌더 시점에 덮어씀(statusConfFor 참고).
   //   여기 값은 아직 등록 전이거나 친구의 커스텀 문구를 못 받았을 때의 폴백.

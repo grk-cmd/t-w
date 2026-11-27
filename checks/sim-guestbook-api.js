@@ -49,10 +49,15 @@ function fake(routes, who){
   };
   return { log, get: (p, o) => run('GET', p, undefined, o), patch: (p, b, o) => run('PATCH', p, b, o), post: (p, b, o) => run('POST', p, b, o), del: (p, o) => run('DELETE', p, undefined, o) };
 }
+/* 가짜 Storage 바로 올리기(shared/own-image.js 모양) — routes.OWN 이 답(Error 면 던진다) */
+const fakeOwn = (routes) => {
+  const ups = [];
+  return { ups, upload: async (kind, img, opts) => { ups.push({ kind, img, opts }); const v = routes.OWN; if(v instanceof Error) throw v; return v; } };
+};
 const mk = (src, routes, who) => {
-  const authed = fake(routes, who), warns = [];
-  const m = load(src).createGuestbookApi({ authed, imageBytes: imgMod(), warn: (...a) => warns.push(a.join(' ')) });
-  return { m, authed, warns };
+  const authed = fake(routes, who), warns = [], ownImage = fakeOwn(routes || {});
+  const m = load(src).createGuestbookApi({ authed, imageBytes: imgMod(), ownImage, warn: (...a) => warns.push(a.join(' ')) });
+  return { m, authed, warns, ownImage };
 };
 
 async function judge(S){
@@ -67,6 +72,10 @@ async function judge(S){
     chk(g.path === '/v2/guestbooks/uOWN00001' && g.opts.auth === true, '경로 — 그 주인의 방명록 · 로그인 통로로');
     chk(v.entries.length === 2 && v.entries[0].id === 'e1' && v.entries[0].name === '이름e1' && v.entries[0].text === '글e1' && v.entries[0].mine === true && v.entries[1].mine === false, '글 — id · 이름(authorName) · 글 · 내 글(mine) · 서버가 준 순서(최신이 위) 그대로');
     chk(v.entries[0].ts === Date.parse('2026-11-01T01:02:03.456Z'), '시각 — createdAt 을 ms 로');
+    chk(v.entries[0].canDelete === true && v.entries[1].canDelete === false, 'canDelete 가 없는 옛 서버 — 내 글(mine)만 지울 수 있다');
+    const own = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf({ entries: [ent('o1', { canDelete: true }), ent('o2', { mine: true, canDelete: false })] }) });
+    const ov = await own.m.fetchView('ME01', 'uOWN00001');
+    chk(ov.entries[0].canDelete === true && ov.entries[0].mine === false && ov.entries[1].canDelete === false, 'canDelete 가 오면 그 값 그대로 — 주인은 남의 글도 지운다(판정은 서버)');
     chk(v.clap.count === 7 && v.clap.img === 'https://img/x.jpg' && v.clap.emoji === '🎉' && v.clap.todayLeft === 0 && v.clap.dailyMax === 5, '박수 — 수 · 그림 · 폭죽 · 오늘 남은 수 · 하루 상한 (서버가 센 값)');
     chk(v.canWrite === true && v.version === 4, '쓸 수 있나(canWrite) · 판(version)');
     const none = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf({ entries: [], canWrite: false }) });
@@ -145,32 +154,30 @@ async function judge(S){
     chk(rm.status === 'failed' && rm.err.status === 503 && denied.warns.length === 3, '  닿지 못해도 failed · 진단 기록을 남긴다');
     /* 박수 그림 — 요청 둘 중 첫째 */
     const PNG = 'data:image/png;base64,' + Buffer.from([137, 80, 78, 71, 1, 2, 3]).toString('base64');
-    const im = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/me/images': { url: 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2FME01%2Fclap_1.png' } });
-    chk((await im.m.uploadImage('ME01', PNG)).status === 'stale' && im.authed.log.length === 0, '박수 그림 — 읽은 적 없는 계정은 보내지 않는다');
+    const im = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), OWN: 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2FME01%2Fclap_1.png' });
+    chk((await im.m.uploadImage('ME01', PNG)).status === 'stale' && im.ownImage.ups.length === 0, '박수 그림 — 읽은 적 없는 계정은 올리지 않는다');
     await im.m.fetchView('ME01', 'uOWN00001'); im.authed.log.length = 0;
-    const up = await im.m.uploadImage('ME01', PNG); const ur = im.authed.log[0];
-    chk(up.status === 'ok' && /^https:\/\/firebasestorage/.test(up.url) && ur.method === 'POST' && ur.path === '/v2/me/images?purpose=clap' && ur.opts.rawType === 'image/png' && ur.opts.expectOwner === 'ME01', '  POST /v2/me/images?purpose=clap · 형식 그대로(rawType) · 주인 묶음 → url');
-    chk(ur.body instanceof Uint8Array && ur.body.length === 7 && ur.body[0] === 137, '  본문은 파일 바이트 그대로(JSON·base64 아님)');
-    im.authed.log.length = 0;
+    const up = await im.m.uploadImage('ME01', PNG); const ur = im.ownImage.ups[0];
+    chk(up.status === 'ok' && /^https:\/\/firebasestorage/.test(up.url) && ur.kind === 'clap' && ur.img.type === 'image/png' && ur.opts && ur.opts.expectOwner === 'ME01' && im.authed.log.length === 0, '  Storage 내 폴더에 바로(own-image clap) · 형식 그대로 · 읽은 토큰 주인(expectOwner) → url · 서버 요청 0');
+    const oc = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), OWN: Object.assign(new Error('o'), { code: 'OWNER_CHANGED' }) });
+    await oc.m.fetchView('ME01', 'uOWN00001');
+    chk((await oc.m.uploadImage('ME01', PNG)).status === 'stale', '  계정이 바뀌어 OWNER_CHANGED 면 stale(조용히 버림)');
+    chk(ur.img.bytes instanceof Uint8Array && ur.img.bytes.length === 7 && ur.img.bytes[0] === 137, '  올리는 것은 파일 바이트 그대로(base64 아님)');
+    im.ownImage.ups.length = 0;
     const big = 'data:image/png;base64,' + Buffer.alloc(512 * 1024 + 1).toString('base64');
     const bg = await im.m.uploadImage('ME01', big);
-    chk(bg.status === 'failed' && bg.err.code === 'PAYLOAD_TOO_LARGE' && im.authed.log.length === 0, '  512KB 를 넘으면 요청 없이 PAYLOAD_TOO_LARGE');
+    chk(bg.status === 'failed' && bg.err.code === 'PAYLOAD_TOO_LARGE' && im.ownImage.ups.length === 0, '  512KB 를 넘으면 올리지 않고 PAYLOAD_TOO_LARGE');
     const edge = await im.m.uploadImage('ME01', 'data:image/png;base64,' + Buffer.alloc(512 * 1024).toString('base64'));
     chk(edge.status === 'ok', '  딱 512KB 는 보낸다');
-    im.authed.log.length = 0;
+    im.ownImage.ups.length = 0;
     for(const bad of ['data:image/gif;base64,AAAA', 'http://x/y.png', '', 'data:image/png;base64,']){
       const b = await im.m.uploadImage('ME01', bad);
-      chk(b.status === 'failed' && b.err.code === 'IMAGE_INVALID' && im.authed.log.length === 0, '  형식이 아니면(' + (bad.slice(0, 22) || '빈 값') + ') 요청 없이 IMAGE_INVALID');
+      chk(b.status === 'failed' && b.err.code === 'IMAGE_INVALID' && im.ownImage.ups.length === 0, '  형식이 아니면(' + (bad.slice(0, 22) || '빈 값') + ') 올리지 않고 IMAGE_INVALID');
     }
-    for(const [st, code, kind] of [[400, 'IMAGE_INVALID'], [413, 'PAYLOAD_TOO_LARGE'], [415, 'UNSUPPORTED_MEDIA_TYPE'], [503, 'X']]){
-      const f = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/me/images': apiErr(st, code) });
-      await f.m.fetchView('ME01', 'uOWN00001');
-      const r = await f.m.uploadImage('ME01', PNG);
-      chk(r.status === 'failed' && r.err.status === st && r.err.code === code, '  서버 ' + st + ' 는 failed + err 그대로(부르는 쪽이 구분)');
-    }
-    const nu = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/me/images': { nope: 1 } });
-    await nu.m.fetchView('ME01', 'uOWN00001');
-    chk((await nu.m.uploadImage('ME01', PNG)).err.code === 'SHAPE', '  답에 url 이 없으면 ok 로 치지 않는다');
+    const sf = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), OWN: Object.assign(new Error('거절'), { code: 'IMAGE_UPLOAD' }) });
+    await sf.m.fetchView('ME01', 'uOWN00001');
+    const sr = await sf.m.uploadImage('ME01', PNG);
+    chk(sr.status === 'failed' && sr.err.code === 'IMAGE_UPLOAD' && sf.warns.length === 1, '  Storage 가 거절하면 failed + err 그대로(IMAGE_UPLOAD) · 경고 한 줄');
     await im.m.changeLook('ME01', 4, { clapImageUrl: 'https://x/y' }); const lk = im.authed.log[im.authed.log.length - 1];
     chk(JSON.stringify(lk.body) === JSON.stringify({ version: 4, clapImageUrl: 'https://x/y' }), '  둘째 — PATCH /v2/me/guestbook { version, clapImageUrl }');
     const bad = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/guestbooks/uOWN00001/entries': { nope: 1 }, 'POST /v2/guestbooks/uOWN00001/claps': { count: 'x' } });
@@ -187,7 +194,7 @@ async function judge(S){
     const calls = [], tk = { v: jwt('A') };
     const client = AC.createApiClient({ baseUrl: 'https://api.test', getToken: async () => tk.v,
       fetch: async (url, init) => { calls.push(init.method + ' ' + url); return reply(200, init.method === 'GET' ? bookOf() : ent('n1')); } });
-    const m = load(S.API).createGuestbookApi({ authed: client, imageBytes: imgMod(), warn: () => {} });
+    const m = load(S.API).createGuestbookApi({ authed: client, imageBytes: imgMod(), ownImage: fakeOwn({}), warn: () => {} });
     await m.fetchView('ME01', 'uOWN00001');
     chk((await m.write('ME01', 'uOWN00001', 'hi', 'rid-12345678')).status === 'ok' && calls.length === 2, '같은 계정이면 보낸다');
     tk.v = jwt('B');   // 그 사이 다른 계정으로 로그인
@@ -199,7 +206,7 @@ async function judge(S){
   {
     const fi = strip(S.FI);
     chk(!/subscribeGuestbook|addGuestbookEntry|deleteGuestbookEntry|clapOnce|subscribeClap|setClapEmoji/.test(fi), 'firebase-init 에 옛 방명록 읽기 · 쓰기 · 박수 · 폭죽이 없다');
-    chk(!/setClapImage/.test(fi), '  박수 그림 올리기(setClapImage)도 없다 — 서버 그림 길(purpose=clap)로');
+    chk(!/setClapImage/.test(fi), '  박수 그림 옛 올리기(setClapImage)도 없다 — own-image.js 의 clap 으로');
     const ui = strip(S.UI);
     chk(!/firebaseAPI/.test(ui) && !/localStorage/.test(ui) && !/setClapImage/.test(ui), 'guestbook.js 가 firebaseAPI · localStorage 를 직접 안 만진다(서버 경로는 feed 로)');
     const app = strip(S.APP);
@@ -218,6 +225,8 @@ async function runAll(){
   const breaks = [
     ['글 이름을 안 읽음', S.API.replace("name: typeof it.authorName === 'string' ? it.authorName : ''", "name: ''"), '이름(authorName)'],
     ['내 글 표시를 항상 참', S.API.replace("mine: it.mine === true", "mine: true"), '내 글(mine)'],
+    ['canDelete 를 안 읽음', S.API.replace("typeof it.canDelete === 'boolean' ? it.canDelete : it.mine === true", "it.mine === true"), 'canDelete 가 오면'],
+    ['canDelete 가 없을 때 mine 으로 안 감', S.API.replace("typeof it.canDelete === 'boolean' ? it.canDelete : it.mine === true", "it.canDelete === true"), '옛 서버'],
     ['canWrite 를 안 읽음', S.API.replace("canWrite: d.canWrite, version", "canWrite: true, version"), 'canWrite'],
     ['오늘 남은 수를 안 읽음', S.API.replace("todayLeft: left,", "todayLeft: 99,"), '오늘 남은 수'],
     ['모양 틀림을 빈 방명록으로 숨김', S.API.replace("if(!v) throw shapeError();\n    return v;", "return v || { entries: [], clap: { count: 0, img: null, emoji: '', todayLeft: 0, dailyMax: 0 }, canWrite: false, version: 0 };"), '모양이 틀리면'],
@@ -229,8 +238,7 @@ async function runAll(){
     ['지움(null)을 칸 없음으로', S.API.replace("body.clapEmoji = patch.clapEmoji;", "if(patch.clapEmoji != null) body.clapEmoji = patch.clapEmoji;"), '«지움»'],
     ['박수 경로 틀림', S.API.replace("'/claps'", "'/clap'"), '박수'],
     ['그림 용량 상한을 안 봄', S.IMG.replace('img.bytes.length > o.maxBytes', 'false'), '512KB', 'IMG'],
-    ['그림을 base64 글자로 보냄', S.API.replace('authed.post(PATHS.image, img.bytes,', 'authed.post(PATHS.image, dataUrl,'), '바이트 그대로'],
-    ['그림 쓰임이 틀림', S.API.replace("image: '/v2/me/images?purpose=clap'", "image: '/v2/me/images?purpose=dday'"), 'purpose=clap'],
+    ['그림 쓰임이 틀림', S.API.replace("ownImage.upload('clap', img, o)", "ownImage.upload('dday', img, o)"), 'clap'],
     ['새 글 수 since 를 안 보냄', S.API.replace("'/v2/me/guestbook/summary?since=' + enc(String(since))", "'/v2/me/guestbook/summary'"), 'since'],
   ];
   for(const [name, src, what, key = 'API'] of breaks){

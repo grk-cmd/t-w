@@ -313,6 +313,9 @@ const LIMIT_CASES = [
   /* 친구 요청 · 보낸 요청 · 방 초대 */
   ['친구 요청 — 요청 + 거울 한 번에', 'PATCH', '', { [`friendRequests/${GOOD_U2}/${GOOD_U}`]: { name: '민수', ts: 1 }, [`sentFriendRequests/${GOOD_U}/${GOOD_U2}`]: { ts: 1, toName: '지영', toCode: 'MATE-AB12' } }, true],
   ['친구 요청 — 모르는 칸', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, junk: 1 }, false],
+  ['친구 요청 — 신청 사유(msg) 100자', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, msg: '가'.repeat(100) }, true],
+  ['친구 요청 — 신청 사유 101자는 막힘', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, msg: '가'.repeat(101) }, false],
+  ['친구 요청 — 신청 사유가 글자가 아니면 막힘', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, msg: 5 }, false],
   ['보낸 요청 — 모르는 칸', 'PUT', `sentFriendRequests/${GOOD_U}/${GOOD_U2}`, { ts: 1, junk: 1 }, false],
   ['방 초대 — 통째', 'PUT', `roomInvites/${GOOD_U2}/${GOOD_U}`, { roomCode: ROOM, fromName: '민수', ts: 1 }, true],
   ['방 초대 — 모르는 칸', 'PUT', `roomInvites/${GOOD_U2}/${GOOD_U}`, { roomCode: ROOM, ts: 1, junk: 1 }, false],
@@ -583,6 +586,67 @@ const GB_CASES = [
   ['방명록 — 이미 없는 글 지우기도 받아 준다(정리 update 에 이미 지운 id 가 섞여도 통째 거절 안 됨)', 'PATCH', '', { [GB('gone1')]: null, [GB('new1')]: null }, true, 'authGbO'],
 ];
 
+/* 👋 친구 요청 · 보낸 요청(미러) — 넣기 · 고치기 · 취소는 보낸 사람 본인만, 받는 사람은 수락 · 거절로 지우기만 */
+const FR_A = 'ufrsend0001', FR_B = 'ufrrecv0001', FR_X = 'ufrthird001';
+const FRQ = `friendRequests/${FR_B}/${FR_A}`, SFR = `sentFriendRequests/${FR_A}/${FR_B}`;
+const FR_SEND = { [FRQ]: { name: '민수', ts: 1 }, [SFR]: { ts: 1, toName: '지영' } };
+const FR_CASES = [
+  ['준비: 친구 요청 — 로그인 연결', 'PATCH', '', { [`userAuth/${FR_A}`]: 'authFrA', [`userAuth/${FR_B}`]: 'authFrB', [`userAuth/${FR_X}`]: 'authFrX' }, true, OWNER],
+  ['친구 요청 — 보낸 사람 본인이 요청 + 미러 한 번에', 'PATCH', '', FR_SEND, true, 'authFrA'],
+  ['친구 요청 — 남의 이름으로 보내기는 막힘', 'PATCH', '', FR_SEND, false, 'authFrX'],
+  ['친구 요청 — 받는 사람이 보낸 척 넣기는 막힘', 'PATCH', '', FR_SEND, false, 'authFrB'],
+  ['친구 요청 — 로그인 없이 묶인 사람 이름으로 보내기는 막힘', 'PATCH', '', FR_SEND, false],
+  ['친구 요청 — 남이 지우기는 막힘', 'PATCH', '', { [FRQ]: null, [SFR]: null }, false, 'authFrX'],
+  ['친구 요청 — 보낸 사람이 취소(두 칸)', 'PATCH', '', { [FRQ]: null, [SFR]: null }, true, 'authFrA'],
+  ['준비: 다시 보내기', 'PATCH', '', FR_SEND, true, 'authFrA'],
+  ['친구 요청 — 받는 사람이 거절(요청 + 상대 미러)', 'PATCH', '', { [FRQ]: null, [SFR]: null }, true, 'authFrB'],
+  ['친구 요청 — 이미 없는 칸 지우기는 받아 준다', 'PATCH', '', { [FRQ]: null, [SFR]: null }, true, 'authFrB'],
+  ['친구 요청 — 로그인에 안 묶인 옛 계정(userAuth 없음)은 예전처럼 보낸다(방명록 · 선물함과 같은 판정)', 'PATCH', '', { [`friendRequests/${FR_B}/ufrlegacy01`]: { name: '옛', ts: 1 }, [`sentFriendRequests/ufrlegacy01/${FR_B}`]: { ts: 1 } }, true],
+];
+
+/* 🎄 크리스마스(일회성 · 이슈 #963) — 편지는 본인 · 마감 전 · 5칸, 신고는 본인 한 번 · 받은 편지는 받은 사람만, 트리는 내 트리 · 지금 트리만, 함수 칸은 앱이 못 쓴다 */
+const XL = (uid, l) => `xmasLetters/${uid}/${l}`;
+const XMAS_CASES = [
+  ['준비: 크리스마스 — 지금 트리 2 · authXa 는 트리 1 에 장식', 'PATCH', '', { 'xmasMeta': { cur: 2, cnt: 10 }, 'xmasMine/authXa00000': { t: 1, s: 3 },
+    'xmasTrees/1/o/3': { k: 'star', v: 1 }, 'xmasTrees/2/o/0': { k: 'gift', v: 1 }, 'xmasTrees/3/o/0': { k: 'gift', v: 1 }, 'xmasGot/authXa00000/1': { text: 'x', ts: 1 } }, true, OWNER],
+  ['편지 — 본인 · 모양 맞음', 'PUT', XL('authXa00000', 'l1'), { text: '안녕', ts: TS }, true, 'authXa00000'],
+  ['편지 — 추천곡 같이(5번째 칸)', 'PUT', XL('authXa00000', 'l5'), { text: '안녕', ts: TS, song: { id: 'abcdefghijk', title: '캐롤' } }, true, 'authXa00000'],
+  ['편지 — 6번째 칸은 막힘', 'PUT', XL('authXa00000', 'l6'), { text: '안녕', ts: TS }, false, 'authXa00000'],
+  ['편지 — 남의 칸은 막힘', 'PUT', XL('authXa00000', 'l2'), { text: '안녕', ts: TS }, false, 'authXb00000'],
+  ['편지 — 로그인 없이 막힘', 'PUT', XL('authXa00000', 'l2'), { text: '안녕', ts: TS }, false],
+  ['편지 — 501자 막힘', 'PUT', XL('authXa00000', 'l2'), { text: '가'.repeat(501), ts: TS }, false, 'authXa00000'],
+  ['편지 — 추천곡 id 모양 틀림 막힘', 'PUT', XL('authXa00000', 'l2'), { text: 'a', ts: TS, song: { id: 'bad' } }, false, 'authXa00000'],
+  ['편지 — 모르는 칸 막힘', 'PUT', XL('authXa00000', 'l2'), { text: 'a', ts: TS, to: 'x' }, false, 'authXa00000'],
+  ['편지 — 본인 거두기', 'DELETE', XL('authXa00000', 'l5'), null, true, 'authXa00000'],
+  ['편지 — 본인 읽기', 'GET', 'xmasLetters/authXa00000', null, true, 'authXa00000'],
+  ['편지 — 남이 읽기 막힘', 'GET', 'xmasLetters/authXa00000', null, false, 'authXb00000'],
+  ['편지 — 모음 통째 읽기는 관리자만', 'GET', 'xmasLetters', null, false, 'authXa00000'],
+  ['트리 — 내가 장식을 단 트리 읽기', 'GET', 'xmasTrees/1', null, true, 'authXa00000'],
+  ['트리 — 지금 채우는 트리 읽기(미리 보기)', 'GET', 'xmasTrees/2', null, true, 'authXb00000'],
+  ['트리 — 다른 트리는 막힘', 'GET', 'xmasTrees/3', null, false, 'authXa00000'],
+  ['트리 — 앱이 쓰기는 막힘', 'PUT', 'xmasTrees/1/o/4', { k: 'star', v: 1 }, false, 'authXa00000'],
+  ['장식 주인 — 일반 사용자 읽기 막힘', 'GET', 'xmasOwners/1', null, false, 'authXa00000'],
+  ['내 자리 — 본인 읽기', 'GET', 'xmasMine/authXa00000', null, true, 'authXa00000'],
+  ['내 자리 — 본인도 쓰기는 막힘', 'PUT', 'xmasMine/authXa00000', { t: 9, s: 9 }, false, 'authXa00000'],
+  ['받은 편지 — 본인 읽기', 'GET', 'xmasGot/authXa00000', null, true, 'authXa00000'],
+  ['받은 편지 — 남이 읽기 막힘', 'GET', 'xmasGot/authXa00000', null, false, 'authXb00000'],
+  ['보낸 사람 기록 — 일반 사용자 읽기 막힘', 'GET', 'xmasGotFrom', null, false, 'authXa00000'],
+  ['신고 — 장식 · 본인 이름 칸', 'PUT', 'xmasReports/o-1-3/authXb00000', { ts: TS }, true, 'authXb00000'],
+  ['신고 — 같은 사람 두 번은 막힘', 'PUT', 'xmasReports/o-1-3/authXb00000', { ts: TS }, false, 'authXb00000'],
+  ['신고 — 남의 이름 칸 막힘', 'PUT', 'xmasReports/o-1-3/authXc00000', { ts: TS }, false, 'authXb00000'],
+  ['신고 — 받은 편지는 받은 사람만', 'PUT', 'xmasReports/g-authXa00000-1/authXa00000', { ts: TS, note: '욕설' }, true, 'authXa00000'],
+  ['신고 — 남이 받은 편지는 막힘', 'PUT', 'xmasReports/g-authXa00000-1/authXb00000', { ts: TS }, false, 'authXb00000'],
+  ['신고 — 목록 읽기는 관리자만', 'GET', 'xmasReports', null, false, 'authXa00000'],
+  ['준비: 반송된 편지 표시(함수가 씀)', 'PUT', 'xmasReturned/authXa00000/l3', { reason: 'abuse', ts: 1, text: 'x' }, true, OWNER],
+  ['반송 표시 — 본인 읽기', 'GET', 'xmasReturned/authXa00000', null, true, 'authXa00000'],
+  ['반송 표시 — 남이 읽기 막힘', 'GET', 'xmasReturned/authXa00000', null, false, 'authXb00000'],
+  ['반송 표시 — 본인도 고치기는 막힘', 'PUT', 'xmasReturned/authXa00000/l3', { reason: 'spam', ts: 2, text: 'y' }, false, 'authXa00000'],
+  ['반송 표시 — 남이 지우기 막힘', 'DELETE', 'xmasReturned/authXa00000/l3', null, false, 'authXb00000'],
+  ['반송 표시 — 본인이 지우기(다시 씀)', 'DELETE', 'xmasReturned/authXa00000/l3', null, true, 'authXa00000'],
+  ['반송 표시 — 본인도 새로 만들기는 막힘', 'PUT', 'xmasReturned/authXa00000/l4', { reason: 'abuse', ts: 1, text: 'x' }, false, 'authXa00000'],
+  ['알림함 — xmas 꼬리표 읽음 표시', 'PUT', 'inbox/uxmasinbox01/xmas2026', { tag: 'xmas', title: '익명의 편지가 왔어요 🎄', body: 'b', ts: 1, read: true }, true],
+];
+
 const CASES = [
   ['준비: 폰 연결 키', 'PUT', `mobileKeys/${GOOD_U}`, KEY, true],
   ['준비: 신고하는 사람을 로그인에 묶기', 'PUT', `userAuth/${OWNED_U}`, 'authA', true, 'authA'],
@@ -646,6 +710,8 @@ const CASES = [
   ...BOT_CASES,
   ...BUG_VIS_CASES,
   ...GB_CASES,
+  ...FR_CASES,
+  ...XMAS_CASES,
 ];
 
 async function inner(){

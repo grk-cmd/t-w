@@ -47,7 +47,7 @@ export interface PartXf {
   pos: number[];
   rot: number[];
   color?: Record<string, string>;
-  colorHSV?: Record<string, { h?: number; s?: number | null; v?: number | null }>;
+  colorHSV?: Record<string, { h?: number; s?: number | null; v?: number | null; rot?: number | boolean }>;
   pic?: unknown;
   /** 기즈모 · 초기화가 쓴 깨끗한 값 — 옛 손보정 판정(이중 보정 되돌리기)을 다시 하지 않는다 */
   aoClean?: boolean;
@@ -372,13 +372,7 @@ export function createParts(deps: PartsDeps) {
     if (xf.color && wrp.userData.colorGroups) {
       for (const key in wrp.userData.colorGroups) {
         const c = xf.color[key];
-        if (c) wrp.userData.colorGroups[key].forEach((m: Obj) => {
-          if (!m.material) return;
-          if (deps.tone.isHueTintMesh(m)) { deps.tone.applyHueTint(m, c, xf!.colorHSV && xf!.colorHSV[key]); m.material.needsUpdate = true; return; }
-          if (m.material.color) m.material.color.set(c);
-          if (m.material.emissive) m.material.emissive.set(c).multiplyScalar(deps.tone.baseFlatOf(m.material));
-          m.material.needsUpdate = true;
-        });
+        if (c) wrp.userData.colorGroups[key].forEach((m: Obj) => deps.tone.tintPartMesh(m, c, xf!.colorHSV && xf!.colorHSV[key]));
       }
     }
     if (o.applyPic) o.applyPic(wrp, xf.pic);

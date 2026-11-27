@@ -30,6 +30,7 @@ const _mhViewingDisplayName = deps._mhViewingDisplayName;
 const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 구경 받기 · 닫기
 const fetchCards = deps.fetchCards;   // (codes) → Promise<{ code: 명함 }> — 이름을 모르는 사람 이름 한 줄(D3 social-api.js)
 const refreshFriendProfile = deps.refreshFriendProfile;   // (fid) → Promise<bool> — 친구면 이름 · 레벨을 새로 읽어 목록에 얹는다(friends-sub.js)
+const friendReqBtn = deps.friendReqBtn;   // 🙋 이름 옆 [친구 신청](friend-req-btn.js) — refresh(관람 uid, 이름)
 async function openFriendHomeView(friendId, nameHint){
   if(!friendId || friendId===getMyUserId()) return;
   /* 그 집 페이지 + 바탕화면을 한 번에 받는다 — 못 받으면 지금 보던 집 그대로(E-MH-21 은 store 가 띄운다) · 없는 사람은 서버 문구 안내.
@@ -153,6 +154,8 @@ function _mhApplyVisitUI(){
   if(visiting && mhHooks.has(mhHooks.HOOK.CANCEL_NAME_EDIT)) mhHooks.call(mhHooks.HOOK.CANCEL_NAME_EDIT);
   const nameEditLink=document.getElementById('mhNameEditLink');
   if(nameEditLink) nameEditLink.style.display = (visiting || document.getElementById('mhMyNameInput')) ? 'none' : '';
+  // 🙋 친구도 아니고 보낸 요청도 없는 남의 홈이면 이름 옆 [친구 신청] — 내 홈 · 미리보기는 숨김
+  friendReqBtn.refresh(realVisit ? _mhViewingUserId() : null, realVisit ? _mhViewingDisplayName() : null);
   // 관람 중엔 리치텍스트 툴바(B/I/폰트/색/IMG/URL 등) 자체를 숨김 — 어차피 편집 불가.
   document.querySelectorAll('.mh-rt-toolbar').forEach(t=>{ t.style.display = visiting?'none':''; });
   // 프로필 사진 클릭으로 파일 다이얼로그가 뜨는 것도 관람 중엔 막음

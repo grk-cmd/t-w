@@ -27,7 +27,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   다 그린 뒤 한 장 찍어 슬롯 섬네일(`def.thumb`) 갈아 끼우기.
 - **만드는 법**: `TwLauncherPreview.createLauncherPreview(deps)` — 만들 때는 아무것도 그리지 않는다(`ensureLauncherPreview` 가 렌더러를 처음 한 번 만든다).
   - 값: `slots` · `CHAR_Z` · `RIG_TURN` · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
-  - 읽는 함수: `customItems` · `assetCodeMod` · `slotSaveMod`
+  - 읽는 함수: `customItems` · `assetCodeMod` · `slotSaveMod` · `renderQuality`(실행 화면 화질 — 미리보기 상한을 고른다)
   - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …) · `addRunLights`(실행 화면 조명 — shared/light-tone.js)
 - **내놓는 것**: `ensureLauncherPreview()` · `setLauncherChar(def)`(그 캐릭터로 갈아 올림 · null 이면 비움) · `sizeLauncherPreview()`(창 크기가 바뀌면) ·
   `launcherLoop`(부팅 때 `requestAnimationFrame` 에 한 번) · 읽는 함수 `lRenderer()` · `lHolder()`(책상 아이템 크기 로그가 «런처» 인지 가른다).
@@ -38,7 +38,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   이 모듈로 옮기면 순환이 생긴다(sim-dep-cycles).
 - **확장할 때**: 구도는 `sizeLauncherPreview` 의 `FILL`(키가 세로를 채우는 몫) · 시선 오프셋, 도트 거칠기는 `PS1_PIXEL_SCALE`, 섬네일은 `LC_THUMB_SETTLE_MS` · `LC_THUMB_MAX`.
 - **함정**: 캔버스에 px 를 박지 않는다(박은 값을 다시 읽어 크기가 굳는다). 섬네일은 render 와 같은 틱에서 복사한다(렌더러에 preserveDrawingBuffer 없음).
-  `launcherLoop` 는 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 상한을 빼면 주사율만큼 그려 런처 GPU 부하가 3~4배. 깜빡임 박자를 여기서 따로 세지 않는다(프레임 수로 세면 주사율 따라 달라진다 — `shared/blink-timing.js`).
+  `launcherLoop` 는 화질 줄 `FrameBudget.fpsFor(화질).launcher`(기본 30 · 최저 15)까지만 그린다 — 상한을 빼면 주사율만큼 그려 런처 GPU 부하가 3~4배. 깜빡임 박자를 여기서 따로 세지 않는다(프레임 수로 세면 주사율 따라 달라진다 — `shared/blink-timing.js`).
   프레임 높이는 파츠를 뺀 몸 박스로 잰다 — 파츠까지 넣으면 파츠가 튈 때 캐릭터가 작아진다.
 - **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · mutation test + 4절 런처 부하(120Hz 에서 30번 · 깜빡임 횟수 주사율 무관 · 후원 반짝임 steps).
 
@@ -118,11 +118,26 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **검사**: `checks/sim-hit-shadow.js` — 셈 · 줄 모양 · 예산 · desktop-run 을 가짜 창에서 만들어 mousemove 로 «통과 결과는 옛 판정대로» · app.js 연결 · mutation test.
 
 ## oss-licenses.js — 📄 오픈소스 라이선스 창
-- 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 시스템 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
+- 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 정보 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
 - deps: `document` · `window` · `links`(a 요소 목록 — 없는 것은 건너뜀) · `openUrl`(시스템 브라우저로 열기) · `escRegisterWindow`(ESC 스택) · `load`(검사용 — 기본은 `app/licenses/oss-notices.js` 를 처음 열 때 싣기).
-- 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 프로그램 설정 바로 뒤에서 만들기만).
+- 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 program-settings 만드는 줄 바로 뒤에서 만들기만).
 - 목록 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(`window.TwOssNotices` · 손으로 고치지 않는다). 줄은 `VENDOR` + 앱이 직접 쓰는 npm 패키지, 하위 패키지는 그 줄 원문 안으로. 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 lock 운영 패키지를 다 덮지 않으면 빨강.
-- 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `shared/outside-close.js`. 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+- 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 설정 창(정보 탭) 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `settings-panel.js` 의 바깥 클릭 예외 목록(`FS_KEEP_OPEN_SEL`). 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+
+## settings-panel.js — ⚙️ 설정 창 하나(런처 · 실행 화면 공용)
+- **책임**: 설정 창(`#focusSettingsPanel`) 여닫기 · 탭 다섯(디스플레이 · 캐릭터 · 포커싱 · 방 연결 · 정보) · ⓘ 설명 접기 · 바깥 클릭 닫기, 그리고 디스플레이(모니터 · 표시 옵션 · 프로그램 크기 · 레벨/이름 크기 · 창 위치) · 캐릭터(교체 · 자리 추가 · 배율 · 좌석 간격 · 표시 옵션) · 포커싱(어플 칸) 칸의 동작 · 광고 배너.
+  런처에서 열면(`isLauncherShown`) 가운데에 `.fs-in-launcher` 로 뜨고 실행 화면 전용 칸(`.fs-run-only` — 광고 · 캐릭터 교체 칸 · 아래 버튼)은 숨는다, 런처 전용 안내(`.fs-launcher-only`)가 보인다.
+- **deps**: 함수 · 값 · 읽는 함수 · 쓰는 함수 — 목록은 `checks/sim-settings-panel.js` 의 `GLUE`. 이번에 더한 것: `isLauncherShown`(읽는 함수).
+- **내놓는 것**: `onTabShown(fn(탭))` — 탭을 보일 때 부를 것을 건다(program-settings.js 가 건다 — 이 모듈은 그쪽을 모른다, 서로 부르면 순환) · `openSettings(탭?)` — 탭 `'display' | 'char' | 'focus' | 'room' | 'info'`, 안 정하면 이번 실행에서 마지막에 본 탭(처음은 디스플레이) · `closeSettings()` · `nameplateClamp` · `nameplatePct`(이름표 크기 규칙 — 10~26px, 기본 15px = 100%) · 자리 추가 · 광고 배너 이름들.
+- **함정**: 다른 곳 버튼(런처 ⚙️ 설정 · 꾸미기 라이선스 안내)이 창을 연 그 클릭이 문서까지 올라와도 닫지 않게 «클릭 전에 열려 있었나» 를 캡처 단계에서 본다. 새 창을 만들었는데 그 창 위 클릭이 설정을 닫으면 안 되면 `FS_KEEP_OPEN_SEL` 에 더한다. 런처에선 끌기를 막는다(옮긴 자리가 실행 화면까지 따라간다).
+- **검사**: `checks/sim-settings-panel.js` — 모듈 모양 · app.js 연결 · 여닫기 · 탭 기억 · ⓘ · 이름표 크기 경계 · mutation test.
+
+## program-settings.js — ⚙️ 설정 창의 «프로그램» 칸
+- **책임**: 설정 창 안의 테마 · 실행 화면 화질 · 자동 실행 · 회사원 · 피규어 모드 · 영상 겹침 실험 · 라이선스 · 프로그램 정보 칸 동작. 창 · 탭은 settings-panel.js 하나다.
+- **deps**: `openSettings` · `closeSettings` · `onTabShown`(settings-panel.js) 외 목록은 `checks/sim-program-settings.js` 의 `GLUE`.
+- **내놓는 것**: `refreshTab(탭)` — 탭을 보일 때 그 탭의 칸을 다시 그린다(만들 때 `onTabShown` 에 건다) · `openProgramSettings(탭?)` · `closeProgramSettings()` — 옛 탭 이름(`license` → 정보 · `display` · `system` → 디스플레이)도 받는다. twNav `PROGRAM_SETTINGS` · `PROGRAM_SETTINGS_CLOSE` 를 여기서 건다.
+- **함정**: 영상 겹침 실험 칸은 통로가 있는 앱에서만 보인다 — 영상 · 화면공유가 검어지는 사람이 켜야 하는 해결책이라 지우지 않는다(도움말 5-1).
+- **검사**: `checks/sim-program-settings.js` — 모듈 모양 · 옛 탭 이름 · 탭 다시 그리기 · 버전 칸 · mutation test.
 
 ## run-rect.js — 🖥️ 실행 창 자리 · 🧪 아래 띠 시험 스위치
 
@@ -186,41 +201,34 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 
 ## `app-boot.js` — 🚀 켜는 순서 한 곳
 
-**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 로그인 세션 만들기 + 계정 칸 열기(`session.openStore()` → `accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → 이 PC 등록(`registerDevice` — 계정마다 PC 는 서버가 정한 상한까지 · 다 찼으면 확인창 · [취소]면 세션을 끝내고 `toLogin`) → realtime 연결(`goOnline`) → 계정 기능 시작(맨 앞 `userLocal` 이 계정 칸에서 고른 것을 읽어 채운다)**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
+**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 백색소음)은 바로 · 업데이트 · 공지 확인(`update-flow.js runBeforeLogin`)도 바로 시작하고 로그인과 같이 돈다 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기 → 세션 + 계정 칸 열기 → 업데이트 확인 통과(`updateGate` — 강제 업데이트면 여기서 멈춘다 · 서버 쓰기 0) → 이 PC 등록(`registerDevice` — [취소]면 세션을 끝내고 `toLogin`) → 첫 화면 읽기(FIRST) → realtime(`goOnline`) → 요청 없는 기능(READY) → 첫 화면을 그린 뒤 안 보이는 읽기(LATER · 칸 사이 `LATER_GAP_MS`) · 그 창을 열 때(OPEN · `open(name)`)**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 로그아웃 차례는 `account.js` 한 곳.
 
-**만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤(`roomInviteUi` 다음) `TwAppBoot.createAppBoot({ twNav, migrateLegacy, newSession, registerDevice, toLogin, goOnline, starts })`(`newSession(me)` 는 `TwSession.createSession` — `shared/session.js`). `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다 — 한 기능을 빼먹을 수 없다). 각 함수는 `(code, me, session)` 을 받는다 — `session` 은 이번 로그인의 세션(**지금은 받아 쓰는 기능이 없다**).
+**«접속 중…»** — 첫 화면 뒤 LATER 읽기(다 시작하고 나간 API 요청이 끝날 때까지 — `api-client.js whenIdle`)가 `CONNECTING_TOAST_MS`(2초) 안에 안 끝나면 `toast.js hold` 로 아래 토스트를 띄우고, 끝나면 내린다. 실패는 각 기능의 오류 번호 길 그대로.
 
-**차례 표(`STEPS`) — 이 순서가 정본이다**
-| # | 이름 | 시작하는 것 |
-|---|---|---|
-| 1 | userLocal | 🗂️ 이 계정이 이 PC 에서 고른 것(현재 슬롯 · 자리 추가 슬롯 · 상태 · 숨긴 사람 · 꾸미기 파츠 보이기 · 좌석 평준화 · 반응 이모지 · 코드로 추가한 책상 · 아이템 · 파츠(`savedDesks` · `savedItems` · `savedParts` — 칸마다 따로 읽는다) …)을 계정 칸에서 읽어 채움(`user-local.js` — 모듈은 처음 값으로 만들고 여기서 `loadLocal` · 세션이 끝나면 `resetLocal`) |
-| 2 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
-| 3 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
-| 4 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
-| 5 | weeklyChal | 👑 달성표 오늘 진행을 계정 칸에서 읽고 이번 주 한 벌을 서버에서 받기(`weeklyChal.startChallenge` → `chal-store.startChal` — 세션을 받아 쓴다) |
-| 6 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
-| 7 | gacha | 🎰 가챠(`startGacha(session)` — 구독 · 비우기를 세션에) |
-| 8 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset(session)` — 구독 · 저장 타이머 · 비우기를 세션에) |
-| 9 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me, session)` — 접속 고정은 me 에서 · 받은 요청 · 우편 구독과 친구 목록 · 접속 표시 비우기는 세션에) |
-| 10 | bugBadge | 🐞 버그제보 탭 «새 답변» 배지 한 번 받기 |
-| 11 | scheduler | 📅 일정 알림 받기(`startSchedule(session)` — 서버 신호 셋 · 자정 타이머 · 비우기를 세션에) |
-| 12 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
-| 13 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
-| 14 | playlist | 🎵 플레이리스트 받기(`plMod.start(session)` — 받기 다시 시도 · 올리기 모으기 타이머 · 비우기를 세션에) |
-| 15 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
-| 16 | adminMode | 🔐 세션이 끝나면 관리자 모드를 조용히 끈다(`twNav.go(NAV.ADMIN_EXIT)` → admin-mode 가 끈다 — 요청 0 · 비우기만 세션에) |
-| 17 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
-| 18 | licenseAutoRegister | 🔑 계정 라이선스에 이 기기 자동 등록 — 첫 실행이 끝나거나 멈춘 뒤 한 번(`licensePremium.autoRegisterAfter(firstRunMod.licenseDone())` — 0.12 키로 첫 실행이 등록을 해 봤으면 건너뜀) |
+**만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤 `TwAppBoot.createAppBoot({ twNav, migrateLegacy, newSession, registerDevice, toLogin, goOnline, updateGate, whenPainted, idle, holdToast, starts })`. `whenPainted` 는 옷장 첫 받기가 끝남(ready · failed) — 늦어도 `PAINT_WAIT_MAX_MS`(3초) 뒤에 LATER 를 시작한다. `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다). 각 함수는 `(code, me, session)` 을 받는다. OPEN 칸은 `open-on-show.js` 가 창이 보일 때 `appBoot.open(name)` 으로 부탁한다.
 
-**내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
+**차례 표(`STEPS`) — 이름 · 때(PHASE)가 정본이다**
+| 때 | 이름 |
+|---|---|
+| FIRST — 등록 뒤 곧바로(카탈로그 locked · 옷장 프리미엄 판정이 등록된 기기를 본다) | userLocal · catalog · closet |
+| READY — 그 뒤 바로(요청 없음 · 구독만) | focusTotal · focusShare · pomodoro · gift · roomInvite · awayPic · desktopBg · licensePremium · adminMode |
+| LATER — 첫 화면 뒤 하나씩 | focusLevel · weeklyChal · mhInit · bugBadge · scheduler · ddays(🔔 배지가 센다) · gacha(못 가진 가챠 파츠 벗기기) · invites · appVersion · firstRun · licenseAutoRegister · catalogGlb(카탈로그 GLB 다 받아 두기 · 맨 끝) |
+| OPEN — 그 창을 처음 열 때 | playlist(플레이리스트 창) |
+
+**내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `open(name)`(OPEN 칸만 — 아니면 던진다 · 두 번째부터 무시 · 들어가기 전 · 업데이트 확인 전이면 통과한 뒤 시작) · `getSession()`.
 
 **함정**
-- 게이트가 이 모듈을 직접 부르면 순환이다(이 모듈이 모든 계정 기능을 부르는 맨 위층) — 그래서 `nav.js` 로 알린다(`sim-dep-cycles`).
-- 기능 모듈은 `createXxx` 안에서 요청 · 구독 · 타이머 · 계정 칸 읽기를 하지 않는다. 시작은 `startXxx` 로 내놓고 이 표에만 건다. 시작 안의 4~5초 부팅 타이머(`setTimeout`)는 기능끼리 요청을 흩는 간격이라 그대로 있다.
-- 계정 칸은 열기 전까지 닫혀 있고, 계정 칸 주인 모듈(포커스 누적 · 레벨 · 오늘 기록 전시 · 바탕화면)은 시작 전이면 입구에서도 읽기 · 쓰기를 안 한다.
-- 확인을 통과하기 전(보통 1~2초)에는 마이홈 · 일정 · 공지 같은 계정 화면이 비어 있다가 채워진다.
+- 게이트가 이 모듈을 직접 부르면 순환이다 — 그래서 `nav.js` 로 알린다(`sim-dep-cycles`).
+- 기능 모듈은 `createXxx` 안에서 요청 · 구독 · 타이머 · 계정 칸 읽기를 하지 않는다. 시작은 `startXxx` 로 내놓고 이 표에만 건다 — 시작 전에는 realtime 알림 구독도 없어서 오래 끊겼다 붙을 때(resync) 안 시작한 기능을 두 번 읽지 않는다.
+- LATER · OPEN 기능의 화면은 첫 화면 뒤(보통 1초 안팎) · 그 창을 열 때 채워진다.
 - 함수 안의 `if(!uid) return` 입구 확인은 다른 길에서 불릴 수 있어 남겨 둔다.
-검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · mutation test) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.
+검사: `checks/sim-app-boot.js`(차례 · 때 · 한 번만 · 강제 업데이트 · «접속 중…» · mutation test) · `checks/sim-license-gate.js` · `checks/sim-nav.js`.
+
+## `open-on-show.js` — 🪟 창이 보이면 그 창의 기능 시작 부탁
+
+**책임** — 플레이리스트는 켤 때 받지 않고 그 창을 처음 열 때 받는다(app-boot OPEN). 여는 길이 여럿이라 부르는 자리를 늘리지 않고, 창의 class · style 이 바뀔 때 «보이나» 를 보고 `open(name)` 을 부른다.
+**deps** — `open(name)` · `targets [{ name, el, shown(el) }]` · `MutationObserver`(검사용). **내놓는 것** — `start()`. 창이 없으면 만들 때 던진다.
+**함정** — 두 번째부터는 app-boot 가 무시하니 여기서는 몇 번 불러도 된다. 검사 `checks/sim-open-on-show.js`.
 
 ## launcher-state.js — 🧭 런처 공용 상태(앱 모드 · 마이홈 열림)
 

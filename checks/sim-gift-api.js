@@ -55,10 +55,15 @@ function fake(routes){
   return { log, get: (p, o) => run('GET', p, undefined, o), post: (p, b, o) => run('POST', p, b, o), put: (p, b, o) => run('PUT', p, b, o),
     patch: (p, b, o) => run('PATCH', p, b, o), del: (p, o) => run('DELETE', p, undefined, o) };
 }
+/* 가짜 Storage 바로 올리기(shared/own-image.js 모양) — routes.OWN 이 답(Error 면 던진다) */
+const fakeOwn = (routes) => {
+  const ups = [];
+  return { ups, upload: async (kind, img, opts) => { ups.push({ kind, img, opts }); const v = routes.OWN; if(v instanceof Error) throw v; return v; } };
+};
 const mk = (src, routes) => {
-  const authed = fake(Object.assign(ME_ROUTES(), routes || {})), warns = [];
-  const m = load(src).createGiftApi({ authed, imageBytes: imgMod(), warn: (...a) => warns.push(a.join(' ')) });
-  return { m, authed, warns };
+  const authed = fake(Object.assign(ME_ROUTES(), routes || {})), warns = [], ownImage = fakeOwn(routes || {});
+  const m = load(src).createGiftApi({ authed, imageBytes: imgMod(), ownImage, warn: (...a) => warns.push(a.join(' ')) });
+  return { m, authed, warns, ownImage };
 };
 const throws = async (fn) => { try{ await fn(); return null; }catch(e){ return e || {}; } };
 const png = (n) => 'data:image/png;base64,' + Buffer.alloc(n, 7).toString('base64');
@@ -114,23 +119,27 @@ async function judge(S){
     chk(ce && ce.code === 'CONCURRENT_UPDATE' && cf.authed.log.filter((x) => x.method === 'PUT').length === 1 && cf.authed.log.filter((x) => x.path === '/v2/me/mallangs' && x.method === 'GET').length === 1,
       '  409 는 던지고 끝 — 여기서 다시 받아 한 번 더 보내지 않는다');
 
-    const up = mk(LIB, { 'POST /v2/me/images': { url: 'https://s/mallang_1.png' } });
-    chk((await throws(() => up.m.uploadImage(png(10)))).code === 'NOT_RECEIVED' && up.authed.log.length === 0, '그림 올리기 — 받기 전엔 요청 0');
+    const up = mk(LIB, { OWN: 'https://s/mallang_1.png' });
+    chk((await throws(() => up.m.uploadImage(png(10)))).code === 'NOT_RECEIVED' && up.ownImage.ups.length === 0, '그림 올리기 — 받기 전엔 올리지 않는다');
     await up.m.fetchMine();
     const url = await up.m.uploadImage(png(10));
-    const p = up.authed.log.find((x) => x.method === 'POST');
-    chk(url === 'https://s/mallang_1.png' && p.path === '/v2/me/images?purpose=mallang' && p.opts.rawType === 'image/png' && p.body instanceof Uint8Array && p.body.length === 10 && 'expectOwner' in p.opts,
-      '  POST /v2/me/images?purpose=mallang · 바이트 그대로 · Content-Type png · 주인과 묶음 → { url }');
-    const before = up.authed.log.length;
+    const p = up.ownImage.ups[0];
+    chk(url === 'https://s/mallang_1.png' && p.kind === 'mallang' && p.img.type === 'image/png' && p.img.bytes instanceof Uint8Array && p.img.bytes.length === 10 && p.opts && p.opts.expectOwner === 'ME' && !up.authed.log.some((x) => x.method === 'POST'),
+      '  Storage 내 폴더에 바로(own-image mallang) · 바이트 그대로 · png · 읽은 토큰 주인(expectOwner) → 주소 · 서버 POST 0');
+    const before = up.ownImage.ups.length;
     for(const [what, u] of [['jpeg', 'data:image/jpeg;base64,AAAA'], ['1MB 초과', png(1024 * 1024 + 1)], ['빈 그림', 'data:image/png;base64,'], ['data: 아님', 'https://x/y.png']]){
       const e = await throws(() => up.m.uploadImage(u));
       chk(e && e.code === 'IMAGE_UPLOAD', '  ' + what + ' → 요청 없이 IMAGE_UPLOAD');
     }
-    chk(up.authed.log.length === before, '  거른 그림은 요청 0');
+    chk(up.ownImage.ups.length === before, '  거른 그림은 올리지 않는다');
     chk(!!(await up.m.uploadImage(png(1024 * 1024))), '  딱 1MB 는 올린다(경계)');
-    const bad = mk(LIB, { 'POST /v2/me/images': {} });
+    const bad = mk(LIB, { OWN: Object.assign(new Error('거절'), { code: 'IMAGE_UPLOAD' }) });
     await bad.m.fetchMine();
-    chk((await throws(() => bad.m.uploadImage(png(4)))).code === 'SHAPE', '  url 없는 응답은 던진다');
+    chk((await throws(() => bad.m.uploadImage(png(4)))).code === 'IMAGE_UPLOAD', '  Storage 가 거절하면 IMAGE_UPLOAD 그대로 던진다');
+    const oc = mk(LIB, { OWN: Object.assign(new Error('o'), { code: 'OWNER_CHANGED' }) });
+    await oc.m.fetchMine();
+    chk((await throws(() => oc.m.uploadImage(png(4)))).code === 'OWNER_CHANGED' && (await throws(() => oc.m.uploadImage(png(4)))).code === 'NOT_RECEIVED' && oc.ownImage.ups.length === 1,
+      '  계정이 바뀌어 OWNER_CHANGED 면 다시 읽기 전까지 올리지 않는다');
   }
 
   say('── 2. 선물함');
@@ -229,6 +238,30 @@ async function judge(S){
     chk(ve && ve.status === 503, '  그 집 선물을 못 읽으면 던진다');
   }
 
+  say('── 3-1. 보낸 말랑이');
+  {
+    const sentRow = (id, o) => Object.assign({ giftId: id, recipientName: '받은이' + id, recipientCode: 'u' + id + '0000001', imageUrl: 'https://img/src' + id + '.png', message: 'm' + id, sentAt: '2026-11-10T01:02:03Z' }, o || {});
+    const { m, authed } = mk(LIB, { 'GET /v2/me/gifts/sent': { items: [sentRow('S2'), sentRow('S1', { recipientName: null, recipientCode: null, message: null }), { giftId: 'S0' }, sentRow('', {})] } });
+    const r = await m.fetchSent();
+    chk(authed.log[0].path === '/v2/me/gifts/sent?limit=30' && authed.log[0].opts.auth === true, '경로 — GET /v2/me/gifts/sent?limit=30(기본 30) · 로그인 통로');
+    chk(r.items.length === 2 && r.items[0].id === 'S2' && r.items[0].recipientName === '받은이S2' && r.items[0].imageUrl === 'https://img/srcS2.png' && r.items[0].message === 'mS2',
+      '한 줄 — id(giftId) · 받은 사람 지금 이름 · 원본 그림 · 메시지 · 서버 순서(최신이 앞) 그대로');
+    chk(r.items[0].sentAt === Date.parse('2026-11-10T01:02:03Z'), '  sentAt 을 ms 로');
+    chk(r.items[1].recipientName === '' && r.items[1].message === '', '  이름 · 메시지가 null 이면 빈 글(그릴 때 «이름 없음»)');
+    chk(r.items[0].recipientCode === 'uS20000001' && r.items[1].recipientCode === null, '  받은 사람 코드(recipientCode) — 탈퇴 · 옛 서버면 null(«보냄» 을 가를 수 없다)');
+    chk(r.items.every(s => s.id && s.imageUrl), '  id · 그림이 없는 줄은 뺀다');
+    await m.fetchSent(5); await m.fetchSent(0); await m.fetchSent(31);
+    chk(authed.log[1].path === '/v2/me/gifts/sent?limit=5' && authed.log[2].path === '/v2/me/gifts/sent?limit=30' && authed.log[3].path === '/v2/me/gifts/sent?limit=30', '  limit 은 1~30 만 싣고 밖이면 30');
+    const empty = await mk(LIB, { 'GET /v2/me/gifts/sent': { items: [] } }).m.fetchSent();
+    chk(Array.isArray(empty.items) && empty.items.length === 0, '보낸 적 없으면 빈 목록 — 실패가 아니다');
+    for(const bad of [null, {}, { items: 'x' }]){
+      const e = await throws(() => mk(LIB, { 'GET /v2/me/gifts/sent': bad }).m.fetchSent());
+      chk(e && e.code === 'SHAPE', '  모양 틀림(' + JSON.stringify(bad) + ') → 던짐(«보낸 적 없음» 으로 숨기지 않는다)');
+    }
+    const se = await throws(() => mk(LIB, { 'GET /v2/me/gifts/sent': apiErr(503, 'X') }).m.fetchSent());
+    chk(se && se.status === 503, '  못 읽으면 던진다');
+  }
+
   say('── 4. 주인 묶기');
   {
     const AC = loadMod(S.AC);
@@ -237,7 +270,7 @@ async function judge(S){
     const calls = [], tk = { v: jwt('A') };
     const client = AC.createApiClient({ baseUrl: 'https://api.test', getToken: async () => tk.v,
       fetch: async (url, init) => { calls.push(init.method + ' ' + url); return reply(200, url.endsWith('/v2/me/gifts') ? boxRes([]) : url.indexOf('/v2/mallangs/') >= 0 ? slotsRes([]) : null); } });
-    const m = load(S.API).createGiftApi({ authed: client, imageBytes: imgMod(), warn: () => {} });
+    const m = load(S.API).createGiftApi({ authed: client, imageBytes: imgMod(), ownImage: fakeOwn({}), warn: () => {} });
     await m.fetchOf('F1');
     chk((await throws(() => m.star('a', true))).code === 'NOT_RECEIVED' && calls.length === 1, '남의 집 읽기는 주인을 남기지 않는다 — 내 것을 받기 전 쓰기는 요청 0');
     await m.fetchBox();
@@ -255,7 +288,7 @@ async function judge(S){
     /* reset 전에 떠난 읽기가 늦게 와도 주인 기억을 되살리지 않는다 */
     let release;
     const slow = fake(Object.assign(ME_ROUTES(), { 'GET /v2/me/gifts': (b, p, o) => new Promise((res) => { release = () => { o.onOwner('A'); res(boxRes([])); }; }), 'POST /v2/me/gifts/seen': null }));
-    const sm = load(S.API).createGiftApi({ authed: slow, imageBytes: imgMod(), warn: () => {} });
+    const sm = load(S.API).createGiftApi({ authed: slow, imageBytes: imgMod(), ownImage: fakeOwn({}), warn: () => {} });
     const pending = sm.fetchBox();
     sm.reset();
     release(); await pending;
@@ -308,11 +341,15 @@ async function runAll(){
     ['겹친 칸 번호를 받음', S.API.replace(" || seen.has(s.slot)", ""), '겹침'],
     ['칸을 slot 차례로 안 줄 세움', S.API.replace("list.sort((a, b) => a.slot - b.slot);", ""), 'slot 차례'],
     ['이름 없는 선물을 버림', S.API.replace("(raw.senderName !== null && typeof raw.senderName !== 'string')", "typeof raw.senderName !== 'string'"), 'null 이름'],
+    ['보낸 말랑이 받은 사람 코드를 안 읽음', S.API.replace("recipientCode: nonEmpty(raw.recipientCode) ? raw.recipientCode : null,", "recipientCode: null,"), 'recipientCode'],
+    ['보낸 말랑이 limit 을 안 지킴', S.API.replace("cnt(limit) && limit >= 1 && limit <= LIMITS.SENT ? limit : LIMITS.SENT", "limit || LIMITS.SENT"), '1~30'],
+    ['보낸 말랑이 깨진 줄을 그대로', S.API.replace("if(!isObj(raw) || !nonEmpty(raw.giftId) || !nonEmpty(raw.imageUrl)) continue;", "if(!isObj(raw)) continue;"), '뺀다'],
+    ['보낸 말랑이 sentAt 을 ms 로 안 바꿈', S.API.replace("sentAt: msOf(raw.sentAt) });\n  }\n  return { items };", "sentAt: raw.sentAt });\n  }\n  return { items };"), 'ms'],
     ['sentAt 을 ms 로 안 바꿈', S.API.replace("sentAt: msOf(raw.sentAt) };", "sentAt: raw.sentAt };"), 'ms'],
     ['닿지 못함을 공통 번호로', S.API.replace("else kind = KIND.SITE;", "else kind = KIND.COMMON;"), 'site'],
     ['그림 크기를 안 거름', S.IMG.replace("img.bytes.length > o.maxBytes", "false"), '1MB', 'IMG'],
     ['jpeg 도 받음', S.API.replace("const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp']);", "const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp', 'image/jpeg']);"), 'jpeg'],
-    ['올리기 경로 purpose 틀림', S.API.replace("image: '/v2/me/images?purpose=mallang',", "image: '/v2/me/images?purpose=dday',"), 'purpose'],
+    ['올리기 쓰임 틀림', S.API.replace("ownImage.upload('mallang', img, o)", "ownImage.upload('dday', img, o)"), 'mallang'],
   ];
   for(const [name, src, what, key = 'API'] of breaks){
     if(src === S[key]){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }

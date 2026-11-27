@@ -126,7 +126,7 @@
     var docs = [];
     (index.faq || []).forEach(function(f){
       var pg = pages[f.p] || { t: '' };
-      docs.push({ faq: true, p: f.p, a: f.a, h: f.q[0], t: f.t, page: pg,
+      docs.push({ faq: true, p: f.p, a: f.a, h: f.h, t: f.t, page: pg,
         ch: compact(f.q.join(' ')), cp: compact(pg.t), cb: compact(f.t) });
     });
     (index.chunks || []).forEach(function(c){

@@ -163,6 +163,7 @@ async function judge(S){
         _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
         myhomeStore: store, fetchCards: async (codes) => { L.nameReads++; return { [codes[0]]: { name: '서버이름' } }; },
         refreshFriendProfile: refresh,
+        friendReqBtn: { refresh(){} },   // 🙋 이름 옆 [친구 신청] — 이 검사는 이름 · 다시 그리기만 본다(단추는 sim-friend-req-btn)
       });
       await mod.openFriendHomeView((opts && opts.fid) || 'f1', opts && opts.hint);
       await flush(); await flush();

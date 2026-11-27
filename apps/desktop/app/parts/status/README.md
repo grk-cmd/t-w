@@ -5,7 +5,7 @@
 
 ## user-status-table.js — 🍚 상태 표 · 커스텀 상태 저장값
 
-- **책임**: «활동 상태» 의 값 표(밥 · 자리비움 · 빡일중 · 게임 · 커스텀 — 이모지 · 이름 · 점 색 · 동작 깃발)와 커스텀 상태 문구 저장값(`tw.customStatus` 불러오기 · 자르기). DOM · 방 통신 없음(아래층).
+- **책임**: «활동 상태» 의 값 표(밥 · 자리비움 · 집중(`grind` — 옛 이름 «빡일중») · 게임 · 커스텀 — 이모지 · 이름 · 점 색 · 동작 깃발)와 커스텀 상태 문구 저장값(`tw.customStatus` 불러오기 · 자르기). DOM · 방 통신 없음(아래층).
 - **만드는 법**: deps 없음 — `const userStatusTableMod = TwUserStatusTable.createUserStatusTable({` / `});`.
 - **내보내는 것**: `USER_STATUSES` · `CUSTOM_STATUS_KEY` · `CUSTOM_STATUS_MAXLEN`(12) · `loadCustomStatusFromStorage()` · `customStatusConf()` / `setCustomStatusConf(v)`(app.js 의 saveCustomStatusConf 가 쓴다).
   ```js
@@ -26,7 +26,18 @@
   chipPopupsMod._closeChipPopups('myChatBox');   // 채팅을 열기 전에 나머지를 닫는다
   ```
 - **확장할 때 고칠 자리**: 새 칩 팝업은 `_CHIP_POPUPS` 에 `{ box, btn }` 한 줄 — 계속 켜 두는 창이면 `keep:true`(force 일 때만 닫힌다).
-- **함정**: 알림 창(bellWin)은 class 와 함께 `display:none` 도 건다. 지금 커스텀 상태면 커스텀 버튼 ● 를 다시 켠다. 검사: `checks/sim-chip-popups.js`.
+- **함정**: ▾ 두 칸 메뉴 안의 상태 목록(`#myStatusMenu`)은 목록에 넣지 않는다 — 따로 닫으면 메뉴는 열린 채 목록만 사라진다(메뉴째 `myChipMore` 로 여닫는다). 알림 창(bellWin)은 class 와 함께 `display:none` 도 건다. 지금 커스텀 상태면 커스텀 버튼 ● 를 다시 켠다. 검사: `checks/sim-chip-popups.js`.
+
+## status-chip.js — 📍 상태칩(이름표 아래 [💬 채팅 | ▾]) · ▾ 두 칸 메뉴
+
+- **책임**: 내 캐릭터 이름표 아래 가운데에 붙는 한 덩이 버튼(`#myChipGroup`)과 ▾ 두 칸 메뉴(`#myChipMore` — 왼쪽 «내 상태» 목록 `#myStatusMenu` · 맨 아래 «런처로», 오른쪽 «바로가기» 일정 알림 · 플레이리스트(같이 듣기) · 설정 F1 · 꾸미기 F2 · 이동 F3 · 마이홈 F4 · 포커스 기록 · 춤추기 · 러시안룰렛). 칩 자리(매 프레임) · 팝업 자리(`_positionCascade`) · 발 밑 입력창 · Tab 접기 · 책상 위 이모지.
+  - 왼쪽 버튼은 방마다 하나: 투게더룸 `#myChatBtn`(💬 채팅) · 워킹룸 `#myDemojiBtn`(😊 이모티콘) · 혼자면 없음. ▾(`#myStatusChipBtn`) 앞 점은 지금 상태 색(app.js `refreshMyStatusUI`), 안 읽은 일정이 있으면 ▾ 에도 빨간 점(CSS `:has(#myBellBadge.on)`).
+- **내보내는 것**: `updateMyStatusChipPosition` · `_positionCascade` · `_repositionOpenChipPopups` 등(머리 주석 목록).
+- **함정**
+  - `#myStatusChipBtn` 은 회사원 모드로 숨겨도 남는 유일한 버튼이고 **우클릭**이 숨김 · 되돌리기다(app.js `bindOfficeHideGesture`). `#myStatusChip` 밖으로 옮기면 클릭 통과 화이트리스트에서 빠져 되돌릴 길이 없다.
+  - 메뉴 안 🎵 · 🎧 줄이 연 창은 그 줄이 아니라 ▾ 옆에 놓는다(🔔 일정 창은 예전처럼 발 밑 · 기억한 자리) — 메뉴가 닫히면 줄 자리가 의미가 없다(listen-ui.js 도 같은 기준).
+  - F키는 메뉴 안 버튼 id(`myFocusGearBtn` · `myWardrobeBtn` · `myMoveBtn` · `myHomeMenuBtn`)를 클릭한다 — id 를 바꾸지 않는다.
+- **검사**: `checks/sim-status-chip.js`(2-2절 — ▾ 열고 닫기 · 투게더룸이면 춤 · 룰렛 숨김 · 상태 고르면 닫힘 · mutation test).
 
 ## bgm-diag.js — 🔍 플레이리스트 소리 진단 줄
 
@@ -88,3 +99,21 @@
 - **책임**: 예전엔 app.js 다음 `<script>` 로 실려 app.js 맨 위 이름을 그냥 불렀다. 지금은 `TwNoise.createNoise(deps)` 로 받는다 — app.js 보다 먼저 싣고(html), app.js 끝의 «화면 모듈 둘(M23)» 줄에서 INIT 뒤에 만든다.
 - **받는 deps**: 값 `officeModeMod` · `seats` · `hiddenSeatsMod` · `Presence` · 함수 둘(`findMySeat` · `seatState`).
 - **함정**: 소리 자료(`noise-sounds.js`)를 이 모듈보다 먼저 싣는다. 검사: `checks/sim-global-deps.js`.
+## playlist-like.js · playlist-like-ui.js — 👍 플레이리스트 «노래가 좋아요»
+- 0.13 위(0.14.0): deps `enabled` — `TwServerFeatures.on('playlistLike')` 가 꺼지면 줄을 숨기고 읽지 않는다. net 은 `TwServerFeatures.noServer('playlistLike')`(#1100).
+
+- **책임**: 남의 플레이리스트(프리셋 하나)에 «노래가 좋아요 👍» 를 한 번 남긴다. 받는 사람(주인)만 그 프리셋의 👍 수를 본다 — 누가 눌렀는지는 안 보이고, 누르는 사람에게는 수가 안 보인다(사용자 결정).
+  - `playlist-like.js`(순수 · DOM 없음): `presetKey` · `view`(무엇을 보일지) · `createPlaylistLikeNet({ db, ref, get, update })` → `{ read, like }`. firebase-init.js 가 `firebaseAPI.playlistLike` 로 잇는다.
+  - `playlist-like-ui.js`: 소개칸의 반응 줄(내 목록 👍 수 · 남의 목록 [💬 반응]) · 창 옆 서랍. app.js 가 플레이리스트보다 먼저 만들어 `playlistLikeUi` 로 넘긴다.
+- **deps**(ui): `likeRules`(TwPlaylistLike) · `net`(`() => firebaseAPI.playlistLike` — 서버 연결이 늦게 붙어 부를 때 찾는다) · `getMyUserId` · `notifyError`.
+- **내놓는 것**(ui): `render({ ro, ownerId, setIdx } | null)` — playlist.js `_plLikeSync` 가 소개칸을 그릴 때 · 창을 열고 닫고 접을 때 부른다(null 이면 읽지 않고 숨김) · `close()`.
+- **서버 자리**: `playlistLikes/{주인 코드}/{프리셋 0~2}` — `count`(로그인한 누구나 읽음) · `by/{누른 사람 auth uid}`(true · 본인만 읽음) · `last`(이번에 누른 auth uid · 아무도 못 읽음).
+- **함정**
+  - «한 번» · «숫자 부풀리기 막기» 는 규칙이 지킨다: by 는 로그인 토큰 칸(`auth.uid === $authUid`)에 처음 만들 때만, count 는 그 같은 묶음에서 +1 만(last 가 새 by 를 가리켜야 한다). 지우기 · 취소는 없다.
+  - ⚠️ 표시를 친구 코드 칸에 두지 말 것 — 빈 코드를 내 uid 에 새로 이어 붙일 수 있어(userAuth) 코드를 바꿔 가며 끝없이 누를 수 있다. 친구 코드는 «내 것인가» 를 가를 때만(userAuth/{주인} !== auth.uid).
+  - 둘이 동시에 누르면 늦은 쪽이 규칙에 막힌다 — 다시 읽고 `RETRY_MAX` 번까지 다시 쓴다.
+  - 프리셋 번호는 주인의 프리셋 «자리» 다. 이름 · 곡을 바꿔도 수는 그 자리에 남는다.
+  - 읽기는 «누구의 몇 번 프리셋» 이 바뀔 때만 한 번 — 내 것이면 수 하나 · 남의 것이면 내 표시 하나. 수는 누를 때만 읽는다(규칙이 «이전 값 +1» 만 받는다). 창이 닫혀 있으면 읽지 않는다.
+  - 규칙의 count 읽기는 로그인한 누구나 그대로다 — 앱이 +1 을 쓰려면 읽어야 한다. 읽기까지 막으려면 함수가 대신 올려야 한다(나중).
+  - 내 수를 못 읽으면 줄을 숨긴다(0 으로 그리지 않는다).
+  - 검사: `checks/sim-playlist-like.js`(진짜 규칙식을 진짜 서버 모듈 쓰기에 걸어 돌린다) · `sim-playlist.js`(넘기는 값).

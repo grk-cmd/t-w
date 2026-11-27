@@ -22,6 +22,7 @@ const HOOK = Object.freeze({
   CANCEL_NAME_EDIT: 'cancelNameEdit',  // 🏷️ 열린 닉네임 입력칸을 취소로 접기 — 입력칸이 열려 있을 때만 걸린다 · 거는 곳 myhome-edit.js
   FINISH_ARRANGE: 'finishArrange',     // 📂 옮기던 폴더 배치를 저장하고 끝내기 — 친구 집 · 미리보기로 들어가기 전에 부른다(들어간 뒤엔 고치기가 잠긴다) · 거는 곳 myhome-desktop.js
   SYNC_BGM_BOUNDS: 'syncBgmBounds',    // 🎵 BGM 창이 숨을 마이홈 창 사각형 보내기 · 거는 곳 myhome-ui.js
+  LEAVE_GUARD: 'leaveGuard',           // 📝 버그제보 쓰던 글 — (next) 있으면 «저장할까요?» 를 띄우고 true(고르면 next) · 없으면 false · 거는 곳 bug-board-ui.js
 });
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }

@@ -159,6 +159,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **확장할 때 고칠 자리**: 실패 판정 `CIRCUS_FOOT_OFF_MAX`(0.3) · 새 실측은 여기에 더하고 캐싱은 ride-bench 쪽에.
 - **함정**
   - 드래그 중(rig 가 들린 채)에 재면 값이 틀린다 — 접지점은 rig 가 원점에 놓인 첫 묘기 프레임, 팔 높이는 bodyWrap 기준.
+  - 날기 · 맞아 납작 · 흔들기 · 어지러움 · 쓰다듬기 · 춤 중에 재면 낮게 나온다 — `ride-bench.js` 의 `_rideSettled` 가 그 동안은 재지 않고 «다시 재야 함»(`_rideRemeasurePending`)만 남겨, 위 · 아래가 둘 다 가만해진 첫 프레임에 한 번 다시 잰다.
   - 캐릭터 높이 상쇄는 `_positionRideSeat` 가 `charLiftWorld` 로 한 번 — 여기서도 빼므로 armH 에는 높이가 안 섞인다(두 번 빼지 말 것).
   - 팔 높이는 좌석 기울임을 지우고 잰다(대상 머리 재기와 같은 규칙) — 탄 채로 다시 재면(`_remeasureRideArm`) 대상 고개 기울기가 섞인다.
   - 임시 벡터(`_rideFootTmpV` 등)를 돌려주지 않고 `clone()` 한다 — 호출부가 값을 들고 있어도 안전.
@@ -418,6 +419,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 만드는 법: classic script(`window.TwRoomRt`) — `rt-hub.js` · `remote-config.js` 다음 · app.js 보다 먼저. 앱 한 벌은 `TwRoomRt.store`(`TwRtHub.store` 위). provider 는 `store.makeProvider(hooks, { create })` — hooks: `serializeDef` · `deserializeDef` · `retryDefAfter` · `getExp` · `onMeta` · `onDisband` · `onReplaced`(내 자리 `left{replaced}` — 같은 계정이 다른 PC 에서 이 방에 들어옴 · 연결은 그대로) · `onLost(code)`(이 PC 연결이 4004 로 끊기면 `sessionLost`) · `onReconnecting(on)` · `onJoined` · `onLeft`.
 - 내놓는 것: `makeProvider` · `random(limit, channel)` · `peek(code)`(못 물으면 `null`) · `roomCode()`(들어가 있는 방) · `myCode()`(연결의 나 — 방장 · 글쓴이 · 사진 자리 판정은 이 값) · `isReady()` · `inRoom()`.
 - 함정: 연결이 꺼져 있으면(로그인 전 · 로그아웃) 입장은 바로 `off` — 켜기(`TwRtHub.store.start`)는 로그인 흐름 몫이다. `error.ref` 가 방 요청(`join` · `meta` · `music` …)인 것만 받는다 — 대화(`chatSay`) · 사진(`photo*`) · 초대 오류는 그 포트가 받는다.
+- 오래 끊김: 방 안에서 90초 못 돌아오면 그 방을 놓는다(`onLost('unreachable')`). hooks `keepOnUnreachable(room)` 가 참인 방(시크릿룸 — room-entry.js)은 놓지 않고 다시 붙기를 기다린다. 붙으면 resume, 서버가 자리를 뺐으면(`resumeFailed`) 전체 입장, 그 입장이 거절되면 그때 놓는다.
 - 검사: `checks/sim-room-rt.js`(진짜 rt-hub · 연결 공통부 위에서 · mutation test).
 
 ## `room-invite-rt.js` — 🙋 방 초대 포트(realtime 연결 하나)
@@ -485,3 +487,9 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - **책임**: `FLY_*` 상수 · `_flyRng`(시드 난수 — 같은 시드면 같은 궤적) · `flySeed` · `canFly`(막는 까닭 일곱 — 올라탄 좌석은 `allowTower` 면 허용) · `startFlight`(`seat.fly` 를 채우고 `_flyActive` 를 올림) · `_flyActive`(지금 날고 있는 좌석 수 — 프레임 상한이 비행 동안만 비켜 간다).
 - **만드는 법**: `TwFlyingChair.createFlyingChair({ seats, toast })`. **내보내는 것**: 상수 · `flySeed` · `canFly` · `startFlight`(app.js 가 같은 이름 const 로) · `_flyActive()` · `setFlyActive(v)`.
 - **함정**: `Math.random()` 은 `flySeed` 한 곳뿐이다(검사가 센다). 비행을 매 프레임 움직이는 쪽은 `tricks.js` · 프레임 루프. 검사: `checks/sim-flying-chair.js`.
+## invite-notice.js — 🙋 마지막으로 받은 방 초대 한 줄
+- **책임**: 받은 방 초대 중 가장 최근 것 하나를 이 PC 에 계정마다 남긴다(`tw.roomInviteLast` — 쌓지 않고 덮는다). 🔔 일정 알림 창 맨 아래 줄과 알림콩(뱃지)이 이것을 본다.
+- **deps**: `storage`(localStorage) · `getMyUserId` · `now`. 일정 알림을 모른다 — 줄이 바뀐 것은 듣는 쪽이 `subscribe` 로 받는다(순환 없음 · `sim-dep-cycles`).
+- **내놓는 것**: `get()` · `note(fromId, invite)`(같은 초대면 그대로) · `clear()` · `subscribe(fn)`(줄이 바뀌면 — 🔔 일정 알림이 만들 때 건다) · `isNew(seenTs)`(일정 알림 창을 마지막으로 연 뒤 받았나). 순수 규칙 `read` · `write` · `same` · `isNew`. «새로 온 초대» 를 고르는 일(이미 본 초대 거르기)은 받는 쪽 `room-invite-ui.js` 가 한다 — 보낸 쪽 시계끼리 견주지 않는다.
+- **함정**: «받은 시각» 은 이 PC 시계다(보낸 쪽 ts 와 섞지 않는다) — 같은 초대를 다시 받아도 그 시각을 안 바꿔야 알림콩이 되살아나지 않는다. 줄을 누르면 초대의 옛 방 코드가 아니라 친구가 **지금** 있는 방으로 묻는다(scheduler.js 가 창 열기 통로 `twNav.go(NAV.FRIEND_VISIT, fid, { code, name })` → friend-visit.js 가 만들 때 건 `askFresh` — 접속 상태를 한 번 읽고 `ask`) — 시크릿룸은 코드가 접속 상태에 안 올라와서, 친구가 방에 있으면 초대에 실린 SCRT- 코드로 묻는다. 친구가 아니면 «친구 목록에 없어요».
+- **부르는 곳**: 받기 `room-invite-ui.js`(초대가 올 때마다 `note` · 팝업은 10분 뒤 창만 닫힘) · 보이기 `myhome/scheduler.js`(`renderBellList` · `refreshBellBadge`). 검사 `sim-invite-notice.js` · `sim-scheduler.js` 3-2절 · `sim-room-invite-ui.js` 5절.

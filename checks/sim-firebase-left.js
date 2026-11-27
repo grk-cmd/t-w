@@ -18,8 +18,9 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
 
 /* 허용 이름 — 로그인(Auth) · 파일(Storage) · 토큰 · 대화 기록 연결(이 PC IndexedDB) */
 const ALLOWED = new Set(['getIdToken', 'chatHistory', 'authReady', 'authRestoring', 'authAnswered', 'authCurrentUid', 'authCurrentEmail', 'authUser', 'authSignInWithGoogle',
-  'authSignInWithFriendCode', 'authLinkGoogle', 'authSignOut', 'authProviders', 'authReauthPassword', 'authReauthGoogle',
+  'authSignInWithFriendCode', 'authReload', 'authSignOut', 'authDeleteNewLogin', 'authProviders', 'authReauthPassword', 'authReauthGoogle',
   'uploadSlotGlb', 'uploadRoomFace', 'uploadUserImage', 'uploadAwayImg', 'deleteStorageUrl', 'uploadEmojiImage', 'pkUploadFrame',
+  'putOwnFile',      // 내 폴더 users/{내 코드}/… 에 그림 바로 올리기(shared/own-image.js) — 소유자 결정 «스토리지로 직접»(tw-docs design/12-storage-owner.md · 규칙이 주인을 본다)
   'storageBucket']);   // storageBucket — 이 앱의 Storage 버킷 이름(카탈로그 files URL 검사 · catalog-api.js)
 
 /* 위반 목록 — 비면 통과 */

@@ -131,7 +131,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     /* 피치·민트는 --acc-d 가 너무 옅어 흰 글씨가 안 읽힌다 — 한 단계 진하게 */
     'html[data-theme=bubble][data-accent=c4]{--gb-clap:#E39BB5;--gb-label:#C9708F;--gb-link:#C9708F;}'+
     'html[data-theme=bubble][data-accent=c5]{--gb-clap:#7CC4B0;--gb-label:#5FA894;--gb-link:#5FA894;}'+
-    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);height:100vh;box-sizing:border-box;'+
+    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);height:100vh;box-sizing:border-box;'+
     'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius,0px) var(--win-radius,0px) 0 0;color:var(--win-ink,#000);display:flex;flex-direction:column;}'+
     /* [2026-09-16 제보 5 후속 · 시안 A] 플레이리스트 바(#myPlHead)와 같은 문법으로.
        ① margin 을 뺀다 — 2px 여백이 있으면 창 테두리와 바 사이에 흰 선이 보여 «붙어 있지 않은» 인상이 된다.
@@ -183,7 +183,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     /* 🚪 외부인 안내 — 입력칸 자리에 대신 들어간다. 자리를 비우면 창 아래가 뭉텅 잘린 것처럼 보인다. */
     '#gbGuestNote{display:none;flex-shrink:0;font-size:10.5px;line-height:1.6;color:var(--win-ink-soft,#555);'+
     'text-align:center;padding:6px 4px;background:var(--gb-note,#eee);border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
-    '#gbInput{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:11px;padding:4px 6px;'+
+    '#gbInput{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:11px;padding:4px 6px;'+
     'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#gbSubmit{font-size:11px;padding:4px 10px;cursor:pointer;color:var(--win-ink,#222);background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);'+
     'border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
@@ -313,10 +313,14 @@ const errorText = deps.errorText;                         // 오류 번호 → �
       const row=d.createElement('div'); row.className='gb-row';
       row.innerHTML='<div class="gb-head"><b>'+escHtml(TwPersonName.shown(en.name))+'</b><span class="gb-meta"><span>'+relTime(en.ts)+'</span></span></div>'
         +'<div class="gb-text">'+escHtml(en.text||'')+'</div>';
-      // ★ 내가 쓴 글(서버가 준 mine)만 삭제 링크 표시 — 글쓴이를 모르는 옛 글은 아무도 못 지운다
-      if(en.mine){
+      /* 🗑 삭제 링크 — 서버가 지울 수 있다고 한 글(canDelete — 내 글 · 내 방명록의 모든 글)에만. 판정은 서버가 한다.
+         남이 쓴 글은 첫 클릭에 «정말 삭제?» · 두 번째에 지운다(잘못 눌러 지우지 않게) */
+      if(en.canDelete){
         const del=d.createElement('span'); del.className='gb-del'; del.textContent='삭제';
+        if(!en.mine) del.title='내 방명록이라 남이 쓴 글도 지울 수 있어요';
+        let armed=en.mine;
         del.onclick=async ()=>{
+          if(!armed){ armed=true; del.textContent='정말 삭제?'; return; }
           const r=await feed.remove(en.id);
           if(!r.ok && r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다
         };

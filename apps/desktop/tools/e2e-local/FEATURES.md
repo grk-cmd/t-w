@@ -56,7 +56,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | PC 등록(계정마다 서버가 정한 상한까지 · 다 찼으면 새 PC 는 묻고 하나 지움) | `scenarios/account/device-limit.js`(서버가 409 를 줄 때까지 API 로 등록 · 그다음 앱 → «가장 오래된 기기 … 이 기기를 지우고 이 PC를 쓸까요?» · [취소]는 아무것도 안 지우고 로그인 화면 · [지우고 사용]은 그 기기만 지움) | `device-register` `device-limit-dialog` `device-id` `license-screen` | e2e |
 | PC 연결이 끊긴 뒤 안내(다른 PC 에서 이 PC 를 지움 · 이 PC 에서 새로 연 앱에 밀림) | `scenarios/account/device-lost.js`(상대 PC · 새 세션은 API 등록으로 — 서버가 realtime 에 닫게 알림 · 두 안내 글 · 다시 등록 · 여기서 계속) | `device-lost` | e2e |
 | 서버 점검 화면 | `core/logout-maintenance.js «점검»`(관리자 PUT app.maintenance → 서버를 쓰는 단추에 점검 창 · 끄면 «다시 켜기» 안내 · 스택 잠금 안에서 · 끝에 끔) | `maintenance-gate` `remote-config` | e2e |
-| 판 확인(강제 · 선택 업데이트 · 최소 판) | `scenarios/account/version.js`(최소 판 강제 창 · 새 판 선택 창 [나중에] · 같은 계정 다른 PC 의 더 새 판으로 막힘). 최소 판은 같이 쓰는 로컬 설정을 바꿀 수 없어 이 앱의 `GET /v2/config` 응답만 고치고, «새 판 있음» 은 GitHub 릴리스 피드라 main 의 확인 IPC 자리에서 상태를 보낸다 · 실제 내려받기 · 설치는 빠짐 | `update-flow` `app-version-sync` `app-version` `remote-config` `mac-update` `update-diag` | e2e |
+| 판 확인(강제 · 선택 업데이트 · 최소 판) | `scenarios/account/version.js`(최소 판 강제 창 · 새 판 선택 창 [나중에] · 같은 계정 다른 PC 의 더 새 판으로 막힘). 최소 판은 같이 쓰는 로컬 설정을 바꿀 수 없어 이 앱의 `GET /v2/config` 응답만 고치고, «새 판 있음» 은 GitHub 릴리스 피드라 main 의 확인 IPC 자리에서 상태를 보낸다 · 실제 내려받기 · 설치는 빠짐 | `update-flow` `app-version-sync` `app-version` `remote-config` `update-platform` `update-recheck` `update-diag` | e2e |
 
 ## 캐릭터 · 책상 · 가챠
 
@@ -88,7 +88,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 자리비움 그림 | `room/away-pic`(프리미엄 아니면 등록 막힘 · 내 정보에서 PNG 등록 → 서버 주소 · 자리비움이면 남 화면에 그림 · [기본으로]) | `away-pic` `away-follow` `away-start` | e2e |
 | 방 접속 상태 · 활동 상태 · 상태칩 | `room/seat-status`(상태칩 «밥 먹는 중» · «온라인» 을 남이 받음 · 나가면 남 화면 좌석이 빠짐) | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | e2e |
 | 같이 듣기 · DJ | `room/listen`(서버 플레이리스트 곡 · 같이 듣기 방 · 방장 DJ 판정 · 이름표 «🎧 DJ» · 첫 곡 music 이 남에게 · 같이 듣기 창 곡 제목 · DJ 가 나가면 새 방장이 DJ) — 소리는 조용히 켜기가 끈다 | `listen-model` `listen-provider` `listen-ui` | e2e |
-| 스티커사진(purikura) | `room/purikura`(정원 API · 둘이 같은 세션 · 방장만 [시작] · 시작하면 정원 하나 줄어듦 · 나가기). 촬영 · 꾸미기 · 저장은 시나리오 없음 | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `pk-bgm` `pk-fit` `ps1-dither` | 부분 |
+| 스티커사진(purikura) | `room/purikura`(정원 API · 둘이 같은 세션 · 방장만 [시작] · 시작하면 정원 하나 줄어듦 · 나가기). 촬영 · 꾸미기 · 저장은 시나리오 없음 | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `win-bgm` `bgm-hush` `pk-fit` `ps1-dither` | 부분 |
 
 ## 채팅
 
@@ -116,9 +116,10 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 마이홈 열기 · 꾸미기(배경 · 스티커 · 디자인 프리셋 · 본문 링크) | `REPL «친구 요청»` 이 열기만 지나감(꾸미기는 안 거침) | `myhome-init` `myhome-page` `myhome-load` `myhome-store` `myhome-wire` `myhome-ui` `myhome-steps` `myhome-state` `myhome-edit` `myhome-hooks` `myhome-preset` `myhome-links` `myhome-sticker` `myhome-sticker-layout` `myhome-sticker-render` `myhome-sticker-rules` `myhome-api` `mh-bg-url` `mh-pad-pos` `mh-title-nodrag` | 부분 |
 | 마이홈 바탕화면 · 폴더 · 책장 북마크 | `scenarios/social/myhome-desktop.js`(폴더 숨기기 · 책 꽂기 · 공개 책만 친구에게) | `folder-free` `mhd-envsub` `mhd-hidefolders` `bookmark` `bookshelf-store` | e2e |
 | 방명록 · 웹박수 | `scenarios/social/guestbook.js`(친구만 · 쓰기 · 박수 · 새 글 배지 · 지우기 — 창이 포커스를 잃으면 닫히는 동작은 막고 돌림) | `guestbook` `guestbook-api` `guestbook-feed` `guestbook-wiring` `mh-sanitize` `rich-text` | e2e |
-| 말랑이 · 선물 보내기 · 받기 | `scenarios/social/mallang-gift.js`(라이선스 잠김 · 그림 등록(POST /v2/me/images → 칸 저장) — OS 파일 창은 main 의 dialog 를 바꿔 고른 파일을 준다 · 폴더 누르면 소환 · 친구 줄 우클릭 선물 보내기(서버 사본) · 받은 쪽 선물함) | `mallang-module` `mallang-store` `mallang-gift` `mallang-hide` `gift-api` `gift-box` `gift-save` `gift-img-retry` | e2e |
+| 말랑이 · 선물 보내기 · 받기 | `scenarios/social/mallang-gift.js`(라이선스 잠김 · 그림 등록(Storage 내 폴더 `users/{코드}/mallang_…` 에 바로 → 칸 저장 · 서버 그림 endpoint 안 씀) — OS 파일 창은 main 의 dialog 를 바꿔 고른 파일을 준다 · 폴더 누르면 소환 · 친구 줄 우클릭 선물 보내기(서버 사본) · 받은 쪽 선물함) | `mallang-module` `mallang-store` `mallang-gift` `mallang-hide` `gift-api` `gift-box` `gift-save` `gift-img-retry` | e2e |
 | 우편함 · 공지 | `scenarios/social/inbox-notice.js`(관리자 우편 · 읽음 · 지우기 · 소식) | `inbox-api` `inbox-sections` `mail-feed` `myhome-inbox` `notice-api` `notice-feed` `drag-scroll` | e2e |
 | 일정 · 디데이 · 일정 알림 | `scenarios/social/schedule-dday.js`(일정 · 친구 태그 → 🔔 · D-day · 공개 범위) | `schedule-api` `scheduler` | e2e |
+| 그림 바로 올리기(마이홈 사진 · 디데이 카드 · 박수 그림) | `scenarios/social/own-image.js`(앱 상태 주인 · provider 로 `users/{코드}/mh_ · dday_ · clap_` 에 올리고 서버가 주소를 저장 · 서버 그림 endpoint 요청 0 · 남의 코드 폴더는 Storage 가 거절 — 에뮬레이터에 앱 저장소 `firebase/storage.rules` · 박수는 방명록 창이 부르는 `feed.setImage`) · 말랑이는 위 `mallang-gift.js` | `own-image` `myhome-api` `schedule-api` `guestbook-api` `gift-api` `image-bytes` | e2e |
 | 플레이리스트 | `scenarios/social/playlist.js`(곡 추가 — 유튜브 제목 조회는 가짜 답 · 서버 사본 · 친구 파도타기. 실제 재생은 유튜브라 안 봄) | `playlist` `playlist-api` `pl-grab-pick` `pl-loop` `pl-next` `pl-watchdog` `api-public-reads` `bgm-diag` | 부분 |
 | 백색소음 | `scenarios/social/white-noise.js`(고르기 · 음량 · 같은 방 전파 · 남의 소리 끄기 · 다시 켜도 기억. 소리가 나는 때(타이핑 자세)는 OS 전역 키 입력이라 안 봄) | `noise` | 부분 |
 | 도움말 탭 | `scenarios/social/help-tab.js`(도움말 사이트는 route-main.js 가 저장소의 firebase/hosting/help 로 답한다 · 목차 · 묶음 펴기 · 편 이동. 못 불러옴 E-MH-01 은 sim-help-tab 이 본다) | `help-tab` | e2e |

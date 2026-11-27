@@ -391,7 +391,11 @@ function swapCreatorBaseToDefault() {
 
 // ★ 이 좌석(생성기 cBase · 실행 seat 둘 다)의 책상 아이템을 전부 뗀다 — 새 목록을 붙이기 전에 반드시 먼저(커스텀 아이템까지 allDeskItems 로).
 function clearHolderDeskItems(holder){
-  if(!holder || !holder.deskItems) return;
+  if(!holder) return;
+  /* 건너뜀 표시(_skippedItems — 받기 전 · 라이선스로 못 올린 아이템)도 비운다 — cBase 는 창을 닫아도 살아 있어, 안 비우면 앞 캐릭터의 건너뛴 아이템이
+     다음 캐릭터 저장(collectDeskItems)에 섞인다. 뒤따르는 applyDeskItemsTo 가 이 캐릭터 것만 다시 적는다(desk-preset.js 프리셋 얹기와 같은 자리) */
+  if(holder._skippedItems) holder._skippedItems.clear();
+  if(!holder.deskItems) return;
   allDeskItems().forEach(def=>{ if(holder.deskItems[def.id]) equipDeskItem(holder,def,false); });
   // ★ 목록(customItems)에 없어도 holder 에 남은 아이템은 강제로 뗀다 — 다른 캐릭터 편집으로 넘어갈 때 목록이 먼저 비워진다.
   for(const id in holder.deskItems){

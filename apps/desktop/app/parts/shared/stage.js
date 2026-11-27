@@ -2,7 +2,7 @@
    app.js SETUP 구역의 «무대 만들기» 를 그대로 옮긴 모듈이다. 동작은 옮기기 전과 같다(바뀐 줄 0). 만드는 차례만 다르다 — 바닥 · 로더를 렌더러 바로 뒤에 만든다(옛 글은 조명 · 재질 뒤).
    ・책임: 메인 캔버스(#scene)에 WebGL 렌더러를 만들고(못 만들면 gl-fail-notice 안내 후 던진다) · 연결 끊김 감시(gl-recover)를 붙이고 ·
      씬 · 원근 카메라 · 그림자 바닥 · GLTF(+DRACO) 로더를 만든다. 만들기만 하고 그리지 않는다 — 그리기는 app.js frame().
-   ・받는 deps 2 — _renderAA(렌더러 antialias — 저장된 화질에서 app.js 가 정한 값. 화질 상태는 app.js 에 있다) ·
+   ・받는 deps 3 — _renderAA(렌더러 antialias — 저장된 화질에서 app.js 가 정한 값. 화질 상태는 app.js 에 있다) · _renderShadows(그림자 켬 — «최저» 면 끔) ·
      afterRestore(3D 가 돌아온 직후 할 일 — 좌석 그림 점검 face-heal.js reportGlReset. 2D 캔버스도 같은 GPU 를 잃어 같이 빌 수 있다).
      THREE · TwGlFailNotice · GlRecover · TwErrorCodes · companion 은 전역 이름 그대로.
    ・내놓는 것: canvas · renderer · scene · camera · floor · sizeFloorTo(mesh, cx, cz, sx, sz) · loader — app.js 가 같은 이름의 const 로 받는다(옛 전역 이름).
@@ -13,6 +13,7 @@
 
 function createStage(deps){
 const _renderAA = deps._renderAA;
+const _renderShadows = deps._renderShadows;
 const afterRestore = deps.afterRestore;
 const canvas=document.getElementById('scene');
 /* 🧯 3D 를 못 쓸 때 «다시 켜기» 안내(shared/gl-fail-notice.js) — 렌더러를 못 만들면 안내를 띄우고 멈춘다(B-1114-5) */
@@ -35,7 +36,7 @@ try{
     afterRestore: () => afterRestore(),
   }).attach(canvas);
 }catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
-renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled=_renderShadows; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(34,1,0.1,100);   // 생성기와 동일한 원근 렌즈 (WYSIWYG)

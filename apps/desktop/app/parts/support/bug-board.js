@@ -58,8 +58,78 @@ function canChangeVis(post){
   return !!post && post.mine === true && !post.notice && Array.isArray(post.comments) && post.comments.length === 0;
 }
 
+/* 📝 임시저장 — 이 PC 에만(localStorage BUG_DRAFT_KEY) 최대 BUG_DRAFT_MAX 개. 순수 계산만 여기 · 읽고 쓰기는 화면(bug-board-ui.js).
+   계정마다 따로 — 저장본에 주인 코드(owner)를 같이 두고, 주인이 다르면 빈 것으로 본다(계정을 바꾸면 account.js ACCOUNT_LOCAL_KEYS 로도 지운다). */
+const BUG_DRAFT_KEY = 'tw.bugDrafts';
+const BUG_DRAFT_MAX = 3;
+const draftOf = (d) => ({ id: String(d.id), ts: Number(d.ts) || 0, cat: typeof d.cat === 'string' ? d.cat.slice(0, 20) : '',
+  title: typeof d.title === 'string' ? d.title.slice(0, BUG_TITLE_MAX) : '', body: typeof d.body === 'string' ? d.body.slice(0, BUG_BODY_MAX) : '',
+  vis: d.vis === 'prv' ? 'prv' : 'pub' });
+const draftIsEmpty = (d) => !d || (!String(d.title || '').trim() && !String(d.body || '').trim());
+/* 저장본(글자) → 목록. 깨졌거나 · 주인이 다르거나 · 모양이 틀린 줄은 버린다 · 최근 것부터 · 많아야 MAX */
+function draftsRead(raw, owner){
+  let v = null;
+  try{ v = JSON.parse(raw); }catch(_){ return []; }
+  if(!v || typeof v !== 'object' || !owner || v.owner !== owner || !Array.isArray(v.items)) return [];
+  return v.items.filter(d => d && typeof d === 'object' && d.id != null && !draftIsEmpty(d)).map(draftOf)
+    .sort((x, y) => y.ts - x.ts).slice(0, BUG_DRAFT_MAX);
+}
+const draftsWrite = (list, owner) => JSON.stringify({ owner, items: list.map(draftOf) });
+/* 저장 — 불러온 글(id 가 같은 것)은 덮어쓰고, 새 글은 칸이 있을 때만. { ok, list, id } · 실패면 { ok:false, reason:'empty'|'full' } */
+function draftsSave(list, d, now, newId){
+  if(draftIsEmpty(d)) return { ok: false, reason: 'empty' };
+  const cur = (list || []).slice();
+  const i = d.id != null ? cur.findIndex(x => x.id === String(d.id)) : -1;
+  if(i < 0 && cur.length >= BUG_DRAFT_MAX) return { ok: false, reason: 'full' };
+  const id = i >= 0 ? cur[i].id : String(newId);
+  const one = draftOf(Object.assign({}, d, { id, ts: now }));
+  if(i >= 0) cur[i] = one; else cur.push(one);
+  return { ok: true, id, list: cur.sort((x, y) => y.ts - x.ts) };
+}
+const draftsRemove = (list, id) => (list || []).filter(x => x.id !== String(id));
+/* 지금 쓰는 글이 «저장할 게 있는» 글인가 — 비었으면 아니고, 불러온 그대로(안 고침)여도 아니다 */
+function draftDirty(d, loaded){
+  if(draftIsEmpty(d)) return false;
+  if(!loaded) return true;
+  return ['cat', 'title', 'body', 'vis'].some(k => String(d[k] || '') !== String(loaded[k] || ''));
+}
+
+/* 🔎 비슷한 제보 — 새 제보를 올리기 전 «이미 제보되어 있어요» 창에 띄울 글을 고른다(순수 계산).
+   제목을 낱말로 나눠 조사 · 흔한 말(오류 · 안 돼요 …)을 떼고, 두 글자씩 끊은 조각이 얼마나 겹치는지(0~1)로 본다 —
+   «레벨이 안 올라가요» · «레벨이 안올라요» 처럼 띄어쓰기 · 말끝이 달라도 잡히게. 공지는 비교하지 않는다. */
+const BUG_SIMILAR_MAX = 3;          // 창에 보일 줄 수
+const BUG_SIMILAR_MIN = 0.4;        // 이만큼 겹쳐야 «비슷함»(실제 제보 제목으로 맞춘 값)
+const BUG_SIMILAR_FETCH = 20;       // 비교할 글 — 미해결 · 최근 각각 이만큼(서버 목록 limit 로 보낸다)
+const SIM_STOP = new Set(['오류', '버그', '문제', '현상', '관련', '문의', '질문', '제보', '에러', '오작동', '안됨', '안돼요', '안되요',
+  '안됩니다', '됩니다', '합니다', '해요', '입니다', '있어요', '없어요', '같아요', '것', '좀', '계속', '자꾸', '너무', '갑자기']);
+const SIM_TAIL = /(은|는|이|가|을|를|도|에|의|로|으로|에서|이랑|랑|하고|와|과|요|니다|해요|돼요|되요|나요|어요|아요)$/;
+function titleWords(t){
+  return String(t == null ? '' : t).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ')
+    .map(w => w.replace(SIM_TAIL, '')).filter(w => w.length >= 2 && !SIM_STOP.has(w));
+}
+function titleGrams(t){
+  const c = titleWords(t).join(''), g = new Set();
+  for(let i = 0; i < c.length - 1; i++) g.add(c.slice(i, i + 2));
+  return g;
+}
+function titleSimilarity(a, b){
+  const A = titleGrams(a), B = titleGrams(b);
+  if(!A.size || !B.size) return 0;
+  let n = 0; A.forEach(x => { if(B.has(x)) n++; });
+  return 2 * n / (A.size + B.size);
+}
+/* 받은 글들 중 제목이 비슷한 것 — 겹친 정도 · 최근 순, 같은 글은 한 번만, 많아야 BUG_SIMILAR_MAX */
+function similarPosts(title, items, max){
+  const lim = max > 0 ? max : BUG_SIMILAR_MAX, seen = new Set();
+  return (items || []).filter(it => it && it.id && !it.notice && typeof it.title === 'string' && it.title && !seen.has(it.id) && seen.add(it.id))
+    .map(it => ({ it, s: titleSimilarity(title, it.title) })).filter(x => x.s >= BUG_SIMILAR_MIN)
+    .sort((x, y) => (y.s - x.s) || ((y.it.ts || 0) - (x.it.ts || 0))).slice(0, lim).map(x => x.it);
+}
+
 const out = { BUG_PAGE, BUG_ANON, BUG_TITLE_MAX, BUG_BODY_MAX, BUG_ENV_MAX, BUG_ANS_MAX, BUG_CATS, BUG_STATUS, BUG_AUTHOR_STATUS, KAKAO_RE,
-  BUG_VIS_NOTE, BUG_VIS_LOCKED, GUIDE_TEXT, ANSWER_CONFLICT_TEXT, CONFIG_CONFLICT_TEXT, KAKAO_LINK_RULE, checkPost, canChangeVis };
+  BUG_VIS_NOTE, BUG_VIS_LOCKED, GUIDE_TEXT, ANSWER_CONFLICT_TEXT, CONFIG_CONFLICT_TEXT, KAKAO_LINK_RULE, checkPost, canChangeVis,
+  BUG_DRAFT_KEY, BUG_DRAFT_MAX, draftIsEmpty, draftsRead, draftsWrite, draftsSave, draftsRemove, draftDirty,
+  BUG_SIMILAR_MAX, BUG_SIMILAR_MIN, BUG_SIMILAR_FETCH, titleWords, titleSimilarity, similarPosts };
 if(typeof window !== 'undefined') window.TwBugBoard = out;
 if(typeof module !== 'undefined' && module.exports) module.exports = out;
 })();

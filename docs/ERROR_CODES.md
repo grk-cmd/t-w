@@ -34,6 +34,7 @@
 | `DATA` | (걷음) 범용 데이터 통로 — 걷은 번호만 |
 | `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
 | `RT` | realtime 연결이 끊겨 멈춤(로그인 풀림 · 계정 로그아웃 · 모르는 닫힘) — 다시 붙는 끊김엔 번호 없음 |
+| `XMAS` | 크리스마스 이벤트(일회성) |
 | `SYS` | 그 밖 |
 
 ## 번호
@@ -46,6 +47,11 @@
 | `E-SYS-08` | 캐릭터 몸 파일을 불러오지 못했어요 — 앱을 다시 설치해 주세요 | `launcher/run-boot.js` — 켤 때 기본 몸을 못 읽음(대신 몸으로 계속 · 설치 파일이 깨졌을 수 있다) |
 | `E-ACC-01` | 닉네임을 저장하지 못했어요 — 다시 해 주세요 | `account/user-name.js` — 닉네임 저장 뒤 서버 계정 이름(`PATCH /v2/me` — login-flow `patchMe`) 실패 |
 | `E-ACC-02` | 비밀번호를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/account.js` — 비밀번호 바꾸기 · 탈퇴 · 붙이기 전 «비밀번호 확인» 창에서 너무 많이 틀림(too-many-requests) · 네트워크 실패(틀린 비밀번호는 창 안에 알림) |
+| `E-SYS-02` | 내 색을 계정에 저장하지 못했어요 — 이 PC 에는 저장했어요 | `shared/theme-ui.js` — 👑 내 색 [저장] 의 서버 쓰기(`PUT /v2/me/theme-custom` · 닿지 못함 · 403 프리미엄 아님) |
+| `E-SYS-09` | 다른 PC 에서 내 색을 먼저 바꿨어요 — 그 색으로 맞췄어요. 다시 고르면 저장돼요 | `shared/theme-ui.js` — 👑 내 색 서버 쓰기가 409 `CONCURRENT_UPDATE`(다른 PC 가 먼저 저장) → 계정 것을 다시 읽어 이 PC 를 맞춤 |
+| `E-SYS-03` | 이 PC 의 글꼴 목록을 읽지 못했어요 — 글꼴 이름을 직접 써서 고를 수 있어요 | `shared/font-ui.js` — 👑 내 PC 글꼴 고르기(`queryLocalFonts` 실패 · 막힘) |
+| `E-SYS-04` | 반응을 보내지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `status/playlist-like-ui.js` — 플레이리스트 [노래가 좋아요 👍] 쓰기(`playlistLikes`) |
+| `E-ACC-06` | 구글 계정을 바꾸지 못했어요 — 원래 구글 그대로예요. 잠시 뒤 다시 해 주세요 | `account/account.js` — 🔁 [바꾸기] 서버 `PUT /v2/me/google` 실패(닿지 못함 · 사람이 고칠 수 없는 거절 — 지금 구글 그대로) |
 | `E-FR-01` | 친구 요청을 수락하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [수락] |
 | `E-FR-02` | 친구 요청을 거절하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [거절] |
 | `E-FR-03` | 보낸 친구 요청을 취소하지 못했어요 | `myhome/friend-manage.js` — 보낸 요청 [취소] |
@@ -53,6 +59,7 @@
 | `E-FR-05` | 친구의 접속 상태를 받지 못했어요 — 연결을 확인하고 다시 시도해 주세요 | `myhome/friends-sub.js` — 놀러 가기 · 파도타기 친구 고르기의 접속 상태 한 번 읽기(presenceGet) 실패(이어지는 동안 한 번만) |
 | `E-ACC-03` | 서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `account/license-gate.js` — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음) |
 | `E-ACC-04` | 이 PC를 등록하지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요 | `account/device-register.js` — 켤 때 · [이 PC 다시 등록] 의 이 PC 등록(`POST /v2/me/devices`)이 «등록 PC 가 다 참» 밖의 까닭으로 실패 |
+| `E-FR-06` | 친구 신청을 보내지 못했어요 | `myhome/friend-req-btn.js` — 남의 마이홈 [친구 신청] › [신청하기] |
 | `E-MH-01` | 도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `myhome/help-tab.js` — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(`LOAD_MS`) |
 | `E-MH-02` | 배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요 | `myhome/mh-bg-url.js` — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만) |
 | `E-MH-03` | 선물 그림을 저장하지 못했어요 — 잠시 뒤에 다시 해 주세요 | `myhome/gift-save.js` — 선물함 우클릭 [저장]에서 그림을 못 받음(주소 없음 · 네트워크 · 그림 아님) |
@@ -74,6 +81,9 @@
 | `E-MH-22` | 마이홈을 저장하지 못했어요 | `myhome/myhome-store.js` — 페이지 PATCH 실패(MYHOME_TEXT_TOO_LONG · MYHOME_INVALID_IMAGE_URL · MYHOME_INVALID_LINK · INVALID_REQUEST 포함 — 서버가 거절한 값은 버리고 그때마다 알림 · 망 · 5xx 실패는 이어지는 동안 한 번만) |
 | `E-MH-23` | 디자인을 저장하지 못했어요 | `myhome/myhome-store.js` — 디자인 PUT 실패(MYHOME_INVALID_THEME 포함 · PREMIUM_REQUIRED 는 공통 E-NET-03) |
 | `E-MH-24` | 그림을 올리지 못했어요 | `myhome/myhome-store.js` · `myhome/bookmark.js` — 그림 올리기 실패(사진 · 스티커 · 배경 · 디자인 · 책등 · IMAGE_UPLOAD 올리기 전 걸러냄 포함) |
+| `E-CHAT-06` | 공지를 저장하지 못했어요 — 잠시 뒤에 다시 해 주세요 | `chat/chat-notice.js` — 시크릿룸 #공지 탭에서 공지 쓰기 · 고치기 · 지우기 · 고정이 서버에 안 닿음 |
+| `E-CHAT-07` | 집중 기록을 지우지 못했어요 — 잠시 뒤에 다시 해 주세요 | `chat/chat-focus.js` — 시크릿룸 #집중 탭에서 «내 기록 지우기» 가 서버에 안 닿음 |
+| `E-BUG-08` | 임시저장하지 못했어요 — 이 PC 의 저장 공간을 확인해 주세요 | `support/bug-board-ui.js` — 버그 제보 📝 임시저장(localStorage `tw.bugDrafts` 쓰기 실패) |
 | `E-ROOM-01` | 방 목록을 불러오지 못했어요 | `room/room-entry.js` — 랜덤 참여 · 갈아타기(`findRandomRooms`) |
 | `E-ROOM-02` | 방을 옮기지 못했어요 | `room/room-entry.js` — 갈아타기 뒤 방 밖에 남음 |
 | `E-ROOM-03` | 방 목록을 불러오지 못했어요 | `room/room-lobby-ui.js` — 로비 목록 API(`GET /v2/rooms/lobby`) 읽기 실패(닿지 못함 · 답 모양이 틀림) |
@@ -98,7 +108,7 @@
 | `E-CHAR-08` | 프리셋의 책상을 찾지 못해 기본 책상으로 열었어요 | `creator/desk-preset.js` — 프리셋 적용 중 카탈로그 책상을 못 찾음 · 못 받음(프리셋엔 카탈로그 책상 id 만 담는다) |
 | `E-CHAR-09` | 로그인이 풀려 있어 뽑지 않았어요 — 다시 로그인한 뒤 뽑아 주세요(횟수는 그대로예요) | `character/gacha.js` — 내 코드 없음 · 보유분을 받기 전 · 계정이 바뀜 · 서버 경로 401/403 |
 | `E-CHAR-10` | 서버에 닿지 않아 뽑지 않았어요 — 인터넷 연결을 확인하고 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 서버 경로 닿지 못함 · 5xx |
-| `E-CHAR-11` | 서버 응답이 늦어 뽑기 결과를 확인하지 못했어요 — 잠시 뒤 보관함을 열어 확인해 주세요 | `character/gacha.js` — 뽑기 응답 시간 초과(서버엔 들어갔을 수 있음 — 보관함을 열면 다시 받음) |
+| `E-CHAR-11` | 서버 응답이 늦어 뽑기 결과를 확인하지 못했어요 — 잠시 뒤 꾸미기 › 도감을 열어 확인해 주세요 | `character/gacha.js` — 뽑기 응답 시간 초과(서버엔 들어갔을 수 있음 — 보관함을 열면 다시 받음) |
 | `E-CHAR-12` | 뽑기를 저장하지 못했어요 — 잠시 후 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 서버 경로 서버 바쁨 · 카탈로그 준비 중 · 그 밖 4xx(`gacha-api.js` reasonOf) |
 | `E-CHAR-13` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `character/wardrobe.js` — 꾸미기 책상 탭에서 카탈로그 책상 고르기(모델 받기 실패) |
 | `E-CHAR-14` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `creator/desk-setup.js` — 생성기 책상 카드 고르기(모델 받기 실패) |
@@ -130,7 +140,7 @@
 | `E-LIC-06` | 라이선스를 등록하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/license-screen.js` — 키 [확인](`POST /v2/me/license`)의 사용자가 고칠 수 없는 실패(네트워크 · 서버 오류 · 응답 모양). 없는 키 · 남의 키 · 회수된 키 · 이미 라이선스 있음 · 기기 가득은 번호 없이 입력칸 아래 문구 |
 | `E-LIC-07` | 시크릿룸을 발급하지 못했어요 — 잠시 뒤 다시 해 주세요 | `admin/admin-license-bulk.js` — 관리자 시크릿룸 [발급](`POST /v2/admin/secret-rooms`)의 사용자가 고칠 수 없는 실패(네트워크 · 서버 오류). 없는 친구코드 · 남이 가진 코드(경고) · 입력 오류 · 로그인 필요는 번호 없이 발급 칸 아래 문구 |
 | `E-GIFT-01` | 말랑이를 불러오지 못했어요 | `myhome/mallang-store.js` — 내 칸(`GET /v2/me/mallangs` — 마이홈 열기 · 등록 창 [다시 시도] · 못 받은 폴더 누름) · 보는 집 칸(`GET /v2/mallangs/{code}` — 친구 홈 구경 · 내 집으로) 받기 실패(그 사람이 없음은 번호 없이 «말랑이 없음» · 혼자 다시 받지 않음) |
-| `E-GIFT-02` | 말랑이 그림을 올리지 못했어요 | `myhome/mallang-store.js` — 등록 ① 그림 올리기(`POST /v2/me/images?purpose=mallang`) 실패 · 형식 · 크기 거절(`IMAGE_UPLOAD`) — 칸은 그대로 |
+| `E-GIFT-02` | 말랑이 그림을 올리지 못했어요 | `myhome/mallang-store.js` — 등록 ① 그림 올리기(Storage 내 폴더 — `shared/own-image.js` mallang) 실패 · 10초 넘음 · 형식 · 크기 거절(`IMAGE_UPLOAD`) — 칸은 그대로 |
 | `E-GIFT-03` | 말랑이를 저장하지 못했어요 | `myhome/mallang-store.js` — 등록 ② · 켜고 끄기 · 지우기의 칸 저장(`PUT /v2/me/mallangs` — `GIFT_MALLANG_INVALID` 포함 · 409 는 번호 없이 다시 받기) 실패(이어지는 동안 한 번만 · 고친 화면은 그대로 · 혼자 다시 보내지 않음 — 다음 고침 · 로그아웃 · 앱 끄기 때 한 번) |
 | `E-GIFT-04` | 선물함을 불러오지 못했어요 | `myhome/gift-box.js` — 선물함 받기(`GET /v2/me/gifts` — 마이홈 열기 · 💝 선물함 서브탭 · [다시 시도]) 실패(서버 신호로 받는 것은 번호 없이 조용히 · 혼자 다시 받지 않음 · 봤음 실패는 번호 없이 배지가 남음) |
 | `E-GIFT-05` | 선물을 바꾸지 못했어요 | `myhome/gift-box.js` — 선물 ⭐ · 선물함으로 치움 · 다시 부르기(`PATCH /v2/me/gifts/{id}`) 실패(⭐ 20개 초과 · 이미 없는 선물은 번호 없이 안내) |
@@ -201,6 +211,12 @@
 | `E-RT-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `realtime/rt-status-ui.js` — realtime 서버가 4001(토큰)로 두 번 닫음(ready 전 error auth 포함) → 로그인 화면 |
 | `E-RT-02` | 계정이 이 기기에서 로그아웃됐어요 | `realtime/rt-status-ui.js` — realtime 서버가 4007(탈퇴 · 정지 · 관리자 강제 로그아웃)로 닫음 → 로그아웃 처리 · 로그인 화면 |
 | `E-RT-03` | 서버 연결이 끊겼어요 | `realtime/rt-status-ui.js` — realtime 서버가 모르는 4000번대 번호로 닫음(멈춤) — 런처 위 띠에 [다시 연결] |
+| `E-XMAS-01` | 트리를 불러오지 못했어요 — 창을 닫았다 다시 열어 주세요 | `xmas/xmas-window.js` — 크리스마스 창 열 때 지금 트리 · 내 자리 · 장식 목록 읽기 실패 |
+| `E-XMAS-02` | 장식을 걸지 못했어요 — 잠시 후 다시 눌러 주세요 | `xmas/xmas-window.js` — 함수 `xmasHang` 실패(시간 초과 · 네트워크 · 서버 오류) |
+| `E-XMAS-03` | 신고를 보내지 못했어요 — 잠시 후 다시 해 주세요 | `xmas/xmas-window.js` — 장식 신고 `xmasReports` 쓰기 실패 |
+| `E-XMAS-04` | 편지를 불러오지 못했어요 — 창을 닫았다 다시 열어 주세요 | `xmas/xmas-letter.js` — 편지 창 열 때 내 편지함 · 반송 · 받은 편지 읽기 실패 |
+| `E-XMAS-05` | 편지를 저장하지 못했어요 — 잠시 후 다시 눌러 주세요 | `xmas/xmas-letter.js` — 편지 맡기기 · 고치기 · 거두기 · 반송 표시 치우기 `xmasLetters` · `xmasReturned` 쓰기 실패 |
+| `E-XMAS-06` | 편지 신고를 보내지 못했어요 — 잠시 후 다시 해 주세요 | `xmas/xmas-letter.js` — 받은 편지 신고 `xmasReports`(`g-`) 쓰기 실패 |
 
 ## 걷은 번호
 | 번호 | 사용자 문구 | 언제 · 왜 |

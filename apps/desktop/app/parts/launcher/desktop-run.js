@@ -51,7 +51,7 @@ if(desktopMode){
   // 활성 프로세스 상태 실시간 구독 (500ms 폴링 기반) — 포커싱 어플 게이트 갱신
   if(window.companion&&companion.onActiveAppState){ companion.onActiveAppState(_applyActiveAppState); }
   // ---- 자동 업데이트 상태 알림 ----
-  // 다운로드 완료('downloaded')되면 재시작 버튼이 달린 알림을 계속 띄워둠(사용자가 직접 확인하고 눌러야 설치됨).
+  // 다운로드 완료('downloaded')되면 재시작 버튼이 달린 알림을 계속 띄워둠 — [지금 재시작] 을 누르거나, 윈도우는 앱을 끌 때 조용히 설치된다(main.js).
   // 그 외 상태(checking/available/downloading/none)는 조용히 무시 — 매번 토스트 띄우면 방해될 수 있어서
   // "설치 준비 완료"만 눈에 띄게 알림.
   if(window.companion&&companion.onUpdateStatus){
@@ -62,14 +62,10 @@ if(desktopMode){
       try{ console.log('[업데이트]', status, JSON.stringify(info||{})); }catch(_){ console.log('[업데이트]', status); }
       if(status==='error') console.warn('[업데이트] 실패:', (info&&info.message)||'(메시지 없음)');
       if(status==='downloaded') whenUpdateStageDone(()=>showUpdateReadyBanner(version));   // 업데이트 창이 떠 있는 동안은 띠를 미룬다
-      // 🍎 맥은 서명이 없어 자동 설치가 안 된다(main.js 의 맥 갈래 주석). 내려받기만 사람이 한다 —
-      //   같은 배너에 «받으러 가기» 만 달아서 릴리즈 페이지를 시스템 브라우저로 연다.
-      if(status==='mac-available') whenUpdateStageDone(()=>showUpdateReadyBanner(version, info&&info.url));
     });
   }
-  /* downloadUrl 이 있으면 «받으러 가기»(맥 — 브라우저로 릴리즈 페이지), 없으면 «지금 재시작»(윈도우 — 자동 설치).
-     ★ 배너를 새로 만들지 않고 이 한 칸을 같이 쓴다 — 자리·테마·중복 방지가 이미 여기에 있다. */
-  function showUpdateReadyBanner(version, downloadUrl){
+  /* 받아 둔 새 판 — «지금 재시작» 을 누르면 설치하고 다시 켠다(윈도우 · 맥 같음). */
+  function showUpdateReadyBanner(version){
     if(document.getElementById('updateReadyBanner')) return;   // 중복 방지
     const b=document.createElement('div');
     b.id='updateReadyBanner';
@@ -78,18 +74,11 @@ if(desktopMode){
       +'box-shadow:2px 2px 0 rgba(0,0,0,.3);padding:8px 10px;display:flex;align-items:center;gap:8px;'
       +'font-size:12px;color:#222;-webkit-app-region:no-drag;';
     const ver=version?(' v'+TwSafeHtml.text(version)):'';
-    b.innerHTML='<span>'+(downloadUrl?('🍎 새 버전'+ver+'이 나왔어요'):('🔄 새 버전'+ver+'이 준비됐어요'))+'</span>'
-      +'<button id="updateReadyBtn" style="padding:4px 8px;font-weight:bold;cursor:pointer;">'
-      +(downloadUrl?'받으러 가기':'지금 재시작')+'</button>'
+    b.innerHTML='<span>🔄 새 버전'+ver+'이 준비됐어요</span>'
+      +'<button id="updateReadyBtn" style="padding:4px 8px;font-weight:bold;cursor:pointer;">지금 재시작</button>'
       +'<button id="updateLaterBtn" style="padding:4px 8px;cursor:pointer;">나중에</button>';
     document.body.appendChild(b);
     document.getElementById('updateReadyBtn').onclick=()=>{
-      if(downloadUrl){
-        // 앱 안에서 열면 안 된다 — 로그인·다운로드가 file:// 창에서 막힌다. 시스템 기본 브라우저로.
-        if(window.companion&&companion.openBrowser) companion.openBrowser(downloadUrl);
-        b.remove();
-        return;
-      }
       if(window.companion&&companion.installUpdate) companion.installUpdate();
     };
     document.getElementById('updateLaterBtn').onclick=()=>{ b.remove(); };
@@ -167,10 +156,10 @@ if(desktopMode){
   }
   // 컨트롤 바: 드래그 이동 + 런처 + 잠깐 숨기기
   const grip=document.querySelector('#deskBar .grip');
-  if(grip&&window.companion&&companion.moveWindow){ let dragging=false,px=0,py=0;
-    grip.addEventListener('mousedown',e=>{dragging=true;px=e.screenX;py=e.screenY;e.preventDefault();});
-    window.addEventListener('mousemove',e=>{ if(!dragging)return; companion.moveWindow(e.screenX-px,e.screenY-py); px=e.screenX;py=e.screenY; });
-    window.addEventListener('mouseup',()=>dragging=false);
+  if(grip&&window.companion&&companion.dragWindow){ let dragging=false;
+    grip.addEventListener('mousedown',e=>{dragging=true;companion.dragWindow('start');e.preventDefault();});
+    window.addEventListener('mousemove',()=>{ if(dragging) companion.dragWindow('move'); });
+    window.addEventListener('mouseup',()=>{ if(dragging) companion.dragWindow('end'); dragging=false; });
   }
   const dg=document.getElementById('deskGear'); if(dg) dg.onclick=()=>backToLauncher();
   const dh=document.getElementById('deskHide'); if(dh) dh.onclick=()=>{ const c=document.getElementById('scene'); c.style.visibility=(c.style.visibility==='hidden'?'visible':'hidden'); };
@@ -192,7 +181,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #rtBand, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #maintGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #signupDoneOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-exp, .seat-nameplate';
+    const UI_HIT_SEL = '#myStatusChip, #xmasOverlay, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #rtBand, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #maintGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #signupDoneOverlay, #gConfirmOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-exp, .seat-nameplate';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지

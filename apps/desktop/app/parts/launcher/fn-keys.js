@@ -2,7 +2,7 @@
    app.js «⌨️ 함수키 단축키(F1 ~)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 43번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 3줄 —
-     chatUiMod · gachaMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     chatUiMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: 없음 — 만들 때 건다.
@@ -13,7 +13,6 @@
 
 function createFnKeys(deps){
 const chatUiMod = deps.chatUiMod;   // 읽는 함수
-const gachaMod = deps.gachaMod;   // 읽는 함수
 const iDeskMod = deps.iDeskMod;
 const rideBenchMod = deps.rideBenchMod;
 /* ⌨️ 함수키 단축키 — F1 ⚙설정 / F2 🎨꾸미기 / F3 ✥이동(드래그) / F4 🏠마이홈
@@ -26,7 +25,7 @@ const rideBenchMod = deps.rideBenchMod;
      (예: F2를 다시 누르면 꾸미기 창이 닫히면서 commitWdDraft로 자동 저장까지 자동 처리) */
 (function bindHotkeys(){
   // 이미 열려있으면 스킵할 모달 셀렉터 — updateMyStatusChipPosition 근처의 다른 모달 셀렉터와 동일한 세트.
-  const OPEN_MODAL_SEL = '#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #codeOverlay.on, #programSettingsOverlay.on, #pkOverlay.on';
+  const OPEN_MODAL_SEL = '#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #codeOverlay.on, #focusSettingsPanel.fs-in-launcher.on, #pkOverlay.on, #xmasOverlay.on';
   function isTyping(){
     const a = document.activeElement;
     if(!a) return false;
@@ -68,11 +67,11 @@ const rideBenchMod = deps.rideBenchMod;
     };
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once:true }); else run();
   })();
-  /* 🏠/🕒 더보기 메뉴 퀵 항목 — F4(마이홈)·[기록 열기](포커스 기록)와 같은 동작.
+  /* 🏠/🕒 ▾ 메뉴 퀵 항목 — F4(마이홈)·[기록 열기](포커스 기록)와 같은 동작.
      항목을 누르면 더보기 캐스케이드를 닫고 실행(마이홈/기록 창이 위에 뜨는데 메뉴가 남아있으면 지저분함). */
   function _closeMoreCascade(){
     const more=document.getElementById('myChipMore'); if(more) more.classList.add('hidden');
-    const mbtn=document.getElementById('myChipMoreBtn'); if(mbtn) mbtn.classList.remove('on');
+    const mbtn=document.getElementById('myStatusChipBtn'); if(mbtn) mbtn.classList.remove('on');
   }
   const _mhMenuBtn=document.getElementById('myHomeMenuBtn');
   if(_mhMenuBtn) _mhMenuBtn.addEventListener('click', e=>{ e.stopPropagation(); _closeMoreCascade(); toggleMyHomeShortcut(); });
@@ -88,10 +87,10 @@ const rideBenchMod = deps.rideBenchMod;
       const _orig = e;
       e = { key:'F' + _orig.code.slice(5), repeat:false, preventDefault:()=>_orig.preventDefault() };   // 아래 한 벌의 분기로 보낸다
     }
-    // 글자 단축키(i · t)는 수정키 없이 누를 때만 — 한글 상태에서도 먹게 hotkeyLetter 로 본다.
+    // 글자 단축키(i)는 수정키 없이 누를 때만 — 한글 상태에서도 먹게 hotkeyLetter 로 본다.
     const letter = (e.ctrlKey || e.metaKey || e.altKey) ? '' : hotkeyLetter(e);
     const isFKey = /^F[1-5]$/.test(e.key);
-    if(!isFKey && letter!=='i' && letter!=='t') return;
+    if(!isFKey && letter!=='i') return;
     if(!isRunMode()) return;
     if(isTyping()) return;
     if(document.querySelector(OPEN_MODAL_SEL)) return;
@@ -113,9 +112,6 @@ const rideBenchMod = deps.rideBenchMod;
         // ⏸️ 이번 릴리스에서는 비활성화 — 상호작용 책상은 다음 업데이트에 공개.
         //   기능/UI/동기화 코드는 그대로 두고 진입만 막음. 재활성화: IDESK_ENABLED=true 한 줄만 되돌리면 됨.
         if(typeof iDeskMod.IDESK_ENABLED!=='undefined' && iDeskMod.IDESK_ENABLED && typeof rideBenchMod.toggleIdeskInventory==='function') rideBenchMod.toggleIdeskInventory();
-        break;
-      case 't':                                           // 🎰 파츠 보관함 (가챠)
-        gachaMod().toggleGachaInv();
         break;
     }
   });

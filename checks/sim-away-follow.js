@@ -27,11 +27,10 @@ say('── 1. 배선');
 {
   chk(!!FR && !!FO, '_awayImgFrame · _awayImgFollow 를 찾았다');
   chk(/\(\(now - seat\._awayFitAt\) > 500 && !seat\.fly\)/.test(FR), '★ 비행 중엔 다시 재지 않는다(도는 몸을 재면 크기·가운데가 튄다)');
-  chk(/seat\.rig\.getWorldPosition\(_rw\); cx = _rw\.x; cz = _rw\.z;/.test(FR), '② 가로·앞뒤 = rig 원점(상자 가운데 아님)');
+  chk(/seat\.rig\.getWorldPosition\(_awayGW\);\s*let cx = _awayGW\.x, fy = _awayGW\.y \+ charLiftWorld\(seat\), cz = _awayGW\.z;/.test(FR), '② 가로 · 앞뒤 · 발밑 = rig 원점(몸 상자 아님)');
   chk(/measureHeadBoxNoParts\(_host\.gltfRoot, null, _host\)/.test(FR) && /if\(_hb && !_hb\.isEmpty\(\)\) _awayHostBox\.copy\(_hb\);/.test(FR), '① 아래 캐릭터 꼭대기 = 맨 머리 측정 · 비면 예전 상자');
-  const iOld = FR.indexOf('sp.position.set(cx - _awayGW.x, fy + h/2 - _awayGW.y, cz - _awayGW.z);');
   const iInv = FR.indexOf('seat.group.worldToLocal(_t); sp.position.copy(_t);');
-  chk(iOld > 0 && iInv > iOld, '② 옛 줄(sim-fix-0923 이 지킴) **뒤에서** group 로컬 역변환으로 덮어쓴다');
+  chk(iInv > 0 && FR.indexOf('sp.position.set(') < 0, '② 그림 자리는 group 로컬 역변환 한 줄로만 놓는다');
   chk(/seat\._awayOff\.copy\(sp\.position\)\.sub\(seat\.rig\.position\);/.test(FR) && FR.indexOf('_awayOff.copy') > iInv, '③ 오프셋은 최종 위치에서 잰다');
   const iFly = CODE.indexOf('_updateFlyingSeats(now, dt);'), iFol = CODE.indexOf('_awayImgFollow(); }catch(_){}');
   chk(iFly > 0 && iFol > iFly && iFol - iFly < 300, '★ 매 프레임 _updateFlyingSeats **바로 뒤**에서 따라간다(이번 프레임 비행 좌표)');
@@ -77,8 +76,9 @@ say('── 3. _awayImgFrame — 자리 재기');
   const env = {};
   const make = new Function('env', 'THREE', `
     var seats = env.seats, _awayTex = env.tex, AWAY_PIC_SCREEN_PX = 150;
-    var _awayBox = null, _awayGW = null, _awayHostBox = null, _awayHostP = null, _awayHostS = null;
+    var _awayGW = null, _awayHostBox = null, _awayHostP = null, _awayHostS = null;
     function _awayWorldForPx(){ return env.h; }
+    function charLiftWorld(seat){ return seat.__lift || 0; }   // 높이 설정으로 든 만큼(seat-equalize.js — 값의 규칙은 그쪽 검사)
     function _awayPxFor(){ return 80; }   // 개정 76 — 주인이 고른 크기(60·80·100). 이 검사는 크기를 보지 않는다(env.h 가 정한다)
     function measureHeadBoxNoParts(root){ return root.__head || null; }
     function measureBodyBox(root, opts, out){ return out.setFromObject(root); }   // 옵션 없음 = setFromObject 그대로(body-measure.js)
@@ -101,7 +101,42 @@ say('── 3. _awayImgFrame — 자리 재기');
   env.seats.push(S); let F = make(env, THREE); F(S, 'u', 1000);
   let w = world(S);
   chk(near(w.x, 2) && near(w.z, 0), '② 옆으로 뻗은 파츠가 있어도 그림 가로·앞뒤 = 캐릭터 발밑(rig 원점)');
-  chk(near(w.y, 0 + 0.4), '높이는 예전 그대로 — 발밑 + 그림 반');
+  chk(near(w.y, 0 + 0.4), '높이 — 발밑 + 그림 반');
+  /* (a2) 몸 상자 바닥이 발밑과 다른 캐릭터(숨은 메시 · 스키닝 전 원본 상자) — 그림은 상자가 아니라 rig 원점(발밑)에 선다 */
+  for(const [name, bb] of [['상자가 위로 뜬', box(1.6, 2.2, -0.2, 2.4, 3.7, 0.2)], ['상자가 아래로 꺼진', box(1.6, -1.8, -0.2, 2.4, 1.5, 0.2)], ['상자가 터무니없이 큰', box(-40, -30, -40, 40, 30, 40)], ['상자가 빈', new Box()]]){
+    const T = seatOf(new V3(2, 0, 0), 0, new V3(0, 0, 0), bb);
+    env.seats = [T]; F = make(env, THREE); F(T, 'u', 1000);
+    const tw = world(T);
+    chk(T._awaySprite.visible === true && near(tw.x, 2) && near(tw.y, 0.4) && near(tw.z, 0), '★ ' + name + ' 캐릭터 — 그림은 그대로 발밑(rig 원점) 위');
+  }
+  { const T = seatOf(new V3(2, 0.5, 1), 0, new V3(0.2, 0.3, 0), box(0, 5, 0, 1, 6, 1));
+    env.seats = [T]; F = make(env, THREE); F(T, 'u', 1000);
+    const tw = world(T);
+    chk(near(tw.x, 2.2) && near(tw.y, 0.8 + 0.4) && near(tw.z, 1), '  rig 가 group 안에서 옮겨져 있으면 그 자리를 따른다'); }
+  /* (a3) 높이 설정을 올린 캐릭터 — 모델이 rig 안에서 들려 있으니 그림도 그만큼 위(든 발 자리)에 선다 */
+  for(const lift of [0, 0.25, 0.6]){
+    const T = seatOf(new V3(2, 0, 0), 0, new V3(0, 0, 0), new Box()); T.__lift = lift;
+    env.seats = [T]; F = make(env, THREE); F(T, 'u', 1000);
+    chk(near(world(T).y, lift + 0.4), '★ 높이 설정 ' + lift + ' — 그림 밑변 = rig 원점 + 든 만큼');
+  }
+  { const cut = grabFn('_awayImgFrame').replace(' + charLiftWorld(seat)', '');
+    const T = seatOf(new V3(2, 0, 0), 0, new V3(0, 0, 0), new Box()); T.__lift = 0.6;
+    const F3 = new Function('env', 'THREE', `var seats = env.seats, _awayTex = env.tex; var _awayGW = null, _awayHostBox = null, _awayHostP = null, _awayHostS = null;
+      function _awayWorldForPx(){ return env.h; } function _awayPxFor(){ return 80; } function measureHeadBoxNoParts(root){ return root.__head || null; }
+      function measureBodyBox(root, opts, out){ return out.setFromObject(root); }
+      ${cut}
+      return _awayImgFrame;`)(Object.assign(env, { seats: [T] }), THREE);
+    F3(T, 'u', 1000);
+    chk(cut !== grabFn('_awayImgFrame') && near(world(T).y, 0.4), 'mutation test — 든 만큼을 빼면 높이를 올린 캐릭터의 그림이 발 아래(0.4)로 내려간다 → 빨강'); }
+  { const cut = grabFn('_awayImgFrame').replace('let cx = _awayGW.x, fy = _awayGW.y + charLiftWorld(seat), cz = _awayGW.z;', 'measureBodyBox(seat.bodyWrap || seat.rig, null, env.b = env.b || new THREE.Box3()); let cx = _awayGW.x, fy = env.b.min.y, cz = _awayGW.z;');
+    const T = seatOf(new V3(2, 0, 0), 0, new V3(0, 0, 0), box(1.6, 2.2, -0.2, 2.4, 3.7, 0.2));
+    const F2 = new Function('env', 'THREE', `var seats = env.seats, _awayTex = env.tex; var _awayGW = null, _awayHostBox = null, _awayHostP = null, _awayHostS = null;
+      function _awayWorldForPx(){ return env.h; } function _awayPxFor(){ return 80; } function charLiftWorld(seat){ return seat.__lift || 0; } function measureHeadBoxNoParts(root){ return root.__head || null; }
+      function measureBodyBox(root, opts, out){ return out.setFromObject(root); }
+      ${cut}
+      return _awayImgFrame;`)(Object.assign(env, { seats: [T], b: null }), THREE);
+    F2(T, 'u', 1000);
+    chk(cut !== grabFn('_awayImgFrame') && near(world(T).y, 2.2 + 0.4), 'mutation test — 발밑을 몸 상자 바닥으로 되돌리면 그림이 허공(2.2)에 뜬다 → 빨강'); }
   chk(S._awaySprite.visible === true && S._awayOff && near(S._awayOff.y, S._awaySprite.position.y - S.rig.position.y), '③ 잴 때 rig 기준 오프셋을 남긴다');
 
   /* (b) 올라탄 좌석 — group 이 고개 기울기·상대 회전을 받아 90° 돈 상태. 아래 캐릭터는 모자를 써서 상자 꼭대기가 높다. */

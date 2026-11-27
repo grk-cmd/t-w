@@ -7,14 +7,14 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 | target | Firebase 사이트 | 주소 | 폴더 | 들어 있는 것 | 누가 보나 |
 |---|---|---|---|---|---|
 | `main` | `together-working` | `together-working.web.app` | `firebase/hosting/`(`help/` 는 빼고 올림) | `/admin/` 웹 관리자(`apps/admin` 빌드 — 커밋 안 함) | 관리자 |
-| `help` | `together-working-help` | **`help.together-working.com`** | `firebase/hosting/help/` | 튜토리얼(`/` 목차 · `/1` …) · `/privacy` 개인정보 처리방침 · `/link` 폰 연결 안내 | 사용자 |
+| `help` | `together-working-help` | **`help.together-working.com`** | `firebase/hosting/help/` | 튜토리얼(`/` 목차 · `/1-1` … — 편 번호는 «묶음-편», 목록은 `toc.json` · 옛 `/1` ~ `/10` 은 `redirects` 가 새 편으로 넘긴다) · `/privacy` 개인정보 처리방침 · `/link` 폰 연결 안내 | 사용자 |
 | `home` | `tw-site` | **`together-working.com`**(도메인 붙이기 전엔 `tw-site.web.app` 에서 확인만) | `firebase/web-dist/`(`apps/web` 빌드 사본 — 커밋 안 함 · 올리기 전에 `predeploy` 가 빌드하고 `scripts/copy-web-dist.js` 가 옮긴다. firebase-tools 가 `firebase/` 밖 폴더를 받지 않아서) | 메인 홈페이지(`/` · `/en/` · `/ja/` — 안내 `apps/web/README.md`) | 사용자 |
 
 - 옛 앱이 여는 `together-working.web.app/privacy` · `/link` 는 `main` 의 `redirects` 가 `help.together-working.com` 으로 넘긴다(`#` 뒤 연결 정보는 브라우저가 그대로 들고 간다). 옛 앱이 다 사라질 때까지 지우지 않는다.
 - 홈페이지 머리(CSP)는 우리 주소만 · 인라인 코드 없음 — `apps/web/tests/hosting-config.test.ts` 가 지킨다. 바깥 주소를 넣어야 하면 먼저 사용자에게 묻는다.
 - Firebase 사이트 이름(`tw-site` 등)은 바꿀 수 없다 — 바꾸려면 새 사이트를 만들고 `.firebaserc` 한 줄을 고친 뒤 도메인을 옮긴다(DNS 다시). 사용자에게는 도메인만 보인다.
 - 도움말 페이지의 색은 디자인 시스템 토큰 — `npm run design:build` 가 `firebase/hosting/help/tokens.css` 를 만든다(손으로 고치지 않는다).
-- 도움말 편(`firebase/hosting/help/*.html`) · FAQ(`docs/help-search/faq.json`) · 연관어(`docs/help-search/words.json`)를 고쳤으면 `npm run help:build` 를 다시 돌린다 — 검색표(`search.json`) · 위 띠 · 소제목 id · FAQ 페이지(`faq.html`)를 만든다(이 넷은 손으로 고치지 않는다).
+- 도움말 편(`firebase/hosting/help/*.html`) · FAQ(`docs/help-search/faq.json`) · 연관어(`docs/help-search/words.json`)를 고쳤으면 `npm run help:build` 를 다시 돌린다 — 검색표(`search.json`) · 위 띠 · 소제목 id · FAQ 페이지(`faq.html`)를 만든다(이 넷은 손으로 고치지 않는다). FAQ 한 줄마다 꼬리표 `tag`(`공통` · `Windows` · `mac` — 제목 앞 «[mac]») · 질문 `q` · 답 `a` · 갈 편 `page` · 소제목 `section`(없으면 편 머리 · 편이 없으면 FAQ 페이지의 그 질문 자리) · 함께 볼 자리 `more`(`[{page, section}]` — FAQ 페이지에 🔗 링크를 더 단다 · 검색 답은 첫 자리 하나).
 
 ## 배포
 `firebase/` 폴더에서 친다(`firebase.json` 이 거기 있다).

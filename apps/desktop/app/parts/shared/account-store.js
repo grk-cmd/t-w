@@ -23,7 +23,7 @@ const DEVICE_KEYS = Object.freeze([
   'tw.figureMode', 'tw.officeMode', 'tw.deskPan', 'tw.focusCharScale', 'tw.chipHorz', 'tw.chipCollapsed',
   'tw.nameplate', 'tw.nameplateSize', 'tw.theme', 'tw.accent', 'tw.mockRoom', 'tw.updateNoticeDismissedTs',
   'tw.chatFontSize', 'tw.chatOpacity', 'tw.chatSfx', 'tw.chatSfxId', 'tw.listenMute', 'tw.listenVol',
-  'tw.noise.fold', 'tw.noise.kind', 'tw.noise.others', 'tw.noise.vol', 'tw.pkBgmMuted', 'tw.gapSolo', 'tw.gapMulti',
+  'tw.noise.fold', 'tw.noise.kind', 'tw.noise.others', 'tw.noise.vol', 'tw.pkBgmMuted', 'tw.xmasBgmMuted', 'tw.gapSolo', 'tw.gapMulti',
   'tw.roomSeatMode', 'tw.focusLogMini', 'tw.annivAreaH', 'tw.adBanner', 'tw.thumbSigs',
   'tw.playlistVol', 'tw.playlistMini', 'tw.playlistLoop', 'tw.playlistLoopKind', 'tw.playlistLoopMode', 'tw.playlistLoopOn', 'tw.playlistPos',
   'tw_chat_win_pos', 'tw.bellWinPos', 'tw.gachaWinPos', 'tw.wdPreviewPos', 'tw.ideskInvPos',
@@ -36,6 +36,12 @@ const DEVICE_KEYS = Object.freeze([
   'tw.demojiSfx', 'tw.firstRun013', 'tw.me', 'tw.glRelaunchAt', 'tw.accountStoreMigrated',
   /* 로그아웃 · 탈퇴 뒤 앱을 다시 켜면 로그인 화면에서 한 번 보일 안내의 까닭(logout · withdraw) — 신원을 놓은 뒤라 계정 칸이 아니라 기기 칸이고, 보이면 바로 지운다(account-state.js) */
   'tw.leftNotice',
+  /* 0.14 — 꾸미기 창 자리 · 머리 위 상태 말풍선 켜기 · 창 글꼴(이 PC 의 화면 설정) */
+  'tw.wdWinPos', 'tw.statusBubble', 'tw.uiFont',
+  /* 0.14 — 마이홈 스티커 보이기(이 PC 의 화면 설정) */
+  'tw.mhStickerLayer',
+  /* 0.14 — 남의 자리비움 그림 보기(이 PC 의 화면 설정) */
+  'tw.awayPicOthers',
 ]);
 
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */
@@ -55,10 +61,13 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.playlistCur', 'tw.secretRoomMusic', 'tw.annivView',
   'tw.userName', 'tw.customStatus', 'tw.userStatus', 'tw.awayKind', 'tw.awayImg', 'tw.awaySz', 'tw.myAdBannerImg',
   'tw.inboxBcRead', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
+  /* 0.14 — 👑 내 색(사본 · 못 올림 표시) · 버그 제보 임시저장 · 마지막으로 받은 방 초대 한 줄(아직 옛 PC 칸을 읽는다 — 값 안에 주인 코드를 둔다) */
+  'tw.accentCustom', 'tw.accentCustomDirty', 'tw.bugDrafts', 'tw.roomInviteLast',
 ]);
 /* 이름 뒤에 방 · 친구 · 종류가 붙는 키 */
 const ACCOUNT_KEY_PREFIXES = Object.freeze([
   'tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw.dailyPlay.', 'tw_chat_read:', 'tw_chat_join:',
+  'tw.roomFocus.', 'tw.xmasGotRead.',   // 0.14 — 시크릿룸 #집중 · 크리스마스 편지 읽음(아직 옛 PC 칸)
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */

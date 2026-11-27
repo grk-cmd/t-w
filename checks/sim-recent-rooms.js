@@ -216,8 +216,8 @@ function wire(s){
   w(!/function secretCodeFrom/.test(s.mod) && /\n  secretCodeFrom,/.test(s.entry) && /const code = secretCodeFrom\(typed\);/.test(s.entry), '  친 글 → 시크릿룸 코드 규칙은 room-entry 한 곳 — 시크릿룸 칸(doJoinSecretRoom)도 그것을 부른다');
   const iM = s.html.indexOf('<script src="parts/room/recent-rooms.js"'), iU = s.html.indexOf('<script src="parts/room/recent-rooms-ui.js"'), iA = s.html.indexOf('<script src="parts/app.js"');
   w(iM > 0 && iU > iM && iA > iU, 'html — 두 모듈을 app.js 보다 먼저');
-  const foot = (s.html.match(/<div class="lb-foot">([\s\S]*?)\n        <\/div>/) || [])[1] || '';
-  w(/class="lb-code-wrap"[\s\S]*id="inviteCode"[\s\S]*id="lobbyRecent" class="lb-recent" hidden/.test(foot), '  최근 방 칸은 로비 아래 줄 코드 칸 옆(처음엔 숨김)');
+  const side = (s.html.match(/<div class="lb-side">([\s\S]*?)\n        <\/div>/) || [])[1] || '';   // 0.14 두 칸 로비 — 오른쪽 칸
+  w(/class="lb-code-wrap"[\s\S]*id="inviteCode"[\s\S]*id="lobbyRecent" class="lb-recent" hidden/.test(side), '  최근 방 칸은 로비 오른쪽 칸 코드 칸 옆(처음엔 숨김)');
   return out;
 }
 wire(SRC).forEach(([ok, m]) => chk(ok, m));

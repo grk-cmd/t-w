@@ -21,7 +21,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
+const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'myhome-hooks.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다) · myhome-hooks.js — 게시판이 실릴 때 고리(LEAVE_GUARD)를 건다
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];

@@ -23,7 +23,7 @@ const vm = require('vm');
 const say = console.log;
 let fail = 0, quiet = false, qfail = 0;
 const chk = (ok, msg) => { if (quiet) { if (!ok) qfail++; return; } if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
-const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, 'parts/support/' + f, 'parts/shared/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
+const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, 'parts/support/' + f, 'parts/shared/' + f, 'parts/account/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const RULES = stripReadGate(read('firebase-database-rules.json')), BB = read('bug-board.js'), UI = read('bug-board-ui.js'), BAPI = read('bug-api.js');
 const AE = read('api-errors.js'), SHS = read('safe-html.js');
 /* 📩 수령함은 parts/myhome/myhome-inbox.js — 우편함에서 글 열기를 거기서 본다 */
@@ -66,7 +66,7 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 }
 {
   const tag = S(at('inbox/$uid/$msgId')['.validate']);
-  chk(/matches\(\/\^\(notice\|update\|reward\|bug\)\$\/\)/.test(tag), '④ 우편함 tag 에 bug 가 있다 (없으면 알림이 조용히 실패)');
+  chk(/matches\(\/\^\(notice\|update\|reward\|bug(\|\w+)*\)\$\/\)/.test(tag), '④ 우편함 tag 에 bug 가 있다 (없으면 알림이 조용히 실패 — 0.14 의 xmas 처럼 뒤에 더한 tag 는 괜찮다)');
 }
 {
   const v = S(at('bugBoard/list/$id')['.validate']);
@@ -130,7 +130,7 @@ say('§3 연결');
   chk(!/bugBoard\s*:|createBugBoard|support\/bug-board\.js/.test(FB) && !/firebaseAPI\.bugBoard/.test(APP + UI), 'Firebase 경로 걷음 — firebase-init 에 bugBoard 연결 없음 · 부르는 곳 0');
   chk(/const bugBoardUi = TwBugBoardUi\.createBugBoardUi\(\{/.test(APP) && /bugApi: TwBugApi\.createBugApi\(\{ authed: TwApi\.authed, errs: TwApiErrors, pending: \(\)=>TwRequestId\.createPending\(\) \}\)/.test(APP),
     'app.js 가 게시판을 만든다 — provider 는 로그인 통로 · 공통 표 · 요청 번호 기억');
-  chk(/bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(\); \}/.test(APP) && /'mhInit',[^\n]*\n(?:\s*'gift',[^\n]*\n)?\s*'bugBadge',/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음) 한 곳');
+  chk(/bugBadge: \(code, me, session\)=>\{ session\.onReset\(\(\)=>bugBoardUi\.reset\(\)\); return bugBoardUi\.start\(\); \}/.test(APP) && /\['mhInit', PHASE\.LATER\],[^\n]*\n\s*\['bugBadge', PHASE\.LATER\],/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음 · 첫 화면 뒤 LATER) 한 곳');
   chk(/bugBoardReset: \(\.\.\.a\)=>bugBoardUi\.reset\(\.\.\.a\)/.test(APP), '계정을 놓을 때 reset(account.js 가 부른다)');
   chk(/m\.tag === 'bug' && m\.bugId\)\{\s*_inboxOpenId = null; window\._bugBoardOpen\(m\.bugId\)/.test(APP), '우편함에서 누르면 그 글을 연다');
   const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
@@ -187,7 +187,12 @@ function boot(src) {
     setTimeout: () => { env.timers++; return 0; }, setInterval: () => { env.timers++; return 0; },
     Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp };
   ctx.window = ctx;
-  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
+  ctx.TwPersonName = globalThis.TwPersonName;
+  /* 마이홈 고리판(myhome-hooks.js 와 같은 모양) — 📝 임시저장이 LEAVE_GUARD 를 건다 */
+  const hooks = { HOOK: { LEAVE_GUARD: 'leaveGuard' }, _h: {}, on(n, f) { this._h[n] = f; }, has(n) { return !!this._h[n]; }, call(n, ...a) { return this._h[n](...a); } };
+  ctx.TwMyHomeHooks = hooks; env.hooks = hooks;
+  const ls = {}; ctx.localStorage = { getItem: (k) => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: (k) => { delete ls[k]; } };
+  vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'bug-board-ui.js' });
   const calls = [], impl = {};
   const n = (k) => calls.filter(c => c[0] === k).length;
@@ -197,7 +202,7 @@ function boot(src) {
   const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, answer: undefined, reportConfig: { version: 3, notice: '안내', link: 'https://open.kakao.com/o/a' }, saveReportLink: { version: 4, notice: '안내', link: 'https://open.kakao.com/o/new' }, setVis: { vis: 'prv', version: 2 }, like: { likeN: 9, liked: true }, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
   for (const k of Object.keys(DEF)) api[k] = (...a) => { calls.push([k, ...a]); return Promise.resolve().then(() => impl[k] ? impl[k](...a) : DEF[k]); };
   const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib: M, apiErrors: { notify: (e) => env.common.push(e.code) }, notifyError: (c) => { env.codes.push(c); return true; },
-    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, bugReportLink: () => env.link || '', rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; } });
+    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, bugReportLink: () => env.link || '', rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; }, getMyUserId: () => env.me === undefined ? 'uA' : env.me });
   const clickAct = (act, ds) => { const b = mkEl('btn'); b.dataset = Object.assign({ act }, ds || {}); els.bbDetailView._L.click[0]({ target: { closest: (s) => s === '[data-act]' ? b : null } }); return b; };
   const clickRow = (id) => els.bbRows._L.click[0]({ target: { closest: (s) => s === '.bb-row[data-id]' ? { dataset: { id } } : null } });
   return { env, el, ui, api, impl, calls, n, ctx, flts, tab, clickAct, clickRow };
@@ -313,11 +318,14 @@ async function judgeUi(src) {
     chk(b.n('write') === 1 && b.calls.find(c => c[0] === 'write')[1].cat === 'bug', '[등록] 연타 — 보내는 동안 한 번만');
     slow.res({ number: 'B-1113-1' }); await flush();
     chk(b.env.toasts.includes('🐞 제보를 등록했어요') && b.calls.filter(c => c[0] === 'detail').pop()[1] === 'B-1113-1', '  성공 — 토스트 · 그 글을 연다');
+    /* 성공하면 글을 연다(글쓰기 칸이 닫힘) — 다시 글쓰기를 열어 같은 글로 보낸다. 🔎 비슷한 제보 찾기는 글쓰기 칸이 떠 있을 때만 이어 간다 */
+    delete b.impl.quota; b.el('bbWriteBtn')._L.click[0](); await flush(); b.env.codes.length = 0;   // 위에서 남은 수를 못 받게 한 것은 되돌린다
+    b.el('bbWriteView').style.display = ''; b.el('bbWTitle').value = 't'; b.el('bbWBody').value = 'b'; b.el('bbWCat').value = 'bug'; b.el('bbWEnv').checked = false;
     b.impl.write = () => { throw apiErr(429, 'BUG_DAILY_LIMIT'); };
-    await submit(); await flush();
+    await submit(); await flush(20);   // 🔎 비슷한 제보 찾기(목록 두 쪽)를 거쳐 보낸다 — 기다림이 몇 번 더 있다
     chk(b.el('bbWErr').textContent === M.GUIDE_TEXT.BUG_DAILY_LIMIT && b.env.codes.length === 0 && b.el('bbWTitle').value === 't', '  429 하루 상한 — 안내 문구(번호 없음) · 입력 그대로');
     b.impl.write = () => { throw apiErr(400, 'BUG_INVALID'); };
-    await submit(); await flush();
+    await submit(); await flush(20);
     chk(b.env.codes.join() === 'E-BUG-03' && b.el('bbWSubmit').disabled === false, '  그 밖 — E-BUG-03 한 번 · [등록] 다시 켬');
   }
   {
@@ -473,6 +481,90 @@ async function judgeUi(src) {
     b.ui.reset();
     chk(form.style.display === 'none', '  reset — 폼을 닫는다');
   }
+}
+
+say('§6-2 비슷한 제보 · 📝 임시저장 (bug-board.js 를 실제로 돌린다)');
+{
+  const W = M.titleWords, Sim = M.titleSimilarity;
+  chk(W('레벨이 안 올라가요').join() === '레벨,올라가' && W('키보드 입력이 안돼요').join() === '키보드,입력' && W('라이선스 문의').join() === '라이선스',
+    '제목 낱말 — 조사 · 말끝 · 흔한 말(문의 · 안돼요)을 뗀다');
+  chk(W('').length === 0 && W(null).length === 0 && W('오류 버그 문제').length === 0 && W('!!! ???').length === 0, '  빈 제목 · 흔한 말뿐 · 기호뿐 → 낱말 없음');
+  chk(Sim('레벨이 안 올라가요', '레벨이 안올라요') >= M.BUG_SIMILAR_MIN && Sim('맥에서 키보드 인식 안됨', '키보드 인식 오류') >= M.BUG_SIMILAR_MIN
+    && Sim('좌석 간격이 넓어요', '여전히 좌석 간격이 넓습니다') >= M.BUG_SIMILAR_MIN, '★ 띄어쓰기 · 말끝 · 앞뒤 말이 달라도 같은 문제는 비슷함');
+  chk(Sim('레벨이 안 올라가요', '플레이리스트 재생이 안 돼요') < M.BUG_SIMILAR_MIN && Sim('라이선스 문의', '') === 0 && Sim('', '') === 0, '  다른 문제 · 빈 제목은 비슷하지 않다');
+  const items = [
+    { id: 'a', ts: 5, title: '레벨이 안올라요' }, { id: 'b', ts: 9, title: '레벨이 안 올라요' }, { id: 'c', ts: 7, title: '레벨이 안 오르는 것 같아요' },
+    { id: 'd', ts: 8, title: '레벨이 안 올라요', notice: true }, { id: 'e', ts: 6, title: '플레이리스트 재생이 안 돼요' }, { id: 'f', ts: 4, title: '레벨 안 올라요' },
+    { id: 'i', ts: 1, title: '레벨이 안 올라가요 ㅠ' }, { id: 'b', ts: 9, title: '레벨이 안 올라요' }, { id: 'g', ts: 3, title: '' }, { id: 'h', ts: 2 }, null,
+  ];
+  const got = M.similarPosts('레벨이 안 올라가요', items).map(it => it.id);
+  chk(M.BUG_SIMILAR_MAX === 3 && got.length === 3 && !got.includes('d') && !got.includes('e') && new Set(got).size === 3, '★ 고르기 — 많아야 3줄 · 공지 · 다른 문제 · 제목 없는 글은 빼고 · 같은 글은 한 번만(' + got.join() + ')');
+  chk(M.similarPosts('레벨이 안 올라가요', items, 1).length === 1 && M.similarPosts('', items).length === 0 && M.similarPosts('레벨', null).length === 0, '  상한 1 · 빈 제목 · 받은 글 없음');
+  chk(M.BUG_SIMILAR_FETCH >= 1 && M.BUG_SIMILAR_FETCH <= 20, '  비교할 글 수는 서버 목록 limit 상한(20) 안');
+  /* mutation test — 규칙을 망가뜨린 모듈로 다시 고르면 위 판정이 깨지는가 */
+  const mut = (from, to) => (BB.includes(from) ? loadMod(BB.replace(from, to)) : null);
+  const red = (X) => {
+    if (!X) return false;   // 바꿔 칠 글을 못 찾음 — 조용히 «통과» 하지 않게 빨강
+    const g = X.similarPosts('레벨이 안 올라가요', items).map(it => it.id);
+    const g2 = X.similarPosts('플레이리스트 재생 문제', items).map(it => it.id);
+    return g.length !== 3 || g.includes('d') || g.includes('e') || new Set(g).size !== 3 || g2.join() !== 'e' || X.titleWords('키보드 입력이 안돼요').join() !== '키보드,입력' || X.titleWords('맥 키보드 입력 오류').join() !== '키보드,입력';
+  };
+  chk(!red(M), '  (mutation test 기준) 지금 규칙은 통과');
+  chk(red(mut('it.id && !it.notice && typeof', 'it.id && typeof')), 'mutation: 공지를 안 빼면 빨강');
+  chk(red(mut('.slice(0, lim).map(x => x.it)', '.map(x => x.it)')), 'mutation: 3줄 상한을 빼면 빨강');
+  chk(red(mut('!seen.has(it.id) && seen.add(it.id)', 'true')), 'mutation: 같은 글을 두 번 넣으면 빨강');
+  chk(red(mut('w.length >= 2 && !SIM_STOP.has(w)', 'w.length >= 2')), 'mutation: 흔한 말을 안 떼면 빨강');
+
+  chk(M.BUG_DRAFT_KEY === 'tw.bugDrafts' && M.BUG_DRAFT_MAX === 3, '📝 이 PC 저장 키 tw. 접두사 · 최대 3개');
+  const one = (id, ts, t, b) => ({ id, ts, cat: 'bug', title: t, body: b || '', vis: 'pub' });
+  const raw = JSON.stringify({ owner: 'CA', items: [one('a', 1, '처음'), one('b', 3, '셋째'), one('c', 2, '', '본문만'), one('d', 4, '', ' '), one('e', 5, '다섯'), { id: 'f' }, null] });
+  const R = M.draftsRead(raw, 'CA');
+  chk(R.length === 3 && R.map(d => d.id).join() === 'e,b,c', '★ 읽기 — 빈 글 · 모양 틀린 줄은 버리고 · 최근 것부터 · 많아야 3개(' + R.map(d => d.id).join() + ')');
+  chk(M.draftsRead(raw, 'CB').length === 0 && M.draftsRead(raw, '').length === 0, '★ 다른 계정(주인 코드가 다름) · 주인 모름이면 빈 것 — 앞 사람 글이 안 보인다');
+  chk(M.draftsRead('{깨짐', 'CA').length === 0 && M.draftsRead(null, 'CA').length === 0 && M.draftsRead('[]', 'CA').length === 0, '  깨진 저장본 · 없음 → 빈 것(던지지 않음)');
+  const big = M.draftsRead(JSON.stringify({ owner: 'CA', items: [one('x', 1, '가'.repeat(99), '나'.repeat(3000))] }), 'CA')[0];
+  chk(big.title.length === M.BUG_TITLE_MAX && big.body.length === M.BUG_BODY_MAX, '  제목 · 본문은 상한까지만 남긴다');
+  let L = [];
+  const e0 = M.draftsSave(L, { title: ' ', body: '' }, 1, 'n0');
+  chk(e0.ok === false && e0.reason === 'empty', '저장 — 빈 글은 저장하지 않는다');
+  for (const [t, ts, id] of [['하나', 10, 'n1'], ['둘', 20, 'n2'], ['셋', 30, 'n3']]) L = M.draftsSave(L, { title: t, body: '', vis: t === '하나' ? 'prv' : 'pub' }, ts, id).list;
+  chk(L.length === 3 && L[0].id === 'n3' && L.find(d => d.id === 'n1').vis === 'prv', '  새 글 셋 — 최근 것부터 · 공개 범위도 남긴다');
+  const full = M.draftsSave(L, { title: '넷', body: '' }, 40, 'n4');
+  chk(full.ok === false && full.reason === 'full', '★ 3개가 찼으면 새 글은 저장하지 않는다');
+  const r1 = M.draftsSave(L, { id: 'n1', title: '하나 고침', body: '본문' }, 50, 'n5');
+  chk(r1.ok && r1.id === 'n1' && r1.list.length === 3 && r1.list[0].id === 'n1', '★ 불러온 글을 다시 저장하면 그 칸을 덮는다(3개가 차 있어도 · 맨 위로)');
+  L = M.draftsRemove(r1.list, 'n2');
+  chk(L.length === 2 && !L.some(d => d.id === 'n2') && M.draftsRemove(L, 'zz').length === 2, '  지우기 — 그 글만 · 없는 id 는 그대로');
+  const back = M.draftsRead(M.draftsWrite(L, 'CA'), 'CA');
+  chk(back.length === 2 && back[0].id === 'n1' && back[0].body === '본문', '  저장본으로 쓰고 다시 읽으면 같다');
+  const ld = { cat: 'bug', title: '제목', body: '본문', vis: 'pub' };
+  chk(M.draftDirty({ title: '', body: ' ' }, null) === false && M.draftDirty({ title: '제목', body: '' }, null) === true
+    && M.draftDirty(Object.assign({}, ld), ld) === false && M.draftDirty(Object.assign({}, ld, { vis: 'prv' }), ld) === true,
+    '★ «쓰던 글» — 비었으면 아님 · 새 글이면 맞음 · 불러온 그대로면 아님 · 고쳤으면 맞음');
+  const redD = (X) => {
+    if (!X) return false;
+    let l = []; for (const t of ['1', '2', '3']) l = X.draftsSave(l, { title: t }, Number(t), 'k' + t).list;
+    return X.draftsRead(raw, 'CB').length !== 0 || X.draftsSave(l, { title: '4' }, 4, 'k4').ok !== false || X.draftDirty(Object.assign({}, ld), ld) !== false;
+  };
+  chk(!redD(M), '  (mutation test 기준) 지금 규칙은 통과');
+  chk(redD(mut('|| !owner || v.owner !== owner ', '')), 'mutation: 주인 코드를 안 보면(앞 사람 글이 보임) 빨강');
+  chk(redD(mut('if(i < 0 && cur.length >= BUG_DRAFT_MAX) return', 'if(false) return')), 'mutation: 3개 상한을 빼면 빨강');
+  chk(redD(mut('  if(!loaded) return true;\n', '  return true;\n')), 'mutation: 불러온 그대로도 «쓰던 글» 로 보면 빨강');
+
+  /* 화면 배선 — 글 위치로 본다(화면 흐름은 §4 가짜 DOM 이 돌린다) */
+  const fnSrc = (name) => (UI.match(new RegExp('function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n  \\}')) || [''])[0];
+  const sw = fnSrc('submitWrite');
+  chk(/if\(!notice && !skipSimilar\)\{/.test(sw) && sw.indexOf('similarTo(p.title)') > sw.indexOf('lib.checkPost(p)') && sw.indexOf('similarTo(p.title)') < sw.indexOf('bugApi.write(p)'),
+    '★ [등록] — 입력 확인 뒤 · 올리기 전에 비슷한 제보를 찾는다(공지 · [그래도 제보하기] 는 건너뜀)');
+  chk(/sim = \[\]; \}/.test(sw) && /if\(sim\.length\)\{ showSimilar\(p\.title\.trim\(\), sim\); return; \}/.test(sw) && sw.indexOf('if(!writing() || seq !== writeSeq) return;') < sw.indexOf('if(sim.length)'),
+    '  못 받으면 창 없이 올리고 · 찾는 동안 떠났으면 버리고 · 있으면 창을 띄우고 멈춘다');
+  chk(/bugApi\.list\(f, null, lib\.BUG_SIMILAR_FETCH\)/.test(fnSrc('similarTo')) && /lib\.similarPosts\(title, items\)/.test(fnSrc('similarTo')), '  비교할 글은 서버 목록(미해결 · 전체) 한 쪽씩 — 규칙은 bug-board.js');
+  chk(/notifyError\('E-BUG-08', e\)/.test(fnSrc('draftsStore')) && /lib\.draftsRead\(raw, draftOwner\(\)\)/.test(fnSrc('draftsLoad')), '  임시저장 읽기는 계정 코드로 거름 · 쓰기 실패는 E-BUG-08');
+  chk(/if\(loaded\)\{ draftsStore\(lib\.draftsRemove\(draftsLoad\(\), loaded\.id\)\); loaded = null; \}/.test(sw) && sw.indexOf('lib.draftsRemove') > sw.indexOf('bugApi.write(p)'),
+    '  등록에 성공하면 불러온 임시글을 지운다(실패면 남김)');
+  chk(/mhHooks\.on\(mhHooks\.HOOK\.LEAVE_GUARD/.test(UI) && /function askLeave\(lead, next, btns\)\{\n\s*if\(!dirty\(\)\)\{ next\(\); return; \}/.test(UI), '★ 마이홈을 닫거나 탭을 옮길 때 쓰던 글이 있으면 묻는다 · 없으면 바로');
+  chk(/'tw\.bugDrafts',/.test(read('account.js') || ''), '  계정을 놓으면 임시저장도 지운다(ACCOUNT_LOCAL_KEYS)');
+  chk(/id="bbDrafts"/.test(HTML) && /id="bbWDraft"/.test(HTML) && /id="bbLeave"/.test(HTML) && /id="bbSimilar"/.test(HTML), 'html — 임시저장 목록 · [임시저장] · «저장할까요?» · «비슷한 제보» 칸');
 }
 
 say('§6 바깥 주소 열기');

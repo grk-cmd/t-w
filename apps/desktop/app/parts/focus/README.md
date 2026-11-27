@@ -55,7 +55,7 @@
 
 ## focus-level.js — ⭐ 레벨 표시 이름 · 오늘치 쌓기 · 태블릿
 
-**책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(서버 경로 — 아래).
+**책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` — 해금 판정용 · 받기 전 1 · `shownFocusLevel` — 화면에 그리는 레벨 · 받기 전 · 못 받으면 null · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(서버 경로 — 아래).
 **📱 폰 연결** — 폰 상태는 realtime `mobileFocus{ on, app, at }` 그대로(`startMobile(code, me, session)` 이 `onMessage` 를 걸고 1분 표시 틱을 세션 타이머로 둔다 · `ready` 뒤 서버가 4시간 안의 마지막을 다시 보내 주므로 따로 묻지 않는다). 4시간 상한은 `at`(서버 시각) 기준. 키는 서버가 만들고(`POST /v2/me/focus/mobile-link` · 원문은 그 답에만) 계정 칸 `tw.mobileKey` 에 둔다(QR 다시 보기 · 0.12 의 `{ u, k }` 도 읽음). 만들기 · 끊기(`DELETE`)는 읽은 진척의 주인과 묶이므로 `progress.whenReady()` 뒤에 부르고, 못 받았으면 요청 없이 `E-FOCUS-08` · `-09`. 단추는 끝날 때까지 잠근다.
 **함정** — Firebase 프로필 · 마크 · 해금 안내 우편은 걷었다(해금 안내는 서버 알림). 계정 확인 전에는 쌓지 않는다(`_focusTotalStarted`).
 검사: `checks/sim-focus-level.js`(모양) · `checks/sim-mobile-focus.js`(폰 연결 동작).
@@ -66,3 +66,15 @@
 **하루 경계** — 앱이 날짜를 셈하지 않는다. 날 글자는 서버 `today.day`, 오늘 시간이 0 으로 돌아가는 때는 서버 `dayEndsAt`(한국 06:00 — PC 시간대와 무관). 지나면 요청 없이 0 · 날 글자 비움 · `onDayEnd` 구독자에게 한 번 알림(app.js 가 `focus-progress.js` 의 새 날 받기에 잇는다 — 서로 deps 로 부르면 순환). 서버 답이 오면 날이 같을 때만 이어 쌓는다(0 채움 없는 옛 글자 `2026-11-4` 도 같은 날).
 **함정** — 앱 날짜 셈(`_dayShifted` · `_focusDayStr` · `DAY_START_HOUR`)은 없다 — 오늘 시간 · 달성표 모두 서버 날(`serverDay()`)을 읽는다.
 검사: `checks/sim-focus-total.js`(모양) · `checks/sim-focus-day.js`(경계 동작).
+
+## `room-focus-sync.js` · `room-focus-net.js` — 📊 시크릿룸 집중 기록 올리기
+
+**책임** — 포커스 누적(`focus-level.js addFocusSeconds`)이 알려 주는 초를, 이 방이 시크릿룸이고 내가 «이 방 기록에 올리기» 를 켠 때만 모았다가 1분에 한 번 서버에 더한다(`room-focus-sync.js`). 서버 읽기 · 쓰기는 `room-focus-net.js`(하루 합 트랜잭션 · 이름 · 12주 합치기 한 묶음 · 내 기록 지우기 · 구독). 보여 주는 쪽은 `chat/chat-focus.js`(#집중 탭).
+
+**데이터** — `rooms/{방}/_focus/{내 id}/{n, d/YYYYMMDD, o}` — 자세한 것은 `chat/README.md` 의 chat-focus 절.
+
+**만드는 법** — `room-focus-net.js` 는 firebase-init.js 가 `firebaseAPI.roomFocus` 로 연결만 한다. app.js: `const roomFocusSync = TwRoomFocusSync.createRoomFocusSync({ provider: { add, setName }, roomCode, isSecretRoom, getMyUserId, getMyName, dayKey, now, storage: localStorage })` · 포커스 모듈 deps `onFocusAdded: (sec)=>roomFocusSync.add(sec)`.
+
+**내놓는 것** — `isOn(room)` · `setOn(room, on)` · `add(sec)` · `forgetName(room)`(내 기록을 지운 뒤 이름을 다시 쓰게).
+
+**함정** — ⓪ TODO: 서버 포트 필요 — 0.13 은 Firebase DB 쓰기를 잠갔다. 지금은 `rooms/{방}/_focus` 를 Firebase 로 직접 쓴다(서버 경로로 옮겨야 동작한다). ① 켜는 것은 사람마다 · 방마다(`tw.roomFocus.{내 id}.{방}` — 같은 PC 의 다른 계정은 켜져 있지 않다). ② 끄면 모으던 몫은 버린다(다시 켜면 그때부터). ③ 실패한 몫은 다음 때 얹지만 600초를 넘기면 버린다. ④ 방이 바뀌거나 6시를 넘기면 앞 몫은 그 방 · 그 날 칸에 마무리한다. ⑤ 서버가 «하루 합은 줄지 않고 86400 이하» 를 지킨다.

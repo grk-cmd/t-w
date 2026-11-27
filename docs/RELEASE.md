@@ -13,6 +13,13 @@
 
 **0-1. 공지 글 쓰기(정식만)**: 판 브랜치에 `docs/release-notes/X.Y.Z.md` 를 넣는다 — 사용자가 읽는 말로 몇 줄(무엇이 생겼고 · 나아졌고 · 고쳐졌나). 이 글이 Releases 본문이 되고, PR 목록은 그 아래 «자세한 변경» 접기 안에 자동으로 붙는다. **없으면 정식 릴리스는 태그 전에 멈춘다**(release-start · release.yml 둘 다 `scripts/release-notes.js check`). 베타는 보지 않는다.
 
+**0-2. 도움말 사이트 배포(정식 · 도움말이 바뀐 판만)**: 앱 마이홈 «도움말» 탭은 도움말 사이트(`help.together-working.com`)를 그대로 불러오고, 그 사이트는 **모든 버전이 같이 쓴다** — 그래서 앱이 **공개된 뒤에** 사람이 직접 배포한다(먼저 올리면 옛 버전 사용자가 자기 화면과 다른 설명을 본다). 워크플로는 Hosting 을 다루지 않는다. 베타는 배포하지 않는다.
+```bash
+git diff --stat v<이전 판> vX.Y.Z -- firebase/hosting/help hosting/help   # 바뀐 것이 있는가(비면 건너뜀 · 옛 판은 hosting/help 자리)
+cd firebase && firebase deploy --only hosting:help --project together-working   # 공개 확인 뒤
+```
+배포 뒤 이미 켜 둔 앱은 다시 켜야 새 도움말이 보인다(도움말 탭은 한 번 연 화면을 실행 중에 다시 불러오지 않는다).
+
 **버튼으로 (추천)**: GitHub → **Actions** → 왼쪽 **release-start** → **Run workflow** → 버전 종류(`patch` · `minor` · `beta`)와 공개 방식 고르기 → **Run workflow**.
 검사 · 버전 올리기 · 태그 · 빌드 · 설치 파일 검사 · **공개까지 자동**입니다. 10분쯤 뒤 Releases 에 올라옵니다(아래 5번).
 
@@ -94,10 +101,10 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 | 버전 확인 | 태그와 `apps/desktop/package.json` 버전이 같은가 | `npm run version:bump`을 안 쓰고 태그만 달았을 때 |
 | | 마지막 공개 릴리스보다 **높은가** (같아도 막음) | 이미 나간 번호를 또 쓰려 할 때 |
 | Windows 빌드 | exe, `.blockmap`, `latest.yml` | |
-| Mac 빌드 | dmg × 2 (arm64, x64) | |
+| Mac 빌드 | dmg · zip · zip `.blockmap` × 2 (arm64, x64) · `latest-mac.yml`(두 arch 를 합친 한 파일) — Developer ID 서명 · 애플 공증(환경 `release` 의 secret) | 잡마다 자기 arch 만 빌드한다(`mac.target` 에 arch 를 박지 않음) — 내 맥에서 `npm run dist` 는 그 맥의 arch 하나만, 둘 다는 `--mac --arm64 --x64` |
 | Windows 검사 | `latest.yml` 버전 · sha512 가 exe 와 맞는가 · 앱이 켜져 20초 살아 있는가 | 자동 업데이트가 깨질 파일 · 켜자마자 꺼지는 앱 |
-| Mac 검사 | dmg 가 열리는가(`hdiutil verify`) · 안의 앱 버전 · arch · 켜져 20초 살아 있는가 | 손상된 dmg(0.10.2 때) · 버전이 섞인 dmg |
-| Releases 초안 | 파일이 정확히 5개인가 · 모든 파일을 **한 초안**에 업로드 · 올라간 파일 sha256 = 원본 | 이름 겹침 · 업로드 중 손상. 이미 **공개된** 릴리스는 덮어쓰지 않음 |
+| Mac 검사 | 빌드한 앱 · dmg 안 앱 · zip 안 앱이 우리 팀 Developer ID 로 서명되고 공증 티켓이 붙었는가(`scripts/mac-verify-signed.sh` — `codesign` · `stapler validate`) · dmg 가 열리는가(`hdiutil verify`) · 버전 · arch · 켜져 20초 살아 있는가 · `latest-mac.yml` 버전 · arch · sha512 가 zip 과 맞는가 | 공증 값이 비어 공증을 건너뛴 빌드(electron-builder 는 말없이 넘어간다) · 손상된 dmg(0.10.2 때) · 서명이 어긋난 앱(애플 실리콘 «손상됨» — 0.13.1 때) · 버전이 섞인 dmg |
+| Releases 초안 | arm64 · x64 의 맥 yml 을 하나로 합치기 · 파일이 정확히 10개인가 · 모든 파일을 **한 초안**에 업로드 · 올라간 파일 sha256 = 원본 | 한쪽 arch 가 빠진 맥 업데이트 정보 · 이름 겹침 · 업로드 중 손상. 이미 **공개된** 릴리스는 덮어쓰지 않음 |
 | 공개 | 위가 전부 통과하면 Publish. 정식은 «Latest», 베타는 Pre-release. `초안으로 대기` 면 이 단계만 건너뛰고 요약에 초안 주소를 남김 | |
 
 ---
@@ -106,14 +113,14 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 
 검사를 모두 통과하면 `release.yml` 이 **바로 공개**합니다. **이때부터 사용자에게 배포됩니다.**
 - Windows: 앱이 자동으로 내려받고 「업데이트 설치」 버튼이 뜹니다.
-- Mac: 앱이 새 버전 안내를 띄웁니다. 사용자가 dmg를 직접 받습니다.
+- Mac: Windows 와 같습니다 — 앱이 뒤에서 받고, 끌 때 또는 [지금 재시작] 으로 설치합니다(0.14 부터 · Developer ID 서명 · 공증). 0.13 까지의 맥 앱은 새 버전 안내만 띄우므로 0.14 한 번은 사용자가 dmg를 직접 받습니다. 응용 프로그램 폴더 밖에서 켜면 처음 한 번 옮기기를 묻습니다.
 - 릴리스 설명은 공지 글(`docs/release-notes/X.Y.Z.md`, 0-1번) + 그 아래 접은 PR 목록입니다. 베타는 «테스트 빌드» 안내 한 줄입니다.
 
 검사는 «파일이 멀쩡하고 앱이 켜지는가» 까지만 봅니다. 로그인 · 방 입장 같은 기능은 **베타(5-1)로 먼저 써 보고** 정식을 누릅니다.
 
 **초안으로 남는 경우**
 - 검사가 빨강: Actions › release 에서 원인을 보고 고친 뒤 새 버전으로 다시 냅니다. 초안은 지웁니다.
-- **`초안으로 대기` 를 골랐을 때**: 검사는 모두 통과했고 파일(`latest.yml` 포함 5개)도 다 올라가 있습니다. Actions › release 실행 요약에 «초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개» 와 초안 주소가 나옵니다. 그 초안의 ✏️(Edit) → 맨 아래 **Publish release** 를 누르면 공개됩니다.
+- **`초안으로 대기` 를 골랐을 때**: 검사는 모두 통과했고 파일(`latest.yml` · `latest-mac.yml` 포함 10개)도 다 올라가 있습니다. Actions › release 실행 요약에 «초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개» 와 초안 주소가 나옵니다. 그 초안의 ✏️(Edit) → 맨 아래 **Publish release** 를 누르면 공개됩니다.
   - 정식 버전은 누르기 전에 **«Set as the latest release»** 가 체크돼 있는지 봅니다(보통 기본으로 체크돼 있음). Latest 가 아니면 Windows 앱이 업데이트를 받지 않습니다.
   - 베타 초안은 이미 Pre-release 로 표시돼 있어 그대로 누르면 됩니다.
   - 공개를 접으려면 초안을 지우고, 필요하면 태그도 지웁니다(6번 표).
@@ -123,7 +130,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 
 **공개 후 (해당할 때만)**: 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 `config/minRoomVer`를 새 버전으로 바꿉니다. 웹 관리자(https://together-working.web.app/admin/) → ⚙️ 설정 → **방 입장 최소 버전** → 숫자 세 칸에 버전(예: `0 . 10 . 2`) → 저장 → 확인. 공개된 최신 릴리스보다 높은 값은 막힌다. 올리면 그보다 낮은 앱은 업데이트 전까지 방에 못 들어가니, 맥(직접 설치)까지 고려해 공지 뒤 며칠 두고 올린다.
 
-**앱 최소 버전 (`config/minAppVer`)**: 옛 앱이 **앱 전체**를 못 쓰게 해야 할 때만(예: 규칙을 잠가 옛 앱의 쓰기가 깨질 때). 같은 ⚙️ 설정의 **앱 최소 버전** 카드에서 같은 방식으로 저장한다. 올리면 그보다 낮은 앱은 켜자마자 닫기 없는 «업데이트해 주세요» 화면만 보인다(윈도우는 자동 업데이트 → 재시작 단추, 맥은 다운로드 페이지). 읽기에 실패하면(오프라인) 막지 않는다. **0.10.3 부터 든 장치**라 그보다 옛 앱은 이 값을 읽지 않는다.
+**앱 최소 버전 (`config/minAppVer`)**: 옛 앱이 **앱 전체**를 못 쓰게 해야 할 때만(예: 규칙을 잠가 옛 앱의 쓰기가 깨질 때). 같은 ⚙️ 설정의 **앱 최소 버전** 카드에서 같은 방식으로 저장한다. 올리면 그보다 낮은 앱은 켜자마자 닫기 없는 «업데이트해 주세요» 화면만 보인다(윈도우 · 맥 0.14+ 는 자동 업데이트 → 재시작 단추, 0.13 까지의 맥은 다운로드 페이지). 읽기에 실패하면(오프라인) 막지 않는다. **0.10.3 부터 든 장치**라 그보다 옛 앱은 이 값을 읽지 않는다.
 
 ---
 
@@ -158,7 +165,7 @@ git push --follow-tags
 |---|---|
 | `npm run version:bump`이 `Git working directory not clean`으로 거부 | `git status`로 확인 → 커밋하거나 정리한 뒤 다시 실행 |
 | push가 `rejected` | 원격에 새 커밋이 있음 → `git pull --rebase` → `git push --follow-tags` |
-| 빌드가 중간에 실패 | 원인을 고친 뒤 Actions → release → **Run workflow** → 태그(예: `v0.10.2`) 입력해서 다시 빌드 |
+| 빌드가 중간에 실패 | 원인을 고친 뒤 Actions → release → **Run workflow** → 태그(예: `v0.10.2`) 입력해서 다시 빌드. «Use workflow from» 은 **`main`** 그대로 — 맥 서명 · 공증 값(환경 `release`)은 태그 `v*` · 브랜치 `main` 에서만 열린다 |
 | 태그를 잘못 만들었다 (push 전) | `git tag -d v0.10.2` 후 `git reset --hard HEAD~1`로 버전 커밋 취소 |
 | 태그를 잘못 만들었다 (push 후, 공개 전) | Actions 실행 취소 → `git push origin :refs/tags/v0.10.2` → Releases 초안 삭제 → 버전 커밋은 되돌리는 커밋으로 정리 |
 | 이미 공개한 버전에 문제가 있다 | **같은 번호를 다시 쓰지 않습니다.** 고친 뒤 다음 번호(`patch`)로 새로 릴리스 |

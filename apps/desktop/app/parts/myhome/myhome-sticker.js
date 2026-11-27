@@ -43,6 +43,7 @@ const _mhStickerEditSid = deps.mhStickerEditSid;         // ✎ 지금 편집모
 const _setMhStickerEditSid = deps.setMhStickerEditSid;
 const _setMhStickerDragDist = deps.setMhStickerDragDist; // 드래그 이동거리 — app.js 의 let(드래그 직후 링크 안 엶)
 const STICKER_MAX = deps.stickerMax;
+const stickerLayer = deps.stickerLayer;                     // 🎨 스티커 보이기(shared/device-toggle.js) — 설정 › 디스플레이 «마이홈 스티커»
 const STICKER_BASE = deps.stickerBase;
 const STICKER_ROT_SNAP = deps.stickerRotSnap;
 const stRules = TwMyHomeStickerRules;                    // 🔒 잠금 · 순서 규칙(같은 폴더 · 순수 함수)
@@ -57,6 +58,7 @@ const stRules = TwMyHomeStickerRules;                    // 🔒 잠금 · 순�
 function openStickerMgr(){
   if(_mhViewingUserId()){ toast('친구 홈에서는 스티커를 관리할 수 없어요'); return; }
   const ov=document.getElementById('mhStickerMgrOverlay'); if(!ov) return;
+  if(!stickerLayer.on()) toast('스티커가 숨겨져 있어요 — 설정 › 디스플레이 «마이홈 스티커» 를 켜면 보여요');   // 붙이거나 옮겨도 안 보이는 까닭을 알린다
   ov.classList.add('on');
   renderStickerMgr();
 }

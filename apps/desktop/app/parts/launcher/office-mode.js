@@ -1,7 +1,7 @@
 /* office-mode.js — 🏢 데스크탑 · 피규어 · 회사원 모드 깃발(앱 FSD · app.js 분리 M14)
-   app.js 의 «데스크탑(Electron) 모드» 구역(desktopMode · 피규어 모드 · 회사원 모드 · 화면 숨김 · 상태칩 ■ 우클릭 · __officeDiag)을 글 그대로 옮긴 모듈이다.
+   app.js 의 «데스크탑(Electron) 모드» 구역(desktopMode · 피규어 모드 · 회사원 모드 · 화면 숨김 · 미니 메뉴 ▾ 우클릭 · __officeDiag)을 글 그대로 옮긴 모듈이다.
    동작은 옛 자리와 같다(다시 대입되는 값을 읽는 함수 · 쓰는 함수로 받는 줄만 달라진다).
-   ・책임: desktopMode(Electron 안인가) · figureMode · officeMode(저장 키 tw.figureMode · tw.officeMode 에서 읽은 깃발) · setOfficeHidden(화면 숨김 — body.office-hidden · ■ 버튼 표시 · 칩 팝업 닫기) · refreshOfficeChipUI · 상태칩 ■ 버튼 우클릭 연결 · window.__officeDiag(진단 — 상태를 고치지 않는다).
+   ・책임: desktopMode(Electron 안인가) · figureMode · officeMode(저장 키 tw.figureMode · tw.officeMode 에서 읽은 깃발) · setOfficeHidden(화면 숨김 — body.office-hidden · ▾ 버튼 표시 · 칩 팝업 닫기) · refreshOfficeChipUI · ▾ 버튼 우클릭 연결 · window.__officeDiag(진단 — 상태를 고치지 않는다).
    ・내놓는 것: desktopMode · FIGURE_MODE_KEY · OFFICE_MODE_KEY · setOfficeHidden · refreshOfficeChipUI(값 · 함수) · figureMode · officeMode(읽는 함수) · setFigureMode · setOfficeMode(쓰는 함수) — app.js 는 값 · 함수를 같은 이름 const 로 받는다.
    ⚠️ 모듈을 만들 때(app.js 옛 자리) 깃발을 localStorage 에서 읽고 refreshOfficeChipUI() 를 한 번 부른다. 이 깃발을 최상위에서 읽는 app.js 코드(focusGateSleep 등)는 만드는 줄 아래에 있어야 한다 — 위에 두면 TDZ 로 앱이 죽는다(node checks/smoke.js 가 잡는다).
    검사: checks/sim-office-mode.js */
@@ -14,15 +14,15 @@ const desktopMode = !!window.companion || /[?&]desktop=1/.test(location.search);
    대신 포커스 시간(레벨) · 👑 달성표 🎯집중은 쌓지 않는다(_applyActiveAppState) — 설정 화면 · 도움말이 그렇게 약속한다. */
 const FIGURE_MODE_KEY = 'tw.figureMode';
 let figureMode = (localStorage.getItem(FIGURE_MODE_KEY)==='1');
-/* 🏢 회사원 모드 — 켜면 남의 마이홈이 안 열리고 말풍선이 잠기며, 상태칩 ■ 버튼 우클릭으로
-   화면을 즉시 숨길 수 있다. (1-1 우클릭 차단 · 1-2 머리 위 라벨은 이후 단계)
+/* 🏢 회사원 모드 — 켜면 남의 마이홈이 안 열리고 말풍선이 잠기며, 미니 메뉴 ▾ 버튼 우클릭으로
+   화면을 즉시 숨길 수 있다.
    ⚠️ 선언 자리를 figureMode 옆으로 잡은 이유 — app.js 는 최상위에서 값을 읽는 코드가 많아
      선언 순서(TDZ)가 실제로 앱을 죽인 적이 있다. 이 값을 읽는 최상위 코드는 반드시
      **이 줄 아래**에 있어야 한다(refreshOfficeModeUI 처럼 나중에 불리는 함수 안은 상관없다).
      `node smoke.js` 가 그걸 잡는다. */
 const OFFICE_MODE_KEY = 'tw.officeMode';
 let officeMode = (localStorage.getItem(OFFICE_MODE_KEY)==='1');
-/* ■ 화면 숨김 — **세션 한정이라 저장하지 않는다.**
+/* 화면 숨김 — **세션 한정이라 저장하지 않는다.**
    숨긴 채로 앱이 꺼졌다 켜지면 아무것도 없는 화면이 뜨는데, 그건 기능이 아니라 고장으로 읽힌다. */
 let _officeHidden = false;
 /* 숨길 대상을 JS 로 하나씩 지우지 않고 body 클래스 하나로 CSS 에 넘긴다 —
@@ -37,7 +37,7 @@ function setOfficeHidden(on){
        메뉴를 닫는 순간 숨김 표시까지 지워진다 — 전용 클래스를 쓴다. */
     btn.classList.toggle('office-hiding', _officeHidden);
     btn.title = _officeHidden ? '우클릭: 화면 다시 보이기'
-              : (officeMode ? '상태 (우클릭: 화면 숨기기)' : '상태');
+              : (officeMode ? '메뉴 (우클릭: 화면 숨기기)' : '메뉴');
   }
   /* 숨길 때 열려 있던 **칩 팝업**(상태·더보기·알림 등)은 닫는다 — 지나가는 것들이라 숨김을
      푼 뒤에도 떠 있으면 오히려 거슬린다.
@@ -48,17 +48,15 @@ function setOfficeHidden(on){
     /* force=true — 🎵 플레이리스트까지 닫는다. 이 창만은 예외로 남기면 안 된다:
        재생 중이면 _plSyncBgmBounds 가 패널 자리를 main 에 계속 알려서, 화면을 숨겨도
        유튜브 자식창이 그 자리에 그대로 떠 있게 된다(숨김이 안 된 것처럼 보인다). */
-    try{ chipPopupsMod._closeChipPopups(null, true); }catch(_){}
-    const sm=document.getElementById('myStatusMenu'); if(sm) sm.classList.add('hidden');
+    try{ chipPopupsMod._closeChipPopups(null, true); }catch(_){}   // ▾ 메뉴(상태 목록 포함)도 이 목록에 있다
   }
 }
 function refreshOfficeChipUI(){
   if(!officeMode && _officeHidden) setOfficeHidden(false);   // 모드를 끄면 숨김도 반드시 풀린다
   else setOfficeHidden(_officeHidden);                       // 툴팁 문구를 모드에 맞춰 다시 씀
 }
-/* 숨기기 진입점 = **상태칩 ■ 버튼 우클릭** 하나다.
-   ★ 예전엔 칩 그룹에 ▪ 전용 버튼을 하나 더 뒀는데, 그러려고 버튼이 일곱 개가 됐다.
-     숨겼을 때 남는 것이 그 ■ 버튼이므로, 되돌리는 손짓도 같은 자리에 두는 편이 자연스럽다.
+/* 숨기기 진입점 = **미니 메뉴 ▾ 버튼(#myStatusChipBtn) 우클릭** 하나다.
+   ★ 숨기기 전용 버튼을 따로 두지 않는다 — 숨겼을 때 남는 것이 이 버튼이라 되돌리는 손짓도 같은 자리에 둔다.
    ⚠️ 이 버튼은 #myStatusChip 안에 있어 클릭 통과 화이트리스트에 자동 포함된다 —
      밖으로 옮기면 숨긴 순간 되돌릴 길이 사라진다(그때는 앱 재시작밖에 없다).
    ⚠️ preventDefault 를 빼면 Electron 에서 기본 컨텍스트 메뉴가 같이 뜬다. */

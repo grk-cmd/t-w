@@ -216,7 +216,7 @@ async function startApiStub(logFile){
     const send = (code, body) => { res.writeHead(code, Object.assign({ 'content-type': 'application/json' }, cors)); res.end(JSON.stringify(body)); fs.appendFileSync(logFile, `${new Date().toISOString()} ${req.method} ${req.url} ${code} mode=${st.mode}\n`); };
     if(req.method === 'OPTIONS') return send(204, {});
     if(req.url.startsWith('/__github/')){
-      // 맥 업데이트 확인(main.js checkMacUpdate)이 읽는 «최신 릴리스» — 받기는 브라우저가 하므로 주소만 준다(OPEN 줄로 남고 열리지 않는다)
+      // 0.12 · 0.13 맥 앱의 업데이트 확인(그 판 main.js checkMacUpdate — 0.14 부터는 없음)이 읽는 «최신 릴리스» — 받기는 브라우저가 하므로 주소만 준다(OPEN 줄로 남고 열리지 않는다)
       return st.github ? send(200, st.github) : send(404, { message: 'Not Found' });
     }
     if(req.url.split('?')[0] === '/v1/config'){

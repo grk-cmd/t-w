@@ -55,7 +55,9 @@ async function detailHtml(src, admin, number){
   const ctx = { document, console: { warn() {}, log() {} }, navigator: { userAgent: 'Windows' }, TwNetReady: { whenNetReady() {} },
     setTimeout: () => 0, setInterval: () => 0, Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp };
   ctx.window = ctx;
-  ctx.TwPersonName = globalThis.TwPersonName; vm.createContext(ctx);
+  ctx.TwPersonName = globalThis.TwPersonName;
+  ctx.TwMyHomeHooks = { HOOK: { LEAVE_GUARD: 'leaveGuard' }, on() {}, has: () => false, call: () => false };   // 마이홈 고리판 — 📝 임시저장 LEAVE_GUARD 를 거는 곳(여기서는 안 부른다)
+  vm.createContext(ctx);
   try { vm.runInContext(src, ctx, { filename: 'bug-board-ui.js' }); } catch (_) { return null; }
   const post = { number, vis: 'pub', cat: 'bug', title: '제목', status: 'new', notice: false, byAdmin: false, anon: false, name: '에이', mine: false,
     likeN: 0, ansN: 0, createdAt: 1, answeredAt: 0, authorReplied: false, unseen: false, body: '본문', env: null, canReply: false, liked: false, version: 1, comments: [] };
@@ -64,7 +66,7 @@ async function detailHtml(src, admin, number){
     detail: () => Promise.resolve(post), seen: () => Promise.resolve(), list: () => Promise.resolve({ items: [], next: null }), notices: () => Promise.resolve([]) };
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib, apiErrors: { notify() {} }, notifyError: () => true, toast() {},
-    escHtml: esc, safeHtml: { linkify: esc, safeUrl: () => null }, isAdmin: () => admin, rtOn: () => () => {} });
+    escHtml: esc, safeHtml: { linkify: esc, safeUrl: () => null }, isAdmin: () => admin, rtOn: () => () => {}, getMyUserId: () => 'uA' });
   await ui.start();
   const rows = els.bbRows; if (!rows || !rows._L.click) return null;
   rows._L.click[0]({ target: { closest: (s) => s === '.bb-row[data-id]' ? { dataset: { id: number } } : null } });

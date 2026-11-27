@@ -131,7 +131,9 @@ function mkEnv(o){
     hide: async (id, on) => { env.calls.push('PATCH ' + id + ' hidden=' + on); find(id).hidden = on; if(env.fillDuring) env.room = 0; },
     remove: async (id) => { env.calls.push('DELETE ' + id); env.giftSrv = env.giftSrv.filter((x) => x.id !== id); },
     fetchVisible: async () => ({ items: [], visibleCount: 0, recipientCap: 30 }), reset(){},
+    fetchSent: async () => { env.calls.push('GET sent'); if(env.sentHold) await new Promise((r) => env.sentHold.push(r)); if(env.sentErr) throw env.sentErr; return { items: env.sentSrv.map((x) => Object.assign({}, x)) }; },
   };
+  env.sentSrv = []; env.sentErr = null; env.sentHold = null;
   env.giftBox = lm(SRC['gift-box.js']).createGiftBox({ api: boxApi, giftLib: lm(SRC['gift-api.js']), errs: lm(SRC['api-errors.js']), apiErrors: { notify: (e) => env.calls.push('common ' + (e && e.code)) },
     notifyError: (c) => env.calls.push('error ' + c), toast: (m) => env.toasts.push(m), rtOn: () => () => {} });
   /* 🖥 가짜 화면 — mallang.js syncGifts 와 같은 일(목록에 있는 것을 자리가 있는 만큼 띄움 · 없는 것은 걷음). 어느 선물이 나오는지는 진짜 gift-box 가 정한다 */
@@ -428,7 +430,7 @@ async function behave(src){
     const e = E(); const m = e.mk();
     const stat = e.reg('mhGiftStat'); const homeWin = e.reg('myHomeWin');
     const list = e.reg('mhFmList');
-    e.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };   // 선물함 서브탭이 눈앞
+    e.q = { '.mh-tab.on': { dataset: { tab: 'friend' } }, '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };   // 선물함 서브탭이 눈앞
     e.giftSrv = [
       { id: 'g1', senderName: '가<나', imageUrl: 'https://i/1.png', message: '"안녕"', starred: false, hidden: false, sentAt: 10 },
       { id: 'g2', senderName: '다', imageUrl: 'https://i/2.png?alt=media', message: '', starred: true, hidden: false, sentAt: 30 },
@@ -479,7 +481,7 @@ async function behave(src){
     chk(e.calls.join() === 'PATCH g-out hidden=false' && e.toasts.includes('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요') && e.giftSrv.find(x => x.id === 'g-out').hidden === false, '  요청 사이에 화면이 차면 안내 · 서버는 «나옴» 그대로(되돌리는 요청 없음 — 자리가 나면 뜬다)');
     e.fillDuring = false; e.room = Infinity;
     // 상한
-    const e3 = E(); const m3 = e3.mk(); e3.reg('mhGiftStat'); const l3 = e3.reg('mhFmList'); e3.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
+    const e3 = E(); const m3 = e3.mk(); e3.reg('mhGiftStat'); const l3 = e3.reg('mhFmList'); e3.q = { '.mh-tab.on': { dataset: { tab: 'friend' } }, '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
     e3.giftSrv = []; for(let i = 0; i < 21; i++) e3.giftSrv.push({ id: 's' + i, senderName: 'x', imageUrl: 'https://i/s.png', message: '', starred: i < 20, hidden: false, sentAt: i });
     m3.renderGiftBox(l3); await flush(); await flush(); e3.calls = [];
     l3.onclick({ target: { closest: (s) => s === '.gift-item' ? { dataset: { gid: 's20' } } : (s === '.gift-star' ? {} : null) }, stopPropagation(){} }); await flush();
@@ -513,7 +515,7 @@ async function behave(src){
     chk(noImgs[0].onerror === undefined, '  선물이 없으면 다시 받기를 걸지 않는다');
     m.giftStat('x'); chk(stat.textContent === 'x', 'giftStat 은 #mhGiftStat 에 쓴다');
     // 못 받음 — 빈 선물함과 다른 화면 · [다시 시도]
-    const f = E(); const fm = f.mk(); f.reg('mhGiftStat'); const fl = f.reg('mhFmList'); f.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
+    const f = E(); const fm = f.mk(); f.reg('mhGiftStat'); const fl = f.reg('mhFmList'); f.q = { '.mh-tab.on': { dataset: { tab: 'friend' } }, '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
     f.giftErr = Object.assign(new Error('x'), { status: 503, code: 'X', kind: 'unavailable' });
     fm.renderGiftBox(fl); await flush(); await flush();
     chk(/못 불러왔어요/.test(fl.innerHTML) && /class="gift-retry"/.test(fl.innerHTML) && !/아직 받은 선물이 없어요/.test(fl.innerHTML), '못 받으면 «못 불러왔어요 [다시 시도]»(빈 선물함 화면이 아님 · 처음 받기는 번호 없음)');
@@ -521,9 +523,59 @@ async function behave(src){
     fl.onclick({ target: { closest: (sel) => sel === '.gift-retry' ? {} : null } }); await flush(); await flush();
     chk(f.calls.join() === 'GET box,POST seen' && /data-gid="q"/.test(fl.innerHTML), '  [다시 시도] — 받고(서브탭이니) 봤음까지 · 격자로 바뀜');
     // 다른 서브탭이 눈앞이면 값이 바뀌어도 그 칸을 덮지 않는다
-    const other = E(); const om = other.mk(); other.reg('mhGiftStat'); const ol = other.reg('mhFmList'); other.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'req' } } };
+    const other = E(); const om = other.mk(); other.reg('mhGiftStat'); const ol = other.reg('mhFmList'); other.q = { '.mh-tab.on': { dataset: { tab: 'friend' } }, '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'req' } } };
     ol.innerHTML = '요청 칸'; other.giftSrv = []; await other.giftBox.pull(false); await flush();
     chk(ol.innerHTML === '요청 칸', '선물함 서브탭이 아니면 선물함이 바뀌어도 같은 칸(#mhFmList)을 덮어쓰지 않는다');
+  }
+
+  say('── 5-1. 선물함 › 보낸 선물');
+  {
+    const FRIEND_GIFT = { '.mh-tab.on': { dataset: { tab: 'friend' } }, '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
+    /* «받은 선물 · 보낸 선물» 단추 — #mhGiftSub [data-gs] 를 querySelectorAll 이 돌려준다고 치고 심어 둔다 */
+    const setup = (o) => {
+      const e = E(); const m = e.mk(); const stat = e.reg('mhGiftStat'); const list = e.reg('mhFmList');
+      const got = mkEl('button', e), sent = mkEl('button', e); got.dataset.gs = 'got'; sent.dataset.gs = 'sent';
+      e.qa = { '#mhGiftSub [data-gs]': [got, sent] }; e.q = Object.assign({}, FRIEND_GIFT);
+      Object.assign(e, o || {});
+      return { e, m, stat, list, got, sent };
+    };
+    const row = (id, o) => Object.assign({ id, recipientName: '받은' + id, imageUrl: 'https://i/s' + id + '.png', message: '', sentAt: 1700000000000 }, o || {});
+    const t = setup({ sentSrv: [row('a', { recipientName: '가<b>"', message: '<b>"안녕"' }), row('b', { imageUrl: 'javascript:alert(1)' })] });
+    t.m.renderGiftBox(t.list); await flush(); await flush(); t.e.calls = [];
+    t.sent.onclick({ stopPropagation(){} }); await flush(); await flush();
+    chk(t.e.calls.join() === 'GET sent' && t.sent.classList.contains('on') && !t.got.classList.contains('on'), '«보낸 선물» 을 누르면 서버에서 한 번 받는다(GET sent 한 번) · 단추 표시');
+    chk(/class="gift-sent"/.test(t.list.innerHTML) && (t.list.innerHTML.match(/class="gs-row"/g) || []).length === 2 && t.stat.textContent === '최근 2개', '  보낸 줄을 그린다 · 표시 «최근 n개»');
+    chk(t.list.innerHTML.indexOf('<b>가&lt;b&gt;&quot;</b>') > 0 && t.list.innerHTML.indexOf('💬 &lt;b&gt;&quot;안녕&quot;') > 0 && !/<b>"안녕/.test(t.list.innerHTML), '  받은 사람 이름 · 메시지는 escHtml');
+    chk(/<img src="https:\/\/i\/sa\.png"/.test(t.list.innerHTML) && /<span class="gs-noimg"><\/span><span class="gs-mid"><b>받은b/.test(t.list.innerHTML) && !/javascript:/.test(t.list.innerHTML), '  안전하지 않은 그림 주소는 그리지 않고 빈 그림(gs-noimg)');
+    /* 빈 목록 · 못 받음 */
+    const z = setup(); z.m.renderGiftBox(z.list); await flush(); z.sent.onclick({ stopPropagation(){} }); await flush(); await flush();
+    chk(/아직 보낸 선물이 없어요/.test(z.list.innerHTML) && z.stat.textContent === '', '보낸 적 없으면 빈 목록 안내(못 받음과 다르다)');
+    const f = setup({ sentErr: Object.assign(new Error('x'), { status: 503, code: 'X', kind: 'unavailable' }) });
+    f.m.renderGiftBox(f.list); await flush(); f.sent.onclick({ stopPropagation(){} }); await flush(); await flush();
+    chk(/못 불러왔어요/.test(f.list.innerHTML) && /class="gift-retry"/.test(f.list.innerHTML) && !/아직 보낸 선물이 없어요/.test(f.list.innerHTML) && !f.e.calls.some((c) => /^error|^common/.test(c)), '못 받으면 «못 불러왔어요 [다시 시도]»(번호 없음)');
+    f.e.sentErr = null; f.e.sentSrv = [row('r')]; f.e.calls = [];
+    f.list.onclick({ target: { closest: (sel) => sel === '.gift-retry' ? {} : null } }); await flush(); await flush();
+    chk(f.e.calls.join() === 'GET sent' && /class="gs-row"/.test(f.list.innerHTML), '  [다시 시도] — 다시 받아 목록으로');
+    /* 늦은 답 — 그사이 다른 서브탭으로 갔다 */
+    const l = setup({ sentSrv: [row('l')], sentHold: [] });
+    l.m.renderGiftBox(l.list); await flush(); l.sent.onclick({ stopPropagation(){} }); await flush();
+    l.e.q = { '.mh-tab.on': { dataset: { tab: 'friend' } }, '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'req' } } };
+    l.list.innerHTML = '요청 칸'; l.list.onclick = null; l.stat.textContent = '';
+    l.e.sentHold.shift()(); await flush(); await flush();
+    chk(l.list.innerHTML === '요청 칸' && l.stat.textContent === '' && l.list.onclick === null, '늦게 온 답은 다른 서브탭이 쓰는 칸 · 표시 · 누르기를 건드리지 않는다');
+    /* 친구 탭이 안 보이면 받지 않는다(다른 탭으로 마이홈을 열 때 renderFriendManage 가 부른다) */
+    const h = setup(); h.m.renderGiftBox(h.list); await flush(); h.sent.onclick({ stopPropagation(){} }); await flush(); await flush();
+    h.e.q = Object.assign({}, FRIEND_GIFT, { '.mh-tab.on': { dataset: { tab: 'home' } } }); h.e.calls = [];
+    h.m.renderGiftBox(h.list); await flush(); await flush();
+    chk(h.e.calls.length === 0, '친구 탭이 안 보이면 «보낸 선물» 을 받지 않는다(보이지 않는 GET 없음)');
+    h.e.q = Object.assign({}, FRIEND_GIFT); h.m.renderGiftBox(h.list); await flush(); await flush();
+    chk(h.e.calls.join() === 'GET sent', '  친구 탭에 들어오면 그때 받는다');
+    /* 보낸 선물을 보는 중에 받은 선물이 바뀌어도 그 칸을 덮지 않는다 */
+    h.e.giftSrv = [{ id: 'gx', senderName: 'x', imageUrl: 'https://i/x.png', message: '', starred: false, hidden: false, sentAt: 1 }];
+    await h.e.giftBox.pull(false); await flush(); await flush();
+    chk(!/data-gid="gx"/.test(h.list.innerHTML) && /class="gs-row"|아직 보낸 선물이 없어요/.test(h.list.innerHTML), '«보낸 선물» 을 보는 중이면 받은 선물이 바뀌어도 다시 그리지 않는다');
+    h.got.onclick({ stopPropagation(){} }); await flush(); await flush();
+    chk(/data-gid="gx"/.test(h.list.innerHTML), '  «받은 선물» 로 돌아오면 받은 선물 격자');
   }
 
   say('── 6. 친구 목록');
@@ -629,10 +681,11 @@ function wiring(MI, APP, HTML){
     /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
+    /^twNav: twNav,$/,   // 🎄 편지 알림이 크리스마스 창을 연다
     /^mallangMod: mallangMod,$/, /^giftBox: giftBoxMod,$/, /^removeFriend: \(\.\.\.a\)=>friendsPortMod\.removeFriend\(\.\.\.a\),$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 23개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 24개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');
@@ -733,6 +786,15 @@ async function runAll(MI, APP, HTML){
     ['MI', "else if(r === 'already') toast('이미 마이홈에 나와 있어요');", "", '이미 나와 있는데 안내가 없음'],
     ['MI', 'win.appendChild(ov);', 'document.body.appendChild(ov);', '확인창이 body 로'],
     ['MI', "  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));", '', '선물함 칸 그림에 다시 받기를 안 걺'],
+    ['MI', "if(my !== _sentGen || !_giftShowing('sent')) return;", "if(my !== _sentGen) return;", '보낸 선물 늦은 답이 다른 서브탭 칸을 덮음'],
+    ['MI', "if(_giftShowing('sent')) _sentPaint(listEl);", "_sentPaint(listEl);", '친구 탭이 안 보여도 보낸 선물을 받음'],
+    ['MI', "escHtml(TwPersonName.shown(s.recipientName))", "TwPersonName.shown(s.recipientName)", '보낸 선물 받은 사람 이름을 안 씻음'],
+    ['MI', "' · 💬 '+escHtml(s.message)", "' · 💬 '+s.message", '보낸 선물 메시지를 안 씻음'],
+    ['MI', "(pic ? '<img src=\"'+escHtml(pic)+'\" alt=\"\" draggable=\"false\">' : '<span class=\"gs-noimg\"></span>')+\n      '<span class=\"gs-mid\">", "('<img src=\"'+escHtml(s.imageUrl)+'\" alt=\"\" draggable=\"false\">')+\n      '<span class=\"gs-mid\">", '보낸 선물 그림을 거르지 않고 빈 그림도 없음'],
+    ['MI', "if(ev.target && ev.target.closest && ev.target.closest('.gift-retry')) renderGiftBox(listEl); };\n    return;", "};\n    return;", '보낸 선물 [다시 시도] 가 안 받음'],
+    ['MI', "if(!r.items.length){ listEl.innerHTML = '<div class=\"mh-ibx-empty\">🎁 아직 보낸 선물이 없어요", "if(false){ listEl.innerHTML = '<div class=\"mh-ibx-empty\">🎁 아직 보낸 선물이 없어요", '보낸 적 없을 때 안내가 없음'],
+    ['MI', "const r = await giftBox.fetchSent();", "await giftBox.fetchSent(); const r = await giftBox.fetchSent();", '보낸 선물을 두 번 받음'],
+    ['MI', "  if(!_giftShowing('got')) return;", "", '보낸 선물을 보는 중에 받은 선물로 덮음'],
     ['MI', "data-gid=\"'+escHtml(g.id)+'\" title=\"'+escHtml(tip)+'\">'", "data-gid=\"'+escHtml(g.id)+'\" title=\"'+(tip)+'\">'", '선물 글을 속성값에 그대로'],
     ['MI', "if(!r || r.indexOf('SCRT-') === 0) return '';", "if(!r) return '';", '시크릿룸 코드가 보임'],
     ['MI', "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/'+FRIEND_MAX+')';", "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/50)';", '친구 상한을 숫자로 박음'],

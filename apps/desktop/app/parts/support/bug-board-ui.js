@@ -8,7 +8,9 @@
      realtime 이 오래 끊겼다 붙으면(notification resync) 한 번 다시 받는다. 타이머로 되풀이하지 않는다.
    ★ 실패는 갈래(bug-api.js failOf)로 — 안내(번호 없음) · 공통(api-errors.js) · 그 밖은 그 자리 번호(E-BUG-01~07). 다시 보내지 않는다.
    ★ 늦은 답 버리기 — 목록 · 글 · 남은 수 받기마다 번호(gen)를 쥐고, 그사이 다른 필터 · 다른 글 · reset 이면 버린다.
-   ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면). alert/confirm 금지(audit 검사 4).
+   ★ 📝 임시저장 — 이 PC 에만(localStorage tw.bugDrafts · 규칙은 bug-board.js drafts*) 최대 3개 · 계정마다. 쓰던 글이 있을 때 떠나면 «임시저장할까요?».
+   ★ 🔎 비슷한 제보 — [등록] 전에 미해결 · 최근 글 제목과 견줘(bug-board.js similarPosts) 비슷하면 창으로 보이고 그래도 올릴지 고른다. 못 받으면 창 없이 올린다.
+   ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면 — «비슷한 제보» · «저장할까요?» 창도 게시판 안을 덮는 칸). alert/confirm 금지(audit 검사 4).
    ★ 관리자(앱 창 그대로 · 속만 서버) — [답변 등록] 은 글을 열 때 받은 lastAnswerIso 를 seenLastAnswerAt 으로 실어 보낸다(겹치면 409 → 글 다시 받고 쓴 글은 칸에 둔다).
      [🔗 오픈카톡 링크] 는 설정 bug.report 를 열 때 받아(판 version) 저장 때 그 판 · 안내 글을 그대로 싣는다. 답변 칸 [💬 오픈카톡] 의 기본 주소는 원격 설정(deps.bugReportLink).
      관리자 판정은 서버 — isAdmin 은 화면을 가리는 깃발이고, 서버가 아니라고 하면 실패 번호가 난다.
@@ -25,6 +27,7 @@
  *   isAdmin: () => boolean,                                      // 화면을 가리는 깃발(관리자 판정은 서버)
  *   bugReportLink: () => string,                                 // 답변 칸 [💬 오픈카톡] 기본 주소(원격 설정 bugReport.link — 없으면 '')
  *   rtOn: (kind: string, fn: Function) => Function,              // realtime 알림 걸기(TwRtHub.store.on)
+ *   getMyUserId: () => string,                                   // 내 유저 코드 — 📝 임시저장 주인(계정마다 따로)
  * }} deps */
 function createBugBoardUi(deps){
 const bugApi = deps.bugApi;
@@ -37,6 +40,8 @@ const safeHtml = deps.safeHtml;
 const isAdmin = deps.isAdmin;
 const bugReportLink = deps.bugReportLink;
 const rtOn = deps.rtOn;
+const getMyUserId = deps.getMyUserId;
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판 — 마이홈을 닫거나 탭을 옮길 때 쓰던 글을 묻는 LEAVE_GUARD 를 건다
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => escHtml(String(s == null ? '' : s));
@@ -99,6 +104,7 @@ const rtOn = deps.rtOn;
     $('bbListView').style.display = view === 'list' ? '' : 'none';
     $('bbDetailView').style.display = view === 'detail' ? '' : 'none';
     $('bbWriteView').style.display = view === 'write' ? '' : 'none';
+    hideSimilar(); hideLeave();   // 화면을 바꾸면 덮는 칸(비슷한 제보 · 저장할까요?)도 닫는다
     const pg = $('mhPageBugreport'); if(pg) pg.scrollTop = 0;
   }
 
@@ -359,7 +365,9 @@ const rtOn = deps.rtOn;
     $('bbWTitle').value = ''; $('bbWBody').value = ''; $('bbWErr').textContent = '';
     document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.disabled = false; r.checked = r.value === 'pub'; });
     $('bbWEnv').checked = true; $('bbWNotice').checked = false;
+    loaded = null; writeSeq++;
     show('write');
+    renderDrafts();
     $('bbWTitle').focus();
     showQuota();
   }
@@ -387,7 +395,105 @@ const rtOn = deps.rtOn;
     const os = /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '기타 OS';
     return (ver ? 'v' + ver + ' · ' : '') + os;
   }
-  async function submitWrite(btn){
+  /* 🔎 비슷한 제보 창 — 제목이 비슷한 글(bug-board.js similarPosts)을 목록 줄 모양 그대로 보여 준다.
+     [그래도 제보하기] 는 비교 없이 다시 올리기 · [취소] · × · Esc 는 쓰던 글을 그대로 두고 창만 닫는다.
+     ⚠️ 여닫힘은 .on — ESC 스택(shared/win-stack.js ESC_YIELD_SEL)이 이 칸이 «보이는 동안» 마이홈을 닫지 않고 양보한다. */
+  function showSimilar(title, items){
+    $('bbSimLead').textContent = '쓰신 제목 «' + title + '» 와 비슷한 제보가 이미 올라와 있어요.';
+    $('bbSimRows').innerHTML = items.map(rowHtml).join('');
+    $('bbSimilar').classList.add('on');
+    $('bbSimCancel').focus();
+  }
+  function hideSimilar(){ $('bbSimilar').classList.remove('on'); }
+  // 보이는 동안만 «열림» — 마이홈을 닫거나 다른 탭으로 옮기면 숨은 채 남은 칸이 Esc 를 가로채지 않게
+  const similarOpen = () => $('bbSimilar').classList.contains('on') && $('bbSimilar').offsetParent !== null;
+  /* 미해결 · 최근 글을 한 쪽씩(각 BUG_SIMILAR_FETCH) 받아 제목이 비슷한 것. 한쪽만 받아도 그것으로 본다 · 둘 다 못 받으면 던진다 */
+  async function similarTo(title){
+    const got = await Promise.allSettled(['open', 'all'].map(f => bugApi.list(f, null, lib.BUG_SIMILAR_FETCH)));
+    const ok = got.filter(x => x.status === 'fulfilled');
+    if(!ok.length) throw got[0].reason;
+    const items = [].concat(...ok.map(x => x.value.items)).map(it => Object.assign({ id: it.number }, it));
+    return lib.similarPosts(title, items);
+  }
+  /* 📝 임시저장 — loaded = 지금 폼에 불러온 임시글(그대로면 «고친 것 없음» · 다시 저장하면 그 칸을 덮는다 · 등록하면 지운다) */
+  let loaded = null;
+  let writeSeq = 0;   // 글쓰기를 새로 열 때마다 — 비슷한 제보를 찾는 동안 나갔다 다시 열면 늦게 온 결과를 버린다
+  const draftOwner = () => getMyUserId() || '';
+  const formNow = () => ({ cat: $('bbWCat').value, title: $('bbWTitle').value, body: $('bbWBody').value,
+    vis: (document.querySelector('input[name="bbWVis"]:checked') || {}).value === 'prv' ? 'prv' : 'pub' });
+  const writing = () => $('bbWriteView').style.display !== 'none';
+  const dirty = () => writing() && lib.draftDirty(formNow(), loaded);
+  function draftsLoad(){ let raw = null; try{ raw = localStorage.getItem(lib.BUG_DRAFT_KEY); }catch(_){} return lib.draftsRead(raw, draftOwner()); }
+  function draftsStore(list){
+    try{ localStorage.setItem(lib.BUG_DRAFT_KEY, lib.draftsWrite(list, draftOwner())); return true; }
+    catch(e){ notifyError('E-BUG-08', e); return false; }
+  }
+  function renderDrafts(){
+    const box = $('bbDrafts'); if(!box) return;
+    const list = draftsLoad();
+    box.classList.toggle('on', list.length > 0);
+    box.innerHTML = list.length ? '<div class="bb-drafts-head">📝 임시저장 ' + list.length + '/' + lib.BUG_DRAFT_MAX + '</div>' + list.map(d =>
+      '<div class="bb-draft' + (loaded && loaded.id === d.id ? ' on' : '') + '" data-did="' + esc(d.id) + '">' +
+      '<button class="bb-draft-open" type="button" data-dact="open" title="불러오기">' + esc(d.title.trim() || '(제목 없음)') + '</button>' +
+      '<span class="bb-draft-ts">' + fmtDate(d.ts, true) + '</span>' +
+      '<button class="bb-draft-x" type="button" data-dact="del" title="지우기" aria-label="지우기">×</button></div>').join('') : '';
+  }
+  /* 저장 — 성공하면 true. 비었거나 3개가 찼으면 err 칸에 까닭 */
+  function saveDraft(errEl, inPrompt){
+    if(!draftOwner()){ errEl.textContent = '로그인한 뒤에 임시저장할 수 있어요'; return false; }
+    const list = draftsLoad();
+    const r = lib.draftsSave(list, Object.assign(formNow(), { id: loaded ? loaded.id : null }), Date.now(), Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    if(!r.ok){
+      errEl.textContent = r.reason !== 'full' ? '저장할 내용이 없어요'
+        : inPrompt ? '임시저장이 ' + lib.BUG_DRAFT_MAX + '개 차 있어요 — [계속 쓰기] 로 돌아가 목록에서 하나를 지운 뒤 저장해 주세요'
+        : '임시저장은 ' + lib.BUG_DRAFT_MAX + '개까지예요 — 위 목록에서 하나를 지운 뒤 저장해 주세요';
+      return false;
+    }
+    if(!draftsStore(r.list)) return false;
+    loaded = r.list.find(x => x.id === r.id) || null;
+    errEl.textContent = '';
+    renderDrafts();
+    toast('📝 임시저장했어요 (' + r.list.length + '/' + lib.BUG_DRAFT_MAX + ')');
+    return true;
+  }
+  function fillForm(d){
+    const sel = $('bbWCat'); if([].some.call(sel.options, o => o.value === d.cat)) sel.value = d.cat;   // 없는 분류면 지금 값 그대로
+    $('bbWTitle').value = d.title; $('bbWBody').value = d.body;
+    document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.checked = r.value === d.vis; });
+    loaded = d; $('bbWErr').textContent = '';
+    renderDrafts();
+  }
+  /* 📝 «저장할까요?» — 쓰던 글이 있을 때만 묻고, 고르면 next() 로 이어 간다 */
+  let leaveNext = null;
+  const LEAVE_BTNS = { save: '임시저장하고 나가기', drop: '저장 안 하고 나가기' };
+  function askLeave(lead, next, btns){
+    if(!dirty()){ next(); return; }
+    writeSeq++;   // 비슷한 제보를 찾는 중이었으면 그 등록은 무른다(떠나려고 했으니)
+    leaveNext = next;
+    $('bbLeaveLead').textContent = lead;
+    $('bbLeaveSave').textContent = (btns || LEAVE_BTNS).save; $('bbLeaveDrop').textContent = (btns || LEAVE_BTNS).drop;
+    $('bbLeaveErr').textContent = '';
+    $('bbLeave').classList.add('on');
+    $('bbLeaveStay').focus();
+  }
+  function hideLeave(){ $('bbLeave').classList.remove('on'); leaveNext = null; }
+  const leaveOpen = () => $('bbLeave').classList.contains('on') && $('bbLeave').offsetParent !== null;
+  function leaveGo(save){
+    const next = leaveNext;
+    if(save && !saveDraft($('bbLeaveErr'), true)) return;   // 저장 못 하면(3개 · 저장 실패) 창에 남아 까닭을 보인다
+    hideLeave();
+    if(next) next();
+  }
+  /* 🪝 마이홈을 닫거나 탭을 옮길 때(myhome-ui.js) — 버그제보 탭이 보이고 쓰던 글이 있을 때만 묻는다.
+     고른 뒤엔 목록으로 바꾸고 이어 가므로, 이어 가는 길(탭 옮기기)이 고리를 다시 불러도 쓰던 글이 없어 묻지 않는다 */
+  mhHooks.on(mhHooks.HOOK.LEAVE_GUARD, (next) => {
+    const pg = $('mhPageBugreport');
+    if(!pg || !pg.classList.contains('on') || !dirty()) return false;
+    askLeave(leaveLead(), () => { show('list'); next(); });   // 고른 뒤 게시판은 목록으로 — 돌아왔을 때 버린 글이 남아 있지 않게
+    return true;
+  });
+  const leaveLead = () => '임시저장할까요? 임시저장은 이 PC 에만 ' + lib.BUG_DRAFT_MAX + '개까지 남아요.';
+  async function submitWrite(btn, skipSimilar){
     if(busy) return;
     const err = $('bbWErr');
     const notice = admin() && $('bbWNotice').checked;
@@ -397,6 +503,15 @@ const rtOn = deps.rtOn;
       notice,
     };
     const bad = lib.checkPost(p); if(bad){ err.textContent = bad; return; }
+    if(!notice && !skipSimilar){
+      busy = true; btn.disabled = true; err.textContent = '';   // 찾는 동안도 busy — 연타가 두 번 올리지 않게
+      const seq = writeSeq;
+      let sim = [];
+      try{ sim = await similarTo(p.title); }catch(e){ console.warn('[버그제보] 비슷한 제보 받기 실패', e); sim = []; }   // 못 받으면 창 없이 올린다 — 비교는 안내라 올리기를 막지 않는다
+      busy = false; btn.disabled = false;
+      if(!writing() || seq !== writeSeq) return;   // 찾는 동안 떠났거나 글쓰기를 새로 열었으면 올리지도 띄우지도 않는다
+      if(sim.length){ showSimilar(p.title.trim(), sim); return; }
+    }
     busy = true; btn.disabled = true; err.textContent = '';
     if($('bbWEnv').checked) p.env = (await envString()).slice(0, lib.BUG_ENV_MAX);
     const at = epoch;
@@ -411,6 +526,7 @@ const rtOn = deps.rtOn;
     if(at !== epoch) return;
     busy = false; btn.disabled = false;
     toast(notice ? '📌 공지를 등록했어요' : '🐞 제보를 등록했어요');
+    if(loaded){ draftsStore(lib.draftsRemove(draftsLoad(), loaded.id)); loaded = null; }   // 올린 임시글은 지운다
     cursors = [null];
     openPost(r.number);
   }
@@ -437,6 +553,7 @@ const rtOn = deps.rtOn;
 
   /* ── 탭 들어올 때 · 우편함에서 열 때 · 새 답변 우편 ───────── */
   function enter(){
+    if(dirty()){ askLeave(leaveLead(), () => { show('list'); enter(); }); return; }   // 쓰던 중에 탭을 다시 누르면 먼저 묻는다
     show('list');
     refreshBadge();
     loadList();
@@ -449,7 +566,7 @@ const rtOn = deps.rtOn;
   window._bugBoardOpen = function(number){
     const tab = document.querySelector('#myHomeTabs .mh-tab[data-tab="bugreport"]');
     if(tab && !tab.classList.contains('on')) tab.click();   // 탭 바인딩이 enter() 를 부른다
-    openPost(number);
+    askLeave(leaveLead(), () => openPost(number));   // 버그제보 탭에서 쓰던 글이 있으면 먼저 묻는다
   };
 
   /* 상세 화면 안 바깥 주소 — 오픈카톡 버튼 · 글 속 주소 칸(linkify). 누른 것이 그 둘이면 기본 브라우저로 넘기고 true.
@@ -479,8 +596,41 @@ const rtOn = deps.rtOn;
     $('bbPrev').addEventListener('click', () => { if(cursors.length > 1){ cursors.pop(); loadList(); } });
     $('bbNext').addEventListener('click', () => { if(nextCursor != null){ cursors.push(nextCursor); loadList(); } });
     $('bbWriteBtn').addEventListener('click', openWrite);
-    $('bbWCancel').addEventListener('click', () => show('list'));
+    $('bbWCancel').addEventListener('click', () => askLeave(leaveLead(), () => show('list')));
+    $('bbWDraft').addEventListener('click', () => saveDraft($('bbWErr')));
+    $('bbDrafts').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-dact]'), row = e.target.closest('.bb-draft[data-did]'); if(!b || !row) return;
+      const id = row.dataset.did;
+      if(b.dataset.dact === 'del'){
+        if(draftsStore(lib.draftsRemove(draftsLoad(), id))){ if(loaded && loaded.id === id) loaded = null; renderDrafts(); }
+        return;
+      }
+      const d = draftsLoad().find(x => x.id === id); if(!d) return;
+      if(loaded && loaded.id === id){
+        if(!dirty()) return;
+        askLeave('고친 내용이 있어요 — 임시저장할까요, 아니면 저장해 둔 글로 되돌릴까요?', () => fillForm(draftsLoad().find(x => x.id === id) || d), { save: '고친 내용 임시저장', drop: '고친 것 버리고 되돌리기' });
+        return;
+      }
+      askLeave('지금 쓰던 글을 임시저장하고 «' + (d.title.trim() || '제목 없음') + '» 을 불러올까요?', () => fillForm(draftsLoad().find(x => x.id === id) || d), { save: '임시저장하고 불러오기', drop: '저장 안 하고 불러오기' });
+    });
+    $('bbLeaveSave').addEventListener('click', () => leaveGo(true));
+    $('bbLeaveDrop').addEventListener('click', () => leaveGo(false));
+    $('bbLeaveStay').addEventListener('click', hideLeave);
+    $('bbLeaveX').addEventListener('click', hideLeave);
     $('bbWSubmit').addEventListener('click', (e) => submitWrite(e.currentTarget));
+    $('bbSimGo').addEventListener('click', () => { hideSimilar(); submitWrite($('bbWSubmit'), true); });
+    $('bbSimCancel').addEventListener('click', hideSimilar);
+    $('bbSimX').addEventListener('click', hideSimilar);
+    $('bbSimRows').addEventListener('click', (e) => {
+      const row = e.target.closest('.bb-row[data-id]'); if(!row) return;
+      hideSimilar(); askLeave(leaveLead(), () => openPost(row.dataset.id));
+    });
+    // Esc 는 이 창만 닫는다 — ESC 스택은 ESC_YIELD_SEL 로 양보하고 여기서 받는다
+    document.addEventListener('keydown', (e) => {
+      if(e.key !== 'Escape' || e.defaultPrevented) return;   // ESC 스택이 이 키로 마이홈 닫기(→ 저장할까요?)를 이미 했으면 방금 연 창을 닫지 않는다
+      if(leaveOpen()){ e.preventDefault(); hideLeave(); }   // «저장할까요?» 에서 Esc = 계속 쓰기
+      else if(similarOpen()){ e.preventDefault(); hideSimilar(); }
+    }, true);
     $('bbWNotice').addEventListener('change', (e) => {
       // 공지는 공개 글이다 — 고르는 동안 공개 범위를 공개로 묶는다
       document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.disabled = e.target.checked; if(e.target.checked && r.value === 'pub') r.checked = true; });
@@ -575,9 +725,10 @@ const rtOn = deps.rtOn;
     }
     return refreshBadge();
   }
-  /* 계정을 놓을 때 — 배지 · 목록 · 연 글을 비우고 진행 중인 받기 답을 버린다. 쓰던 글은 버린다(다른 계정 이름으로 올라가지 않게) */
+  /* 계정을 놓을 때 — 배지 · 목록 · 연 글을 비우고 진행 중인 받기 답을 버린다. 쓰던 글은 버린다(다른 계정 이름으로 올라가지 않게) · 임시저장은 계정마다라 두지만 불러온 표시는 비운다 */
   function reset(){
     ready = false; busy = false;
+    loaded = null; writeSeq++;
     bugApi.reset();
     epoch++; listGen++; postGen++; quotaGen++;
     linkGen++; linkBusy = false; linkCfg = null;

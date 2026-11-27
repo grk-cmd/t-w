@@ -20,10 +20,11 @@ let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['scheduler.js', 'schedule-api.js', 'image-bytes.js', 'api-errors.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'account.js', 'myhome-init.js', 'myhome-visit.js'];
+const need = ['scheduler.js', 'schedule-api.js', 'image-bytes.js', 'api-errors.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'account.js', 'myhome-init.js', 'myhome-visit.js', 'invite-notice.js'];   // invite-notice.js — 🙋 마지막 방 초대 한 줄(진짜 모듈을 무대 저장소에 얹는다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
+const INV = (() => { const w = {}; new Function('window', 'module', SRC['invite-notice.js'])(w, undefined); return w.TwInviteNotice; })();
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const sec = async (title, fn) => { say(title); try{ await fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + (e && e.stack || e)); } };
@@ -141,7 +142,8 @@ function mkEnv(opt){
     closeChipPopups: () => {}, positionInputBelowChar: () => {},
     inboxUnreadCount: () => opt.inbox || 0, refreshFriendTabBadge: () => { g.friendBadge = (g.friendBadge || 0) + 1; },
     bellSeenKey: 'tw.bellSeenTs',
-    twNav: opt.twNav || { go(){}, NAV: {} },
+    twNav: opt.twNav || { go(k, fid, inv){ if(k === 'friendVisit') (g.opened = g.opened || []).push(fid + ':' + inv.code + ':' + inv.name); }, NAV: { FRIEND_VISIT: 'friendVisit' } },
+    roomInvite: (g.notice = INV.createInviteNotice({ storage: localStorage, getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), now: () => (g.now || Date.now()) })),
   });
   if(!opt.noStart) S.startSchedule(session);   // 계정 확인 뒤 app-boot 가 한 번 부르는 시작(만들 때는 받기 · 신호 · 타이머가 없다)
   const calls = (m, re) => authed.log.filter(x => x.method === m && re.test(x.path));
@@ -288,6 +290,44 @@ await sec('── 3. 🔔 뱃지 · 알림 목록', async () => {
   const F = mkEnv({ routes: { 'GET /v2/me/schedules': apiErr(503, 'X'), 'GET /v2/me/notifications': apiErr(503, 'X') } }); await tick();
   chk(F.errs.filter(c => c === 'E-MH-04').length === 1 && F.errs.length === 1, '오늘 일정 · 알림을 못 받으면 오류 번호 E-MH-04 — 두 가지가 같이 실패해도 한 번만');
 });
+
+await sec('── 3-2. 🙋 방 초대 줄 · 알림콩', async () => {
+  const E = mkEnv(); await tick();
+  const badge = E.el('myBellBadge'), list = E.el('bellList');
+  const lineOf = () => list.children.find(c => c.className === 'bell-invite');
+  E.S.refreshBellBadge();
+  chk(badge.textContent === '0' && !lineOf(), '초대가 없으면 줄도 알림콩도 없다');
+  E.g.now = Date.now();
+  E.g.notice.note('f1', { fromName: '나비', roomCode: 'PLAY-AB12', ts: 1000 });
+  chk(badge.textContent === '1' && badge.classList.contains('on'), '★ 초대가 오면 🔔 뱃지(알림콩) +1');
+  E.g.notice.note('f1', { fromName: '나비', roomCode: 'PLAY-AB12', ts: 1000 });
+  chk(badge.textContent === '1', '  같은 초대가 다시 와도(구독 다시 불림) 늘지 않는다');
+  E.el('myBellBtn').fire('click'); await tick(20);
+  const ln = lineOf();
+  chk(!!ln && ln.textContent.includes('나비 님이 방에 초대했어요') && list.children.indexOf(ln) === list.children.length - 1
+    && list.children.indexOf(ln) > list.children.findIndex(c => c.className === 'bell-inbox-btn'), '★ [📪 알림함 확인] 아래에 «🙋 나비 님이 방에 초대했어요»');
+  chk(ln.children[0].classList.contains('on'), '  창을 연 그때는 새 초대라 줄 앞 점(알림콩)');
+  chk(badge.textContent === '0', '★ 창을 열면 알림콩이 꺼진다');
+  E.g.notice.note('f2', { fromName: '<b>토끼</b>', roomCode: 'WORK-CD34', ts: 2000 });
+  const ln2 = lineOf();
+  chk(list.children.filter(c => c.className === 'bell-invite').length === 1 && ln2.textContent.includes('<b>토끼</b> 님이 방에 초대했어요') && !list.textContent.includes('나비 님'),
+    '★ 새 초대가 오면 그 줄이 바뀐다(쌓지 않는다) · 이름은 글자 그대로(HTML 아님)');
+  lineOf().onclick();
+  chk((E.g.opened || []).join() === 'f2:WORK-CD34:<b>토끼</b>' && !E.S.isBellOpen(), '★ 줄을 누르면 창을 닫고 창 열기 통로(FRIEND_VISIT)로 «놀러 갈까요?» — 보낸 사람 · 초대 코드 · 이름을 같이(시크릿룸 초대 · 친구 아님 안내용)');
+  const O = mkEnv({ uid: 'other' }); await tick();
+  O.ls.set('tw.roomInviteLast', E.ls.get('tw.roomInviteLast'));
+  O.S.renderBellList(); O.S.refreshBellBadge();
+  chk(!O.el('bellList').children.some(c => c.className === 'bell-invite') && O.el('myBellBadge').textContent === '0', '  다른 계정에는 남의 초대가 안 보인다');
+  /* mutation test — 뱃지 셈에서 초대를 빼면 알림콩이 안 뜬다 */
+  const bad = MOD.replace('const n = newNotices + newToday + ddayHits + inboxNew + inviteNew;', 'const n = newNotices + newToday + ddayHits + inboxNew;');
+  const B = mkEnv({ src: bad }); await tick(); B.g.now = Date.now();
+  B.g.notice.note('f1', { fromName: '나비', roomCode: 'PLAY-AB12', ts: 1000 });
+  chk(bad !== MOD && B.el('myBellBadge').textContent === '0', '  mutation test — 뱃지 셈에서 초대를 빼면 알림콩이 안 떠 빨강');
+  /* 저장본 규칙 */
+  chk(INV.read(JSON.stringify({ owner: 'a', fromId: 'f', roomCode: 'nope', at: 1 }), 'a') === null && INV.read('{깨짐', 'a') === null && INV.read(null, 'a') === null,
+    '  저장본 — 방 코드 모양이 틀리거나 깨지면 없음');
+});
+
 
 await sec('── 4. 달력', async () => {
   const d = deferred();
@@ -767,7 +807,7 @@ await sec('── 8. app.js 배선 · html', async () => {
   const bare = APP.split('\n').filter(l => /(^|[^.\w])(refreshBellBadge|renderBellList|renderDdays|renderSchedCalendar|loadMonth|_bellWinOpen)\((?!\)\{\})/.test(l));
   chk(bare.length === 0, '부르는 곳은 전부 mhScheduler.이름 — 옛 전역 이름 호출이 안 남았다' + (bare.length ? ' (' + bare[0].trim().slice(0, 80) + ')' : ''));
   const INIT = strip(SRC['myhome-init.js']), VISIT = strip(SRC['myhome-visit.js']), ACC = strip(SRC['account.js']);
-  chk(/mhScheduler\.loadBoard\(\)/.test(INIT) && !/subscribeDdays/.test(INIT), '로그인 뒤 — 내 보드 받기(loadBoard)');
+  chk(!/mhScheduler\.loadBoard\(\)/.test(INIT) && !/subscribeDdays/.test(INIT) && /^ {4}ddays: \(\)=>mhScheduler\.loadBoard\(\),/m.test(APP), '내 보드 받기(loadBoard)는 첫 화면 뒤(app-boot LATER ddays) — 마이홈 시작에서는 받지 않는다');
   chk((VISIT.match(/mhScheduler\.startVisit\(friendId\)/g) || []).length === 1 && (VISIT.match(/mhScheduler\.endVisit\(\)/g) || []).length === 1 && !/subscribeDdays|_schedDdaysVisitUnsub|setDdaysVisit/.test(VISIT), '관람 시작 · 끝 → startVisit · endVisit (구독 끊기 장치 없음)');
   chk((ACC.match(/mhScheduler\.reset\(\)/g) || []).length === 1 && !/mhScheduler\.loadMine\(\)/.test(ACC), '계정 — 놓을 때 reset(이어받기 loadMine 은 걷음 — 다시 켠 부팅이 받는다)');
   chk(/if\(tab\.dataset\.tab==='scheduler'\)\{\s*mhScheduler\.renderSchedCalendar\(\); mhScheduler\.renderDdays\(\);/.test(APP), '[스케줄러] 탭 → 달력 · D-day 그리기');

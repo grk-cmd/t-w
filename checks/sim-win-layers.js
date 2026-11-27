@@ -170,7 +170,7 @@ const mkBox = () => ({ hidden:true, style:{},
               remove(){}, } });
 function fakeDoc(){
   const ids = ['myStatusMenu','myChipMore','myChatBox','myCustomStatusBox','bellWin','myDemojiBox','myPlaylistBox',
-               'myStatusChipBtn','myChipMoreBtn','myChatBtn','myCustomStatusBtn','myBellBtn','myDemojiBtn','myPlBtn'];
+               'myStatusChipBtn','myChatBtn','myCustomStatusBtn','myBellBtn','myDemojiBtn','myPlBtn'];
   ids.forEach(id => {
     const o = { style:{}, hidden:false, on:true };
     o.classList = { add:c => { if(c==='hidden') o.hidden = true; }, remove:c => { if(c==='on') o.on = false; } };
@@ -187,7 +187,7 @@ closeChipPopups('myChipMore');
 chk(boxes.myPlaylistBox.hidden === false,
     '★ ▼ 드롭메뉴를 열어도 🎵 플레이리스트는 안 닫힌다 — 제보 그 자리');
 chk(boxes.myPlaylistBox.on === true, '   🎵 버튼의 눌림 표시도 그대로다');
-chk(boxes.myStatusMenu.hidden === true, '   지나가는 메뉴(상태 메뉴)는 예전처럼 닫힌다');
+chk(boxes.myStatusMenu.hidden === false, '   ▾ 메뉴 안 상태 목록은 따로 닫지 않는다(메뉴째 여닫는다 — 따로 닫으면 목록만 사라진다)');
 chk(boxes.myDemojiBox.hidden === true, '   😊 이모티콘 팔레트도 예전처럼 닫힌다');
 
 // 오피스 숨김만은 전부 닫는다 — 안 닫으면 유튜브 자식창이 숨긴 화면에 남는다

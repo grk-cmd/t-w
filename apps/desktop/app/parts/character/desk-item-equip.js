@@ -204,7 +204,15 @@ function autoSaveDeskItemsNow(){
   }
   slotSaveMod().saveSlots();
 }
-function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true);
+/* 카탈로그 아이템인데 GLB 를 아직 안 받아 등록 전(첫 화면 뒤 catalogSyncMod.fillGlb 가 받는다)인가 */
+function _glbPending(id){
+  let si = null; try{ si = commissionMod().savedItems(); }catch(_){}
+  const r = (si && si.find) ? si.find(x=>x.id===id) : null;
+  return !!(r && !r.glb && r.glbUrl);
+}
+function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod().deskItemDef(id);
+    if(!def){ if(_glbPending(id)){ _markSkipped(holder, id); holder._skippedItems.set(id, data[id]); } return; }   // GLB 를 받기 전이라 못 올린 아이템 — 건너뜀으로 적어 저장(collectDeskItems)이 지우지 않게 · 받으면 catalog-sync 가 다시 올린다
+    const e=data[id]; equipDeskItem(holder,def,true);
     if(holder._skippedItems && holder._skippedItems.has(id)) holder._skippedItems.set(id, e);   // 막혀 건너뛰었다 — 이번에 입히려던 원본 항목을 붙잡는다
     const p=holder.deskItems && holder.deskItems[id];  /* 건너뛴(막힌) 아이템이면 holder.deskItems 가 아직 없을 수 있다 */ if(p&&e.adj){
     const savedAdj=Object.assign({},e.adj);

@@ -125,13 +125,16 @@ async function press(src, o){
 async function judgePress(src){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
-  let a, b, c, d, e;
-  try{ a = await press(src); b = await press(src, { twice: true }); c = await press(src, { answer: false }); d = await press(src, { kind: 'sessionLost' }); e = await press(src, { hold: true }); }
+  let a, b, c, d, e, f;
+  try{ a = await press(src); b = await press(src, { twice: true }); c = await press(src, { answer: false }); d = await press(src, { kind: 'sessionLost' }); e = await press(src, { hold: true }); f = await press(src, { kind: 'otherDevice' }); }
   catch(x){ t(false, '눌러 보다 던짐 — ' + String(x.message || x).slice(0, 80)); return r; }
   t(a.before === 0, '끊기기 전엔 단추가 아무 일도 안 한다');
   t(a.shown.ov === 'flex' && a.shown.lost === true && a.calls[0] === 'go:leave' && a.shown.title === '다른 PC에서 이 기기를 지웠어요' && a.shown.msg === '다시 등록하면 바로 이어서 쓸 수 있어요.' && a.shown.btn === '이 PC 다시 등록',
     '★ 지워짐(deviceRemoved) — 방 나가기 · 방 입장 막기 표식 · «다른 PC에서 이 기기를 지웠어요» · 한 줄 · [이 PC 다시 등록]');
   t(d.shown.title === '이 PC의 다른 창에서 쓰는 중이에요' && d.shown.msg === '' && d.shown.btn === '여기서 계속 쓰기', '  새 세션(sessionLost) — «이 PC의 다른 창에서 쓰는 중이에요» · [여기서 계속 쓰기]');
+  t(f.shown.ov === 'flex' && f.shown.lost === true && f.calls[0] === 'go:leave' && f.shown.title === '다른 기기에서 사용 중이에요' && f.shown.btn === '여기서 계속 쓰기' && /한 번에 한 PC/.test(f.shown.msg),
+    '★ 다른 PC 가 쓰는 중(otherDevice) — 방 나가기 · «다른 기기에서 사용 중이에요» · 한 번에 한 PC · [여기서 계속 쓰기]');
+  t(f.calls.filter((x) => x === 'register').length === 1 && f.ov === 'none' && f.lost === false, '  ↳ [여기서 계속 쓰기] = 다시 등록(이 PC 가 쓰는 PC 가 되고 다른 PC 가 밀린다) → 되면 화면 닫기');
   t(![a, d].some((x) => /한 번에 한 기기|한 기기에서만/.test(x.shown.title + x.shown.msg + x.shown.note)), '  «한 기기에서만» 말은 없다(계정마다 PC 는 서버가 정한 상한까지)');
   t(b.calls.filter((x) => x === 'go:leave').length === 1 && b.shown.title === '이 PC의 다른 창에서 쓰는 중이에요', '  두 번 알려도 방 나가기는 한 번 · 글은 마지막 까닭으로');
   t(a.calls.filter((x) => x === 'register').length === 1 && a.ov === 'none' && a.lost === false && !a.disabled, '★ 누르면 다시 등록 한 번 → 되면 화면 닫기 · 표식 풀기(앱을 다시 켜지 않는다)');
@@ -146,6 +149,7 @@ const pressBreaks = [
   ['기다리는 중 또 누르면 또 등록', m => m.replace('  if(!window._deviceSessionLost || _devLostBusy) return;', '  if(!window._deviceSessionLost) return;')],
   ['끊겨도 방에 남음', m => m.replace("  if(first){ try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(()=>{}); }catch(_){} }\n", '')],
   ['표식을 안 풂', m => m.replace("  if(ov) ov.style.display = 'none';\n  window._deviceSessionLost = false;", "  if(ov) ov.style.display = 'none';")],
+  ['다른 PC 가 쓰는 중을 «다른 창» 으로 그림', m => m.replace(/  \[DEVICE_LOST_KIND\.OTHER\]:[^\n]*\n/, '')],
   ['까닭을 안 가름', m => m.replace('  const t = DEVICE_LOST_TEXT[kind] || DEVICE_LOST_TEXT[DEVICE_LOST_KIND.SESSION];', '  const t = DEVICE_LOST_TEXT[DEVICE_LOST_KIND.SESSION];')],
 ];
 for(const [name, fm] of pressBreaks){
@@ -158,7 +162,7 @@ say('── 5. 배선 — realtime 밀림이 이 화면을 부른다 · 옛 RTDB
   const FI = ['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js'].map(read).find(Boolean) || '';
   const LF = ['login-flow.js', 'parts/account/login-flow.js', 'app/parts/account/login-flow.js'].map(read).find(Boolean) || '';
   chk(!!FI && !/claimDeviceSession|releaseDeviceSession|deviceSessionLost\(\)|users\/\$\{userId\}\/session/.test(strip(FI)), 'firebase-init 에 RTDB 기기 세션(users/{uid}/session) 길이 없다');
-  chk(/onSessionLost: \(kind\)=>deviceLostMod\._onDeviceSessionLost\(kind\),/.test(SRC) && /deps\.onSessionLost\(s\);/.test(LF), 'login-flow 가 realtime 끊김(sessionLost · deviceRemoved) 상태에서 까닭을 실어 이 화면을 부른다');
+  chk(/onSessionLost: \(kind\)=>deviceLostMod\._onDeviceSessionLost\(kind\),/.test(SRC) && /deps\.onSessionLost\(s\);/.test(LF), 'login-flow 가 realtime 끊김(sessionLost · deviceRemoved · otherDevice) 상태에서 까닭을 실어 이 화면을 부른다');
   chk(/continueHere: \(\)=>deviceRegisterMod\.ensure\(\)\.then\(\(r\)=>\{ if\(r !== 'ok'\) return false; TwRtHub\.store\.start\(\{ claim: true \}\); return true; \}\),/.test(SRC), '★ 단추 = 이 PC 등록(상한이 다 찼으면 확인창) → 된 때만 같은 realtime 연결로 다시');
   chk(!/id="deviceSessionNote"/.test(HTML) && !/한 번에 한 기기에서만/.test(HTML) && /id="deviceSessionTitle">다른 PC에서 이 기기를 지웠어요</.test(HTML), 'html — 덧붙이는 안내 줄 없음 · «한 기기에서만» 말 없음 · 제목에 이모지 없음');
   chk(!/deviceSessionLost/.test(SRC), '접속 고정(presence-lock)은 확인의 me 를 바로 앉히고 늦은 값을 다시 쓰지 않아 «밀렸나» 를 따로 보지 않는다');

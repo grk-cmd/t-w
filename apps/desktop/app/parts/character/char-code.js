@@ -101,11 +101,12 @@ async function importCloneCode(v, p, forceSlot){
     let _ok;
     if(typeof window._animalUnlocked === 'function') _ok = window._animalUnlocked();
     else _ok = (_lv >= _ulv) || isAdmin();   // animal.js 가 없으면 숨김 해금 기록(계정 칸 — animal.js 가 든다)을 알 수 없다 — 레벨 · 관리자만
-    if(!_ok){ toast('🔒 동물 캐릭터는 Lv.'+_ulv+' 달성 후 불러올 수 있어요 (현재 Lv.'+_lv+')'); return false; }
+    const _shown = focusLevelMod().shownFocusLevel();   // 못 받았으면 null — 현재 레벨을 적지 않는다
+    if(!_ok){ toast('🔒 동물 캐릭터는 Lv.'+_ulv+' 달성 후 불러올 수 있어요' + (_shown != null ? ' (현재 Lv.'+_shown+')' : '')); return false; }
   }
   // ★ 런처7: 라이선스 미발급자가 파츠 포함 캐릭터를 복제 받으면 파츠는 제거하고 저장 (파츠는 라이선스 전용).
   //   원본 파일에는 그대로 두고, 이 유저가 저장하는 슬롯에만 반영.
-  /* 🎰 단, **가챠 파츠는 남긴다** — 보관함/가챠는 라이선스 없이도 쓸 수 있게 열렸으므로(toggleGachaInv),
+  /* 🎰 단, **가챠 파츠는 남긴다** — 도감(꾸미기 창 «도감» 탭)과 가챠는 라이선스 없이도 쓸 수 있게 열렸으므로,
        여기서 통째로 지우면 자기가 뽑아서 쓰던 파츠가 코드 한 번 불러왔다고 사라진다.
      ⚠️ savedParts 조회 실패(카탈로그 동기화 직전)는 '남긴다'로 떨어뜨린다 — toggleEquip 의 [안 함]
        분기와 같은 원칙. 못 지운 건 유저가 다시 벗으면 되지만, 지워버린 건 되돌릴 방법이 없다. */

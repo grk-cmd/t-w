@@ -27,6 +27,8 @@ const VENDOR = [
   { name: 'JSZip', url: 'https://stuk.github.io/jszip/', version: '3.10.1', license: 'MIT', text: MIT('2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso'),
     note: 'MIT · GPLv3 중 MIT 로 씀 · 안에 든 pako(MIT · zlib)' },
   { name: 'QRCode for JavaScript', url: 'https://github.com/kazuhikoarase/qrcode-generator', version: '', license: 'MIT', text: MIT('2009 Kazuhiko Arase') },
+  { name: 'Galmuri', url: 'https://galmuri.quiple.dev', version: '2.40.3', license: 'OFL-1.1', file: 'app/vendor/galmuri/LICENSE',
+    note: '도트 글꼴(Galmuri11 Bold) — 크리스마스 창 음악 출처 글' },
   { name: 'Noto Emoji', url: 'https://github.com/googlefonts/noto-emoji', version: '', license: 'Apache-2.0', copyright: 'Copyright 2013 Google, Inc. All Rights Reserved.',
     note: '📚 아이콘 — 책 색을 서로 바꿈' },
 ];

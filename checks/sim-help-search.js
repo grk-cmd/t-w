@@ -1,5 +1,5 @@
 /* sim-help-search.js — 🔍 도움말 검색(firebase/hosting/help/search.js · search.json · scripts/build-help-search.js)
-   ・1절: 검색표가 최신 — 원본(편 · docs/help-search/words.json · faq.json)에서 다시 만든 것과 커밋된 것이 같다 · 소제목 id · FAQ 자리가 실제로 있다
+   ・1절: 검색표가 최신 — 원본(편 · docs/help-search/words.json · faq.json)에서 다시 만든 것과 커밋된 것이 같다 · 소제목 id · FAQ 자리가 실제로 있다 · FAQ 제목 꼬리표([공통] · [Windows] · [mac])
    ・2절: 질문 → 답 — 실제 검색표로 사람이 칠 만한 질문을 돌려 맞는 편 · 소제목이 맨 위에 오는가
    ・3절: 낱말 다루기 — 말끝 떼기 · 군말 빼기 · 띄어쓰기 합치기 · 거미줄 무게 · 토막 · 주소
    ・4절: 경계 — 빈 질문 · 군말뿐 · 모르는 말 · 아주 긴 질문 · HTML · 목록 겹침 · 한 편 상한
@@ -43,6 +43,15 @@ chk(badAnchor.length === 0, '조각 · FAQ 가 가리키는 소제목 id 가 그
 const dupId = slugs.filter(s => { const ids = [...html[s].matchAll(/ id="(s\d+)"/g)].map(m => m[1]); return new Set(ids).size !== ids.length; });
 chk(dupId.length === 0, '  한 편 안에서 소제목 id 가 겹치지 않는다');
 chk(IX.faq.length >= 5 && IX.faq.every(f => f.q.length && f.t && IX.pages.some(p => p.s === f.p)), 'FAQ ' + IX.faq.length + '개 — 질문 · 답 · 편이 다 있다');
+{
+  const FAQ_SRC = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'help-search', 'faq.json'), 'utf8'));
+  chk(IX.faq.every((f, i) => f.h === '[' + FAQ_SRC[i].tag + '] ' + f.q[0]) && IX.faq.some(f => /^\[mac\] /.test(f.h)) && IX.faq.some(f => /^\[공통\] /.test(f.h)), '★ FAQ 제목에 꼬리표 — «[공통] …» · «[mac] …»(검색 답 · FAQ 페이지 같은 글)');
+  const FH = fs.readFileSync(path.join(DIR, 'faq.html'), 'utf8');
+  chk(IX.faq.every((f, i) => FH.includes('<h2 id="f' + (i + 1) + '">' + f.h.replace(/&/g, '&amp;') + '</h2>')), '  FAQ 페이지 소제목도 꼬리표가 붙은 같은 글');
+  const more = IX.faq.filter(f => f.m && f.m.length);
+  chk(more.length >= 3 && more.every(f => f.m.every(x => IX.pages.some(p => p.s === x.p) && (!x.a || html[x.p].includes(' id="' + x.a + '"')) && FH.includes('href="/' + x.p + (x.a ? '#' + x.a : '') + '"'))),
+    '★ 함께 볼 자리(more) ' + more.length + '개 FAQ — 가리키는 편 · 소제목이 있고 FAQ 페이지에 🔗 링크로 붙는다');
+}
 const heads = ['index'].concat(slugs).map(s => (fs.readFileSync(path.join(DIR, s + '.html'), 'utf8').match(/<header class="bar">[\s\S]*?<\/header>/) || [''])[0]);
 chk(new Set(heads).size === 1 && /href="\/" aria-current="page">도움말<\/a><a href="\/faq">FAQ</.test(heads[0]), '위 띠(헤더)가 목차 · 편 모두 같은 모양 — [도움말](지금) · [FAQ] 탭');
 const FAQH = fs.readFileSync(path.join(DIR, 'faq.html'), 'utf8');
@@ -61,24 +70,35 @@ chk(mountRun(true).length === 0 && mountRun(false).includes('.bar'), '앱 칸 �
 chk(/\[data-embed\] \.bar\{display:none\}/.test(fs.readFileSync(path.join(DIR, 'help.css'), 'utf8')), '  앱 칸 안에서는 위 띠([도움말] [FAQ] 탭)를 숨긴다');
 
 say('── 2. 질문 → 답');
-const sysAnchor = (IX.chunks.find(c => c.p === '1' && /› 시스템$/.test(c.h)) || {}).a;
+const verAnchor = '';   // 버전 FAQ 는 5-5 편 머리(정보 탭 — 프로그램 정보)로 간다
 const CASES = [
-  ['버전은 어디서 확인하나요?', (r) => r.answer.faq && r.answer.p === '1' && r.answer.a === sysAnchor, '버전 FAQ → 1편 › 시스템'],
-  ['버전 확인', (r) => r.answer.faq && r.answer.p === '1', '버전 FAQ'],
-  ['첫 화면에서 버전', (r) => r.answer.faq && r.answer.p === '1', '버전 FAQ(띄어 쓴 «첫 화면»)'],
-  ['캐릭터 옷 어떻게 바꿔', (r) => r.answer.p === '4-1', '4-1. 꾸미기'],
-  ['친구 추가하는 법', (r) => r.answer.faq && r.answer.p === '7', '친구 FAQ → 7. 마이홈'],
-  ['노래 지우기', (r) => r.answer.p === '3-1', '3-1. 플레이리스트'],
-  ['가챠 뽑기', (r) => r.answer.p === '9', '9. 가챠'],
-  ['회사에서 몰래 쓰고 싶어', (r) => r.answer.p === '1-2', '1-2. 회사원 모드'],
-  ['레벨 올리는 법', (r) => r.answer.p === '8', '8. 레벨 해금'],
-  ['런처로 가려면', (r) => r.answer.p === '4', '4. 드롭다운 메뉴 › « 런처로'],
-  ['다른 컴퓨터에서 쓰려면', (r) => r.answer.p === '1', '1편 › 로그인 수단'],
-  ['아바타 염색', (r) => r.answer.p === '2', '거미줄로만 닿는 말(아바타 → 캐릭터 · 염색 → 색상)'],
+  ['버전은 어디서 확인하나요?', (r) => r.answer.faq && r.answer.p === '5-5' && r.answer.a === verAnchor, '버전 FAQ → 5-5. 정보 탭'],
+  ['버전 확인', (r) => r.answer.faq && r.answer.p === '5-5', '버전 FAQ'],
+  ['첫 화면에서 버전', (r) => r.answer.faq && r.answer.p === '5-5', '버전 FAQ(띄어 쓴 «첫 화면»)'],
+  ['캐릭터 옷 어떻게 바꿔', (r) => r.answer.p === '6-1', '6-1. 꾸미기 열기 · 파츠 입기'],
+  ['친구 추가하는 법', (r) => r.answer.faq && r.answer.p === '8-7', '친구 FAQ → 8-7. 친구'],
+  ['노래 지우기', (r) => r.answer.p === '4-1', '4-1. 플레이리스트 만들기'],
+  ['가챠 뽑기', (r) => r.answer.p === '9-2', '9-2. 가챠'],
+  ['회사에서 몰래 쓰고 싶어', (r) => r.answer.p === '3-6', '3-6. 회사원 모드'],
+  ['레벨 올리는 법', (r) => r.answer.p === '9-1', '9-1. 레벨 해금'],
+  ['런처로 가려면', (r) => r.answer.p === '3-1', '3-1. 미니 메뉴 › « 런처로'],
+  ['다른 컴퓨터에서 쓰려면', (r) => r.answer.p === '1-3', '1-3. 로그인 수단'],
+  ['아바타 염색', (r) => /^(2|6)-/.test(r.answer.p), '거미줄로만 닿는 말(아바타 → 캐릭터 · 염색 → 색상)'],
   ['맥 설치', (r) => r.answer.faq && r.answer.p === 'faq', '맥 설치 FAQ(편 없음 → FAQ 페이지)'],
   ['손상되었다고 나와요', (r) => r.answer.faq && /손상/.test(r.answer.h), '맥 «손상» FAQ'],
-  ['버전 정', (r) => r.answer.faq && r.answer.p === '1', '치는 중인 한 글자(정)가 앞 낱말(버전)을 덮지 않는다'],
-  ['올라타기 내려오기', (r) => r.answer.p === '2-1', '2-1편 › 올라타기(올라 → 레벨로 새지 않음)'],
+  ['버전 정', (r) => r.answer.faq && r.answer.p === '5-5', '치는 중인 한 글자(정)가 앞 낱말(버전)을 덮지 않는다'],
+  ['올라타기 내려오기', (r) => r.answer.p === '7-2', '7-2. 동물 올라타기(올라 → 레벨로 새지 않음)'],
+  ['게임할 때 렉 걸려요', (r) => r.answer.faq && r.answer.p === '5-1' && /화질/.test(r.answer.t), '버벅임 FAQ → 5-1 › 실행 화면 화질'],
+  ['유튜브가 검게 변해요', (r) => r.answer.faq && r.answer.p === '5-1' && /^\[Windows\] /.test(r.answer.h), '영상 검게 FAQ → 5-1 › 영상 겹침 실험 · [Windows]'],
+  ['포커스 시간이 안 쌓여요', (r) => r.answer.faq && r.answer.p === '5-3', '포커스 FAQ → 5-3. 포커싱 탭'],
+  ['라이선스 키 등록', (r) => r.answer.faq && r.answer.p === '5-5', '라이선스 FAQ → 5-5 › 라이선스'],
+  ['파이널판타지14 포커스가 안 잡혀요', (r) => r.answer.faq && r.answer.p === '5-3' && /관리자 권한/.test(r.answer.t), '게임 감지 FAQ → 5-3 · 관리자 권한'],
+  ['레벨이 안 올라요', (r) => r.answer.faq && r.answer.p === '5-2' && /피규어 모드/.test(r.answer.t), '레벨 안 오름 FAQ → 5-2 › 피규어 모드'],
+  ['아이패드 연결이 풀려요', (r) => r.answer.faq && r.answer.p === '5-7' && /연결 안 됨/.test(r.answer.t) && /QR 다시 보기/.test(r.answer.t) && /신호 보내 보기/.test(r.answer.t) && /즉시 실행/.test(r.answer.t), '태블릿 FAQ → 5-7(태블릿 · 폰 연결) · «연결 안 됨» 이면 QR(연결했으면 QR 다시 보기) · 신호 보내 보기 · «쉬는 중» 이면 단축어 설정'],
+  ['창 위치 초기화', (r) => r.answer.faq && r.answer.p === '5-1', '«창 위치 초기화» → 모니터 FAQ'],
+  ['창이 화면 밖으로 나갔어요', (r) => r.answer.faq && r.answer.p === '5-1' && /창 위치 초기화/.test(r.answer.t), '창 밖 → 모니터 FAQ(창 위치 초기화)'],
+  ['모자가 머리를 뚫어요', (r) => r.answer.faq && r.answer.p === '6-3', '파츠 FAQ → 6-3. 위치 · 회전 · 크기'],
+  ['듀얼 모니터', (r) => r.answer.faq && r.answer.p === '5-1' && /모니터 선택/.test(r.answer.t), '모니터 FAQ → 5-1 › 디스플레이 탭'],
 ];
 for (const [q, ok, want] of CASES){
   const r = C.search(P, q);
@@ -131,7 +151,7 @@ for (const q of ['캐릭터', '꾸미기 색', '방 만들기', '친구', '설�
 chk(shapeOk, '결과 — 같은 자리 두 번 없음 · 목록 ' + C.LIST + '줄 · 한 편 ' + C.PER_PAGE + '개까지' + (why ? ' (' + why + ')' : ''));
 
 say('── 5. mutation test — 하나라도 못 잡으면 빨강');
-const page1 = html['1'];
+const page1 = html['1-1'];
 chk(withIds(page1.replace(/ id="s\d+"/g, '')) === page1, '소제목 id 는 다시 매겨도 같다');
 chk(withIds(page1.replace('<h2 id="s1">', '<h2 id="s1">새 소제목</h2>\n<h2>')) !== page1, '  편에 소제목을 더하고 다시 안 만들면 1절이 잡는다');
 const P0 = C.prepare(Object.assign({}, IX, { words: [] }));
@@ -164,6 +184,10 @@ try {
   chk(!bad(faq), '  원본 그대로면 임시 폴더에서도 만들어진다');
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { section: '없는 소제목' }))), '  FAQ 소제목 오타 — 만들 때 멈춘다');
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { page: '99' }))), '  FAQ 편 오타 — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => { if(i) return f; const g = Object.assign({}, f); delete g.tag; return g; })), '  FAQ 꼬리표가 빠지면 — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { tag: 'Mac' }))), '  FAQ 꼬리표가 모르는 값(Mac) — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { more: [{ page: '6-3', section: '없는 소제목' }] }))), '  함께 볼 자리 소제목 오타 — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { more: [{ page: '99' }] }))), '  함께 볼 자리 편 오타 — 만들 때 멈춘다');
   fs.writeFileSync(path.join(D, 'faq.json'), JSON.stringify(faq.map((f, i) => i ? f : Object.assign({}, f, { a: '<img src=x onerror=alert(1)>' }))));
   const evil = build(tmp)['firebase/hosting/help/faq.html'];
   chk(!evil.includes('<img src=x') && evil.includes('&lt;img src=x'), '  FAQ 답에 HTML 을 적어도 글자로만 나온다');

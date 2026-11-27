@@ -36,7 +36,7 @@ function build(src, o){
     renderLauncher: () => log.push('renderLauncher'), rideBenchMod: { _resetIdeskRestore: () => log.push('resetIdesk'), unmountBench: () => {} },
     roomEntryMod: () => ({ syncFriendSeats: (f) => log.push('syncFriends') }), scene: { remove: (g) => log.push('sceneRemove') },
     seatPanelMod: { selectSeat: (s) => log.push('select'), renderSeatTabs: () => log.push('tabs'), setManual: (v) => log.push('manual:' + v) },
-    seats, settingsMod: { extraSeatSlots: () => st.extra, addExtraSeat: (i) => log.push('extra:' + i) }, slots,
+    seats, settingsMod: { extraSeatSlots: () => st.extra, addExtraSeat: (i) => log.push('extra:' + i), closeSettings: () => log.push('closeSettings') }, slots,
     statusChipMod: { _tabHintTimer: () => st.hint, setTabHintTimer: (t) => { st.hint = t; } },
     closeWardrobe: () => log.push('closeWardrobe'), commitMyHomePage: (f) => log.push('commitMyHome:' + f), _bgmDestroy: () => log.push('bgmDestroy'), _mhDsClose: () => log.push('dsClose'),
     toast: (m) => log.push('toast:' + m),
@@ -61,6 +61,7 @@ say('§1 applyAppMode');
 }
 say('§2 launchApp');
 {
+  { const bs = build(SRC, { slots: [{ name: 'A' }] }); bs.mod.launchApp(); chk(bs.log.includes('closeSettings'), '⚙️ 런처에서 연 설정 창(가운데)을 닫고 실행 화면으로 간다'); }
   let b = build(SRC, { slots: [] }); b.mod.launchApp();
   chk(b.log.length === 1 && b.log[0].startsWith('toast:먼저 캐릭터를') && b.ls.appMode() === 'run', '슬롯에 캐릭터가 없으면 안내만 하고 돌아간다(좌석 · 화면을 안 건드림)');
   b = build(SRC, { slots: [null, { name: 'B' }] }); b.mod.launchApp();
@@ -95,6 +96,7 @@ say('§3 backToLauncher');
   b.els.myHomeOverlay = mkEl(); b.els.myHomeOverlay.classList.add('on'); b.ls.setMyHomeOpen(true);
   b.mod.backToLauncher();
   chk(b.ls.appMode() === 'run' && b.els.launcher.classList.contains('on'), '모드를 run 으로 되돌리고 런처를 켠다');
+  chk(b.log.includes('closeSettings'), '⚙️ 실행 화면에서 연 설정 창(머리 위)을 닫는다 — 런처 위에 남지 않게');
   chk(b.log.includes('closeWardrobe') && !b.els.wardrobePanel.classList.contains('on') && !b.els.wdPreviewPanel.classList.contains('on'), '꾸미기 창이 켜져 있으면 closeWardrobe 로 닫아 저장하고 미리보기도 끈다');
   chk(b.log.includes('commitMyHome:true') && b.log.indexOf('mhFlush') === b.log.indexOf('commitMyHome:true') + 1 && !b.els.myHomeOverlay.classList.contains('on') && b.ls.myHomeOpen() === false && b.log.includes('gbStop') && b.log.includes('bgmDestroy') && b.log.includes('dsClose'), '마이홈이 켜져 있으면 저장하고(못 올린 고침은 상태 주인 flush 한 번) 닫는다(방명록 감시 · BGM · 스튜디오 정리 포함)');
   chk(b.log.includes('resetIdesk') && b.log.includes('renderLauncher') && !b.log.some(l => /Sync:/.test(l)) && b.log[b.log.length - 1] === 'runClass', '런처를 다시 그린 뒤 창 크기를 맞춘다(포커스 · 달성표 · 가챠는 서버가 원본 — 런처 경계에서 맞추지 않는다)');
@@ -131,8 +133,10 @@ say('§5 mutation test');
   chk(!!m1 && (() => { const b = build(m1); b.mod.launchApp({ mode: 'edit' }); return b.ls.appMode() === 'run'; })(), 'edit 모드를 못 가리면 빨강');
   const m2 = brk("if(Presence().myDef() !== myDef) Presence().updateDef(myDef);", "Presence().updateDef(myDef);");
   chk(!!m2 && (() => { const def = { name: 'A' }; const b = build(m2, { slots: [def], presence: { def } }); b.mod.launchApp(); return b.log.some(l => l.startsWith('updateDef')); })(), '같은 def 도 방에 보내면 빨강');
-  const m3 = brk("  launcherState.setAppMode('run');\n  document.getElementById('launcher').classList.add('on');", "  document.getElementById('launcher').classList.add('on');");
+  const m3 = brk("  launcherState.setAppMode('run');\n  settingsMod.closeSettings();", "  settingsMod.closeSettings();");
   chk(!!m3 && (() => { const b = build(m3); b.mod.launchApp({ mode: 'edit' }); b.mod.backToLauncher(); return b.ls.appMode() !== 'run'; })(), '런처로 돌아갈 때 모드를 되돌리지 않으면 빨강');
+  const m3s = brk("  settingsMod.closeSettings();   // ⚙️ 실행 화면에서 연 설정 창(머리 위)이 런처 위에 남지 않게\n", "");
+  chk(!!m3s && (() => { const b = build(m3s); b.mod.backToLauncher(); return !b.log.includes('closeSettings'); })(), '런처로 돌아갈 때 설정 창을 안 닫으면 빨강');
   const m4 = brk(" myhomeStore.flush();", "");
   chk(!!m4 && (() => { const b = build(m4); b.els.myHomeOverlay = mkEl(); b.els.myHomeOverlay.classList.add('on'); b.mod.backToLauncher(); return !b.log.includes('mhFlush'); })(), '마이홈 닫을 때 상태 주인 flush 를 빼면 빨강');
   const m5 = brk("closeWardrobe(); }catch(_){} }", "}catch(_){} }");

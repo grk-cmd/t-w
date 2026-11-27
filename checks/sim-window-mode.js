@@ -20,8 +20,8 @@ const FOCUS_GATE = (() => { const w = {}; new Function('window', 'module', GATE_
 function mkEl(){ const cl = new Set(); return { classList: { add: (c) => cl.add(c), remove: (c) => cl.delete(c), contains: (c) => cl.has(c), toggle: (c, on) => { on ? cl.add(c) : cl.delete(c); } } }; }
 function build(src, o){
   o = o || {};
-  const els = { launcher: mkEl(), myHomeOverlay: mkEl(), inviteOverlay: mkEl() }; const body = mkEl(); const sent = [];
-  if(o.launcherOn) els.launcher.classList.add('on'); if(o.mhOn) els.myHomeOverlay.classList.add('on'); if(o.lobbyOn) els.inviteOverlay.classList.add('on');
+  const els = { launcher: mkEl(), myHomeOverlay: mkEl(), inviteOverlay: mkEl(), xmasOverlay: mkEl() }; const body = mkEl(); const sent = [];
+  if(o.launcherOn) els.launcher.classList.add('on'); if(o.mhOn) els.myHomeOverlay.classList.add('on'); if(o.lobbyOn) els.inviteOverlay.classList.add('on'); if(o.xmasOn) els.xmasOverlay.classList.add('on');
   const doc = { getElementById: (i) => els[i] || null, body };
   const t = { now: 0 }; const log = [];
   const ls = mkLauncherState(); if(o.appMode) ls.setAppMode(o.appMode);
@@ -53,6 +53,10 @@ say('§1 applyDesktopRunClass');
   chk(b.sent[0][1] === 'run', '실행 화면 안에서 연 마이홈은 창 크기를 안 키운다(run 그대로)');
   b = build(SRC, { launcherOn: true, lobbyOn: true }); b.mod.applyDesktopRunClass();
   chk(b.sent[0][1] === 'myhome' && b.sent[0][2] === null, '★ 런처에서 방 찾기 · 만들기(로비)가 떠 있으면 마이홈 크기 — 넘친 스티커 값은 마이홈일 때만');
+  b = build(SRC, { launcherOn: true, xmasOn: true }); b.mod.applyDesktopRunClass();
+  chk(b.sent[0][1] === 'myhome' && b.sent[0][2] === null, '★ 런처에서 🎄 크리스마스 창이 떠 있으면 마이홈 크기 — 넘친 스티커 값은 없음');
+  b = build(SRC, { xmasOn: true }); b.mod.applyDesktopRunClass();
+  chk(b.sent[0][1] === 'run', '  실행 화면 안에서 연 크리스마스 창은 run 그대로');
   b = build(SRC, { launcherOn: true, creator: true, mhOn: true }); b.mod.applyDesktopRunClass();
   chk(b.sent[0][1] === 'creator', '우선순위 — creator > myhome > launcher > run');
   b = build(SRC, { appMode: 'editseat' }); b.mod.applyDesktopRunClass();
@@ -134,8 +138,10 @@ say('§4 연결');
 say('§5 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
-  const m1 = brk("const mode = creatorOpen() ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));", "const mode = creatorOpen() ? 'creator' : (launcherOn ? 'launcher' : 'run');");
+  const m1 = brk("const mode = creatorOpen() ? 'creator' : ((showMyHomeSized || xmasSized) ? 'myhome' : (launcherOn ? 'launcher' : 'run'));", "const mode = creatorOpen() ? 'creator' : (launcherOn ? 'launcher' : 'run');");
   chk(!!m1 && (() => { const b = build(m1, { launcherOn: true, mhOn: true }); b.mod.applyDesktopRunClass(); return b.sent[0][1] === 'launcher'; })(), 'myhome 모드를 빼면 빨강');
+  const m1x = brk("const xmasSized = !!(xmasOv && xmasOv.classList.contains('on')) && launcherOn;", "const xmasSized = false;");
+  chk(!!m1x && (() => { const b = build(m1x, { launcherOn: true, xmasOn: true }); b.mod.applyDesktopRunClass(); return b.sent[0][1] === 'launcher'; })(), '크리스마스 창 크기 판정을 빼면 빨강');
   const m2 = brk("!notFocusingNow && dt>0 && dt<30;", "!notFocusingNow && dt>0;");
   chk(!!m2 && (() => { const b = build(m2, {}); b.t.now = 1000; b.st.last = 900; b.mod._applyActiveAppState({ hasAnyRegistered: true, isFocusedAppRegistered: true }); b.t.now = 35000; b.st.last = 34900; b.mod._applyActiveAppState({ hasAnyRegistered: true, isFocusedAppRegistered: true }); return b.st.secs > 30; })(), 'dt 상한(30초)을 빼면 빨강');
   const m3 = brk("if(!desktopMode) return;", "");

@@ -3,9 +3,10 @@
    ・1절: 목차 · 편마다 — / 링크가 가리키는 편 · 그림 파일이 실제로 있다 · 이전 / 다음이 목차 순서와 같다
    ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js · /embed.js · /search.js 세 줄 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/) · GIF 없이(움직이는 그림은 mp4) · 하나 2MB 까지
    ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
-          ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
+          ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다(자리 #… 가 든 링크는 # 앞에)
    ・4절: mutation test
-   ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절) */
+   ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절)
+   ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 · 사라진 옛 편(OLD_SLUGS)은 빠짐없이 넘긴다 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -19,6 +20,8 @@ if (!fs.existsSync(path.join(DIR, 'index.html'))){ say('  ? 원본 못 찾음 �
 
 // 같은 사이트에 있지만 튜토리얼이 아닌 페이지 — 목차 · 이전/다음 · 칸 안 모양 규칙 밖(처리방침은 sim-bug-cleanup · sim-chat-history, 폰 연결은 sim-mobile-focus 가 본다)
 const OTHER_PAGES = ['privacy.html', 'link.html'];
+// 밖에 공유됐을 수 있는 옛 편 주소 — 편을 나누며 없앤 번호(지금 «묶음-편» 번호와 겹치지 않는 것). 편을 다시 없애면 여기에 더한다
+const OLD_SLUGS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 function load(){
   const pages = {};
@@ -28,14 +31,16 @@ function load(){
   walk(DIR, '');
   const fontCss = fs.readFileSync(path.join(DIR, 'fonts', 'nanum-gothic.css'), 'utf8');
   const toc = JSON.parse(fs.readFileSync(path.join(DIR, 'toc.json'), 'utf8'));
-  return { pages, files, sizes, fontCss, toc };
+  const fb = JSON.parse(fs.readFileSync(path.join(ROOT, 'firebase.json'), 'utf8'));
+  const site = (fb.hosting || []).find(h => h.target === 'help') || {};
+  return { pages, files, sizes, fontCss, toc, redirects: site.redirects || [] };
 }
 
 /* 판정 — 오류 글 목록을 돌려준다(빈 목록이면 통과) */
 // 그림 파일 하나 상한 — 도움말은 앱 우편함 칸에서 열려 한 편 그림이 다 받아져야 보인다
 const IMG_MAX = 2 * 1024 * 1024;
 
-function judge({ pages, files, sizes, fontCss, toc }){
+function judge({ pages, files, sizes, fontCss, toc, redirects }){
   const errs = [];
   const idx = pages['index.html'] || '';
   const order = [...idx.matchAll(/<li><a href="\/([\w-]+)">/g)].map(m => m[1]);
@@ -72,6 +77,15 @@ function judge({ pages, files, sizes, fontCss, toc }){
     if (prev !== (order[i - 1] || null)) errs.push(slug + ' 이전 글이 목차 순서와 다르다(' + prev + ')');
     if (next !== (order[i + 1] || null)) errs.push(slug + ' 다음 글이 목차 순서와 다르다(' + next + ')');
   });
+  /* 옛 편 주소(공유해 둔 링크) — 넘겨 갈 편이 있어야 하고, 지금 있는 편 주소를 가로채면 그 편이 안 열린다 */
+  for (const r of redirects){
+    const src = String(r.source || '').replace(/^\//, ''), dst = String(r.destination || '').replace(/^\//, '');
+    if (!pages[dst + '.html']) errs.push('옛 주소 /' + src + ' → /' + dst + ' 가 없는 편으로 간다');
+    if (pages[src + '.html']) errs.push('옛 주소 넘기기 /' + src + ' 가 지금 있는 편을 가린다');
+  }
+  /* 사라진 옛 편 주소는 빠짐없이 넘긴다 — 편도 없고 넘기기도 없으면 공유된 링크가 빈 페이지(404)가 된다 */
+  const sources = new Set(redirects.map(r => String(r.source || '').replace(/^\//, '')));
+  for (const o of OLD_SLUGS) if (!pages[o + '.html'] && !sources.has(o)) errs.push('옛 주소 /' + o + ' 가 편도 넘기기도 없다(404)');
   return errs;
 }
 
@@ -103,27 +117,31 @@ chk(emb.embed && !run(THEME, '?theme=bubble').embed && !run(THEME, '?embed=yes')
 chk(emb.links.join() === '/3?theme=bubble&embed=1,/?theme=bubble&embed=1', '  편을 옮겨도 테마 · 칸 모양이 이어진다(/ 링크에 붙임)');
 chk(run(THEME, '?theme=bubble', ['/1#s9']).links.join() === '/1?theme=bubble#s9', '  소제목 자리(#sN) 링크는 # 앞에 붙인다(FAQ 페이지의 «🔗» 링크)');
 chk(run(THEME, '').links.join() === '/3,/' && run(THEME, '?theme=evil').links.join() === '/3,/', '  웹에서 그냥 열면 링크를 건드리지 않는다(모르는 테마도 안 실어 나름)');
+chk(run(THEME, '?theme=bubble&embed=1', ['/5-2#figure-mode']).links.join() === '/5-2?theme=bubble&embed=1#figure-mode', '  자리(#…)가 든 링크는 # 앞에 붙인다(3-4 의 «피규어 모드» 링크)');
 const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
 chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
 
 say('── 4. mutation test — 하나라도 못 잡으면 빨강');
-const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), sizes: Object.assign({}, real.sizes), fontCss: real.fontCss, toc: JSON.parse(JSON.stringify(real.toc)) });
+const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), sizes: Object.assign({}, real.sizes), fontCss: real.fontCss, toc: JSON.parse(JSON.stringify(real.toc)), redirects: real.redirects.map(r => Object.assign({}, r)) });
 const breaks = [
   ['그림 파일 하나가 빠짐', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.files.delete(f); }],
-  ['편 하나가 빠짐', (w) => { delete w.pages['3.html']; }],
-  ['다음 글이 엉뚱한 편', (w) => { w.pages['2.html'] = w.pages['2.html'].replace(/<a class="next" href="\/[\w-]+"/, '<a class="next" href="/7"'); }],
-  ['바깥 스크립트가 끼어듦', (w) => { w.pages['1.html'] = w.pages['1.html'].replace('</head>', '<script src="https://x.example/a.js"></script></head>'); }],
-  ['시안 글이 남음', (w) => { w.pages['5.html'] += '<figcaption>원본 그림 3</figcaption>'; }],
+  ['편 하나가 빠짐', (w) => { delete w.pages['3-1.html']; }],
+  ['다음 글이 엉뚱한 편', (w) => { w.pages['2-1.html'] = w.pages['2-1.html'].replace(/<a class="next" href="\/[\w-]+"/, '<a class="next" href="/8-1"'); }],
+  ['바깥 스크립트가 끼어듦', (w) => { w.pages['1-1.html'] = w.pages['1-1.html'].replace('</head>', '<script src="https://x.example/a.js"></script></head>'); }],
+  ['시안 글이 남음', (w) => { w.pages['7-1.html'] += '<figcaption>원본 그림 3</figcaption>'; }],
   ['글꼴 파일 하나가 빠짐', (w) => { const f = [...w.files].find(x => x.startsWith('fonts/') && x.endsWith('.woff2')); w.files.delete(f); }],
-  ['글꼴을 안 싣는 편', (w) => { w.pages['6.html'] = w.pages['6.html'].replace('<link rel="stylesheet" href="/fonts/nanum-gothic.css">', ''); }],
+  ['글꼴을 안 싣는 편', (w) => { w.pages['7-3.html'] = w.pages['7-3.html'].replace('<link rel="stylesheet" href="/fonts/nanum-gothic.css">', ''); }],
   ['toc.json 편 이름이 목차와 다름', (w) => { w.toc[2].pages[0].title = '실행'; }],
   ['toc.json 에 편 하나가 빠짐', (w) => { w.toc[3].pages.pop(); }],
-  ['검색(search.js)을 안 싣는 편', (w) => { w.pages['4.html'] = w.pages['4.html'].replace('<script src="/search.js" defer></script>', ''); }],
-  ['embed.js 를 안 싣는 편', (w) => { w.pages['2.html'] = w.pages['2.html'].replace('<script src="/embed.js" defer></script>', ''); }],
-  ['바깥 주소 그림', (w) => { w.pages['5.html'] += '<figure><img src="https://image.aladin.co.kr/Tobe/Note/x.png" alt=""></figure>'; }],
-  ['GIF 그림', (w) => { w.files.add('img/5/99.gif'); w.pages['5.html'] += '<figure><img src="/img/5/99.gif" alt=""></figure>'; }],
+  ['검색(search.js)을 안 싣는 편', (w) => { w.pages['4-1.html'] = w.pages['4-1.html'].replace('<script src="/search.js" defer></script>', ''); }],
+  ['embed.js 를 안 싣는 편', (w) => { w.pages['2-1.html'] = w.pages['2-1.html'].replace('<script src="/embed.js" defer></script>', ''); }],
+  ['바깥 주소 그림', (w) => { w.pages['7-1.html'] += '<figure><img src="https://image.aladin.co.kr/Tobe/Note/x.png" alt=""></figure>'; }],
+  ['GIF 그림', (w) => { w.files.add('img/5/99.gif'); w.pages['7-1.html'] += '<figure><img src="/img/5/99.gif" alt=""></figure>'; }],
   ['2MB 넘는 그림', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.sizes[f] = IMG_MAX + 1; }],
-  ['박아 넣은 그림', (w) => { w.pages['4.html'] += '<img src="data:image/png;base64,AA">'; }],
+  ['옛 주소가 없는 편으로 감', (w) => { w.redirects[0].destination = '/99-9'; }],
+  ['사라진 옛 주소 넘기기가 빠짐', (w) => { w.redirects = w.redirects.filter(r => r.source !== '/5'); }],
+  ['옛 주소가 지금 편을 가림', (w) => { w.redirects.push({ source: '/3-1', destination: '/3-2', type: 301 }); }],
+  ['박아 넣은 그림', (w) => { w.pages['5-1.html'] += '<img src="data:image/png;base64,AA">'; }],
 ];
 for (const [name, f] of breaks){ const w = clone(); f(w); chk(judge(w).length > 0, name); }
 const T2 = THEME.replace("theme ? MAP[theme] : 'classic'", "MAP[t] || t || 'classic'");
@@ -131,7 +149,7 @@ chk(theme(T2, '?theme=dark') !== 'classic', '  theme.js 가 모르는 값을 그
 const T3 = THEME.replace("if(embed) carry.push('embed=1');", '');
 chk(run(T3, '?theme=bubble&embed=1').links[0] !== '/3?theme=bubble&embed=1', '  편을 옮기면 칸 모양이 풀림');
 const T4 = THEME.replace("at < 0 ? h + '?' + carry.join('&') : h.slice(0, at) + '?' + carry.join('&') + h.slice(at)", "h + '?' + carry.join('&')");
-chk(T4 !== THEME && run(T4, '?theme=bubble', ['/1#s9']).links[0] !== '/1?theme=bubble#s9', '  # 뒤에 붙이면 소제목 링크가 깨짐');
+chk(T4 !== THEME && run(T4, '?theme=bubble&embed=1', ['/5-2#figure-mode']).links[0] !== '/5-2?theme=bubble&embed=1#figure-mode', '  # 뒤에 붙이면 자리 링크가 깨짐');
 
 say('── 5. embed.js — 칸 안에서만 지금 편 · 목차를 앱에 알린다');
 const EMBED = fs.readFileSync(path.join(DIR, 'embed.js'), 'utf8');

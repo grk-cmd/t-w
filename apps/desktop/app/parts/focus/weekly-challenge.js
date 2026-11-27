@@ -56,6 +56,8 @@ function _chalFocusTick(state, dt){
     _chalKeyForeign = !want.some(k => String(k).split(':')[0] === _chalKeyPlatform);
     if(_chalKeyForeign) return;
   }
+  /* 바탕화면 · 작업표시줄은 파일 탐색기 폴더 창과 키가 같다(explorer.exe) — main 이 갈라 준 값으로 뺀다. 옛 main 은 안 보낸다(예전 판정) */
+  if(state && state.desktop) return;
   const now = state && state.key
     ? state.key
     : (state && state.exeName ? 'win:' + String(state.exeName).toLowerCase() : '');  // 구버전 main 대비
@@ -109,8 +111,8 @@ function _chalShowSettlePopup(s, total, early, phKey, days){
   let line;
   if((total | 0) <= 0)  line = '이번 ' + ph.name + '은 보상을 못 받았어요.' + sub(ph.need1 + '일 이상 달성하면 뽑기 1회예요');
   else if(rest > 0)     line = '<b>가챠 뽑기 ' + rest + '회</b>를 받았어요.'
-                             + sub(early ? ('먼저 받은 1회까지 이번 ' + ph.name + ' 합계 ' + total + '회예요') : '파츠 보관함(T)에서 뽑을 수 있어요');
-  else                  line = '보상 <b>' + total + '회</b>는 이미 받았어요.' + sub('파츠 보관함(T)에서 뽑을 수 있어요');
+                             + sub(early ? ('먼저 받은 1회까지 이번 ' + ph.name + ' 합계 ' + total + '회예요') : '꾸미기(F2) › 📚 도감에서 뽑을 수 있어요');
+  else                  line = '보상 <b>' + total + '회</b>는 이미 받았어요.' + sub('꾸미기(F2) › 📚 도감에서 뽑을 수 있어요');
   const body = (names ? (names + ' ') : '') + '<b>' + s + '일</b>을 지켰어요.<br>' + line;
   _chalPopup('🏅 이번 ' + ph.name + ' 달성표', body, [{a:'ok',t:'확인'}]);
 }
@@ -564,6 +566,7 @@ function _chalRenderRuleList(){
   on('chalBackBtn', ()=>{ _chalDraft = null; _chalRender(); });
 
   // 🎯집중 — 앱 고르기. 목록은 companion 이 들고 있다(포커싱 어플 슬롯).
+  // TODO: 서버 포트 필요 — 0.14 의 «여러 앱 · 포커싱 어플 전체»(B-1026-4)는 서버 목표(goal.app 하나)에 apps · all 칸이 생겨야 옮긴다.
   on('chalFocusPick', async ()=>{
     const box = _chalEl('chalFocusList'); if(!box || !_chalDraft) return;
     if(box.style.display === 'block'){ box.style.display = 'none'; return; }
@@ -709,7 +712,7 @@ store.onEvent((e)=>{
   else if(e.type === 'repeatDue'){ if(!_chalPopOpen && _premiumOn()) _chalShowRepeatPopup(); }   // 게이트 ②
   else if(e.type === 'claimed'){
     if(e.settle) _chalShowSettlePopup(e.s, e.early + e.amount, e.early, e.phKey, e.cells);
-    else try{ toast('🎰 뽑기 ' + e.amount + '회를 받았어요 — 파츠 보관함(T)에서 뽑을 수 있어요'); }catch(_){}
+    else try{ toast('🎰 뽑기 ' + e.amount + '회를 받았어요 — 꾸미기(F2) › 📚 도감에서 뽑을 수 있어요'); }catch(_){}
   }
 });
 

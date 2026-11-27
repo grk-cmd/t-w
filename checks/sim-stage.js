@@ -3,7 +3,7 @@
    ・1절: 만들기 — 가짜 렌더러(옵션을 기록)와 진짜 three(r128)로 돌려 렌더러 옵션 · 배율 · 그림자 · 카메라 · 바닥 · 로더를 본다
    ・2절: 바닥 맞춤 sizeFloorTo — 입력 → 크기 · 자리(경계값: 작은 콘텐츠 · 빈 메시)
    ・3절: 실패 길 — 렌더러를 못 만들면 안내(glFail.show) 후 같은 오류를 던진다 · 감시 붙이기가 던져도 무대는 만들어진다 · DRACO 가 던져도 로더는 있다
-   ・4절: 연결 — html 이 app.js 보다 먼저 싣는다 · app.js 가 _renderAA · afterRestore 를 넘겨 만들고 옛 이름을 받는다 · app.js 에 렌더러 · 씬 · 로더를 직접 만드는 줄이 없다
+   ・4절: 연결 — html 이 app.js 보다 먼저 싣는다 · app.js 가 _renderAA · _renderShadows · afterRestore 를 넘겨 만들고 옛 이름을 받는다 · app.js 에 렌더러 · 씬 · 로더를 직접 만드는 줄이 없다
    ・5절: mutation test
    [실행] 러너 스테이징 또는 저장소 루트에서. three 는 vendor/three/three.min.js. */
 'use strict';
@@ -51,7 +51,7 @@ function build(src, o){
   const companion = { diagNote: (m) => log.notes.push(m), relaunchApp: () => {}, quitApp: () => {} };
   const run = new Function('TwGlContext', 'THREE', 'TwGlFailNotice', 'GlRecover', 'TwErrorCodes', 'companion', 'document', 'devicePixelRatio', 'localStorage', 'window', 'console', src);
   run({ make: (cv, opts, role, ex) => ex.guard(() => new THREE.WebGLRenderer(opts)) }, THREE, TwGlFailNotice, GlRecover, { notify: () => {} }, companion, document, o.dpr == null ? 3 : o.dpr, localStorage, win, con);
-  const stage = win.TwStage.createStage({ _renderAA: o.aa == null ? true : o.aa, afterRestore: () => { log.restores = (log.restores || 0) + 1; } });
+  const stage = win.TwStage.createStage({ _renderAA: o.aa == null ? true : o.aa, _renderShadows: o.shadows == null ? true : o.shadows, afterRestore: () => { log.restores = (log.restores || 0) + 1; } });
   return { stage, log, canvas, THREE, store };
 }
 const tryBuild = (src, o) => { try{ return build(src, o); }catch(e){ return { err: e, log: lastLog }; } };
@@ -66,6 +66,7 @@ say('§1 만들기');
   chk(r.pr === 2 && build(SRC, { dpr: 1 }).log.renderers[0].pr === 1 && build(SRC, { dpr: 1.5 }).log.renderers[0].pr === 1.5, '화면 배율은 min(devicePixelRatio, 2) — 3 → 2 · 1 → 1 · 1.5 → 1.5');
   chk(r.clear && r.clear[0] === 0 && r.clear[1] === 0, '항상 투명 배경으로 클리어(0x000000, 0)');
   chk(r.shadowMap.enabled === true && r.shadowMap.type === b.THREE.PCFSoftShadowMap && r.outputEncoding === b.THREE.sRGBEncoding, '그림자 켬(PCFSoft) · sRGB 출력');
+  chk(build(SRC, { shadows: false }).log.renderers[0].shadowMap.enabled === false, '  «최저» 화질이면 그림자 끔 — app.js 가 정한 값(_renderShadows)을 만들 때 한 번 따른다');
   chk(s.scene instanceof b.THREE.Scene && s.renderer === r, '씬 · 렌더러를 내놓는다');
   chk(s.camera instanceof b.THREE.PerspectiveCamera && s.camera.fov === 34 && s.camera.aspect === 1 && s.camera.near === 0.1 && s.camera.far === 100, '카메라 — 원근 34 · 1 · 0.1 · 100(생성기와 같은 렌즈)');
   const f = s.floor;
@@ -120,7 +121,7 @@ say('§4 연결');
   chk(iS > 0 && iA > iS, 'html — stage.js 를 app.js 보다 먼저 싣는다');
   chk(iS > 0 && iF > 0 && iG > 0, 'html — 무대가 부르는 gl-fail-notice · gl-recover 도 실린다');
   const code = APP.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
-  chk(/const stageMod = TwStage\.createStage\(\{\s*_renderAA: _renderAA,\s*afterRestore: \(\) => faceHealMod\.reportGlReset\(\),\s*\}\);/.test(code), 'app.js — _renderAA · 돌아온 뒤 좌석 그림 점검(faceHealMod.reportGlReset)을 넘겨 무대를 만든다');
+  chk(/const _renderShadows = FrameBudget\.shadowsFor\(_renderQuality\);[^\n]*\nconst stageMod = TwStage\.createStage\(\{\s*_renderAA: _renderAA,\s*_renderShadows: _renderShadows,\s*afterRestore: \(\) => faceHealMod\.reportGlReset\(\),\s*\}\);/.test(code), 'app.js — _renderAA · _renderShadows(«최저» 면 끔) · 돌아온 뒤 좌석 그림 점검(faceHealMod.reportGlReset)을 넘겨 무대를 만든다');
   const names = ['canvas', 'renderer', 'scene', 'camera', 'floor', 'sizeFloorTo', 'loader'];
   chk(names.every(n => new RegExp('^const ' + n + ' = stageMod\\.' + n + ';', 'm').test(code)), '  옛 이름 일곱(canvas · renderer · scene · camera · floor · sizeFloorTo · loader)을 const 로 받는다');
   chk(!/new THREE\.WebGLRenderer|new THREE\.Scene\(|new THREE\.GLTFLoader|new THREE\.DRACOLoader|GlRecover\.|TwGlFailNotice/.test(code), '  app.js 에 렌더러 · 씬 · 로더 · 감시 · 안내를 직접 만드는 줄이 없다');
@@ -133,6 +134,8 @@ say('§5 mutation test');
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk('antialias:_renderAA', 'antialias:true');
   chk(!!m1 && build(m1, { aa: false }).log.renderers[0].opts.antialias !== false, 'antialias 를 deps 대신 박으면 빨강');
+  const m1b = brk('renderer.shadowMap.enabled=_renderShadows;', 'renderer.shadowMap.enabled=true;');
+  chk(!!m1b && build(m1b, { shadows: false }).log.renderers[0].shadowMap.enabled !== false, '그림자를 deps 대신 켜 두면 빨강(«최저» 가 안 먹음)');
   const m2 = brk('Math.min(devicePixelRatio,2)', 'devicePixelRatio');
   chk(!!m2 && build(m2).log.renderers[0].pr !== 2, '배율 상한 2 를 빼면 빨강');
   const m3 = brk('floor.receiveShadow = true;', 'floor.receiveShadow = false;');

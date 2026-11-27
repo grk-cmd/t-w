@@ -14,6 +14,9 @@ const fs = require('fs');
 /* 값 · 순수 함수만 내놓는 공용 모듈(«createX(deps)» 없음) — joinRenderer 가 맨 앞에 «var glob = …» 으로 깐다 */
 const VALUE_MODULES = [
   { file: 'ps1-dither.js', glob: 'TwPs1Dither' },   // 🕹️ PS1 디더 규칙 — dot-render.js 가 만들 때 읽는다
+  { file: 'theme-custom.js', glob: 'TwThemeCustom' },   // 👑 테마 내 색 규칙 — theme.js · theme-ui.js 가 만들 때 읽는다
+  { file: 'font-choice.js', glob: 'TwFontChoice' },   // 🔤 창 글꼴 규칙 — font-ui.js 가 읽는다
+  { file: 'mallang-sent.js', glob: 'TwMallangSent' },   // 🎁 보낸 말랑이 기록 규칙 — mallang.js · myhome-inbox.js 가 읽는다
   { file: 'seat-sync-diff.js', glob: 'TwSeatSyncDiff' },   // 🪑 줄 배치를 다시 할지 규칙 — room-entry.js 가 만들 때 읽는다
 ];
 const MODULES = [
@@ -31,7 +34,7 @@ const MODULES = [
   { file: 'settings-panel.js', mod: 'settingsMod', glob: 'TwSettingsPanel', sample: 'function loadAdBannerSlides(' },   // 앱 FSD 27번
   { file: 'desktop-run.js', mod: 'desktopRunMod', glob: 'TwDesktopRun', sample: 'function showUpdateReadyBanner(' },   // 앱 FSD 32번
   { file: 'room-entry.js', mod: 'roomEntryMod', glob: 'TwRoomEntry', sample: 'function _onServerRoomMeta(' },   // 앱 FSD 33번
-  { file: 'overhead.js', mod: 'overheadMod', glob: 'TwOverhead', sample: 'function applyChipOrientation(' },   // 앱 FSD 34번
+  { file: 'overhead.js', mod: 'overheadMod', glob: 'TwOverhead', sample: 'function setSeatMenu(' },   // 앱 FSD 34번
   { file: 'room-sync.js', mod: 'roomSyncMod', glob: 'TwRoomSync', sample: 'function _srvNow(' },   // 앱 FSD 35번
   { file: 'status-chip.js', mod: 'statusChipMod', glob: 'TwStatusChip', sample: 'function hexToRgba(' },   // 앱 FSD 36번
   { file: 'premium-assets.js', mod: 'premiumMod', glob: 'TwPremiumAssets', sample: 'function _wdLicenseDesks(' },   // 앱 FSD 37번

@@ -920,24 +920,18 @@ say('');
 /* ── §14. BGM ──────────────────────────────────────────────────────── */
 say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치지 않는가');
 {
-  chk(/const PK_BGM_SRC = \['parts\/purikura-bgm\.mp3', 'purikura-bgm\.mp3'\]/.test(SRC),
+  chk(/const PK_BGM_TRACKS = \['purikura-bgm\.mp3'\];/.test(SRC) && /const PK_BGM_DIRS = \['parts\/', ''\];/.test(SRC),
       '★ 경로 폴백이 있다 (parts/ 가 없는 배치에서도 돈다 — 때리기·클릭 소리와 같은 관례)');
-  /* 재생 몸통(loop · 경로 폴백 · 다 떨어지면 경고 · 회사원 모드 무음 · 자동재생 경고 · 끄기 기억)은 purikura/pk-bgm.js —
-     sim-pk-bgm.js 가 실제로 불러 보고 mutation test 한다. 여기서는 이 창이 그 모듈을 쓰는지만 본다. */
-  chk(/const pkBgm = TwPkBgm\.createPkBgm\(\{[\s\S]*?srcs: PK_BGM_SRC, volume: PK_BGM_VOL,/.test(SRC) && !/function _pkBgmStart\(|function _pkBgmEl\(/.test(SRC),
-      '★ 창 BGM 은 pk-bgm.js 하나로 (옛 재생 함수가 두 벌로 남지 않는다)');
+  /* 재생 몸통(되풀이 · 폴더 폴백 · 다 떨어지면 경고 · 회사원 모드 무음 · 자동재생 경고 · 끄기 기억)은 shared/win-bgm.js —
+     sim-win-bgm.js 가 실제로 불러 보고 mutation test 한다. 여기서는 이 창이 그 모듈을 쓰는지만 본다. */
+  chk(/const pkBgm = TwWinBgm\.createWinBgm\(\{[\s\S]*?tracks: PK_BGM_TRACKS, dirs: PK_BGM_DIRS, volume: PK_BGM_VOL,/.test(SRC) && !/function _pkBgmStart\(|function _pkBgmEl\(/.test(SRC),
+      '★ 창 BGM 은 win-bgm.js 하나로 (옛 재생 함수가 두 벌로 남지 않는다)');
 
-  /* 유튜브 BGM(마이홈·플레이리스트)은 창 하나를 공유한다 — 재우는 것은 한 번이면 된다. */
-  const hush = /function _pkHushOthers\(\)\{[\s\S]*?\n\}/.exec(SRC);
-  chk(!!hush && (hush[0].match(/companion\.pauseBgm/g) || []).length === 2,
-      '★ 재우는 호출이 한 번뿐이다 (창을 공유하므로 두 번 부를 이유가 없다)');
-  chk(!!hush && /_setPlPlaying\(false\)/.test(hush[0]) && /HOOK\.BGM_SET_PLAYING/.test(hush[0]),   // _plPlaying 은 app.js 의 let — 모듈은 setPlPlaying 으로 쓴다
-      '★ 양쪽의 «재생 중» 표시도 내린다 (안 내리면 ▶ 버튼이 재생 중인 척한다)');
-  chk(!!hush && /PK\.hushed = \{ pl:pl, home:home \}/.test(hush[0]),
-      '★ 누가 나고 있었는지 기억한다 (안 하면 안 듣던 것까지 켜 준다)');
-  const un = /function _pkUnhushOthers\(\)\{[\s\S]*?\n\}/.exec(SRC);
-  chk(!!un && /if\(plNow \|\| homeNow\) return;/.test(un[0]),
-      '★ 그 사이에 직접 다시 튼 경우에는 안 건드린다 (또 resume 하면 두 소리가 겹친다)');
+  /* 듣던 유튜브 BGM 재우기 · 되살리기 규칙(재우는 호출 한 번 · ▶ 표시 내림 · 재웠던 쪽만 · 다시 튼 것은 안 건드림)은 shared/bgm-hush.js —
+     sim-bgm-hush.js 가 실제로 불러 보고 mutation test 한다. 여기서는 이 창이 그 모듈을 쓰고 재운 쪽을 PK.hushed 에 드는지만 본다. */
+  chk(/const pkBgmHush = TwBgmHush\.createBgmHush\(\{/.test(SRC) && /function _pkHushOthers\(\)\{ PK\.hushed = pkBgmHush\.hush\(\); \}/.test(SRC)
+      && /function _pkUnhushOthers\(\)\{ const h = PK\.hushed; PK\.hushed = null; pkBgmHush\.unhush\(h\); \}/.test(SRC) && !/function _pkHushOthers\(\)\{[^\n]*pauseBgm/.test(SRC),
+      '★ 듣던 BGM 재우기 · 되살리기는 bgm-hush.js 하나로 (재운 쪽은 PK.hushed · 옛 몸통이 없는지는 sim-bgm-hush 3절)');
   chk(/_pkHushOthers\(\); pkBgm\.start\(\);/.test(SRC) && /pkBgm\.stop\(\); _pkUnhushOthers\(\);/.test(SRC),
       '★ 열 때 «재우고 켜기», 닫을 때 «끄고 깨우기» 순서다');
   chk(/function closePurikura[\s\S]{0,900}pkBgm\.stop\(\)/.test(SRC),

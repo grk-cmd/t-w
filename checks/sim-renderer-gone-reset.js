@@ -101,6 +101,7 @@ function runReset(main, hasWin){
     _applyConfigMode: (isConfig, mode) => log.push('mode:' + isConfig + ':' + mode),
     _reapplyIgnoreMouse: () => log.push('ignore:' + st.ignore),
     _diagLog: () => log.push('log'),
+    _winDrag: { cancel: () => log.push('dragCancel') },   // 수동 창 끌기 놓기(win-drag.js — 렌더러가 죽으면 뗌 신호가 없다)
   };
   new Function('st', ...Object.keys(env), 'let _lastIgnoreRequested = st.ignore;\n' + fn.replace(/_lastIgnoreRequested = false;/, '_lastIgnoreRequested = false; st.ignore = _lastIgnoreRequested;') + '\n_resetWindowToLauncher(\'시험\');')(st, ...Object.values(env));
   return log.join(' ');
@@ -110,8 +111,8 @@ function judgeReset(main){
   const t = (ok, msg) => r.push([!!ok, msg]);
   try{
     const a = runReset(main, true);
-    t(a === 'mode:true:launcher ignore:false log', '★ 런처 모드로 창 맞추기 → 클릭 통과 끄기 → 기록(' + a + ')');
-    t(runReset(main, false) === '', '  창이 없으면 아무것도 안 한다');
+    t(a === 'dragCancel mode:true:launcher ignore:false log', '★ 수동 창 끌기 놓기 → 런처 모드로 창 맞추기 → 클릭 통과 끄기 → 기록(' + a + ')');
+    t(runReset(main, false) === 'dragCancel', '  창이 없으면 끌기만 놓고 창은 건드리지 않는다');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 80)); }
   return r;
 }

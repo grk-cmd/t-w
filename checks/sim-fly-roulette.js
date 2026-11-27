@@ -25,10 +25,10 @@ say('── 1. 배선');
   chk(/id="myDanceBtn"[^\n]*\n(?:\s*<!--[^\n]*-->\n)?\s*<button id="myRouletteBtn"/.test(HTML), '🔫 버튼이 💃 춤추기 바로 아래');
   /* ⚠️ [2026-09-23 요청] 버튼은 투게더룸(채널 2)에서 숨긴다 — 거기선 대화창 🎲 가 같은 일을 한다.
      💃 춤추기와 **같은 자리**에서 같은 방식으로 숨겨야 한다(메뉴 여는 곳 한 곳). */
-  const iMore = SRC.indexOf("const danceBtn = document.getElementById('myDanceBtn');");
-  const around = SRC.slice(iMore, iMore + 700);
-  chk(/rouletteBtn\.style\.display = \(window\._activeChannel === 2\) \? 'none' : ''/.test(around)
-      && /danceBtn\.style\.display = \(window\._activeChannel === 2\) \? 'none' : ''/.test(around), '투게더룸에서는 버튼을 숨긴다(💃 와 같은 자리)');
+  const iMore = SRC.indexOf("const playHidden = (window._activeChannel === 2);");
+  const around = SRC.slice(iMore, iMore + 400);
+  chk(iMore > 0 && /\['myDanceBtn','myRouletteBtn'\]\.forEach\(id=>\{ const b=document\.getElementById\(id\); if\(b\) b\.style\.display = playHidden \? 'none' : ''; \}\);/.test(around),
+      '투게더룸에서는 버튼을 숨긴다(💃 와 같은 자리 — ▾ 메뉴 여는 곳 한 줄 · 실제 눌러 보는 판정은 sim-status-chip 2-2절)');
   const i = SRC.lastIndexOf("getElementById('myRouletteBtn')");
   chk(i > 0 && /_rollRoulette\(\)/.test(SRC.slice(i, i + 400)), '클릭은 _rollRoulette 한 곳으로');
 }

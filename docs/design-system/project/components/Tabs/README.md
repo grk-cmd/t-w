@@ -3,6 +3,6 @@
 - `.tw-tabs[role=tablist]` > `.tw-tab[role=tab]` + `.tw-tabpage`.
 - 켜진 탭은 패널과 같은 `bg-face-2`, 밑변을 패널 색으로 지워 «이어져» 보이게 한다. 꺼진 탭은 `ink-soft`.
 - 탭 글자 `caption`(11px), 낱말 하나 · 두 글자에서 네 글자. 이모지 머리표 금지.
-- 탭이 5개를 넘으면 창을 나눈다(설정창 탭은 지금 7개 이상 — 이행 4단계에서 묶는다).
+- 탭이 5개를 넘으면 창을 나눈다(꾸미기 창 그룹 탭 6개 — 머리 · 옷 · 장식 · 손 · 책상 · 도감 — 는 #540 P2 에서 승인된 예외 · 그룹 탭의 이모지 머리표도 이행 4단계에서 걷는다).
 
-**앱 대응**: `.fs-tab-btn` · `.mh-tab` · `.mh-ds-tab` · `.wd-tab-btn` · `.wd-group-btn` · `.gc-tab` · `.ct-tab` · `.cr-tabs button` · `#crSteps span` — 9종 → `.tw-tab`.
+**앱 대응**: `.fs-tab-btn` · `.mh-tab` · `.mh-ds-tab` · `.wd-tab-btn` · `.wd-group-btn` · `.ct-tab` · `.cr-tabs button` · `#crSteps span` — 8종 → `.tw-tab`.

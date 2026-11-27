@@ -7,6 +7,7 @@
 
 **책임** — 방에서 친구가 아닌 상대 좌석을 우클릭 → «👤 친구 신청» 을 누르면, 첫 번째는 안내만 하고 5초 안에 같은 사람을 한 번 더 누르면 친구 요청을 보낸다.
 보내기 전 앞단 검사(데이터 provider 준비 · 나 자신 · 이미 친구 · 친구 정원)는 마이홈 [친구 추가] 와 같은 순서 · 같은 문구다.
+좌석 길은 앞단 검사를 지난 뒤 «보낸 요청이 열려 있나» 를 보고(앞단에서 막히면 요청 0), 열려 있으면 보내지 않고 «이미 ○○님에게 친구 요청을 보냈어요» 만 알린다 — 좌석은 사유 칸이 없어서, 다시 보내면 서버가 마이홈 [친구 신청] 에서 적은 사유를 지운다.
 
 **만드는 법** — app.js «DRAG / PET» 안, 좌석 contextmenu 리스너 바로 앞:
 
@@ -14,7 +15,7 @@
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,                 // 값 — 친구 정원
   _myHomeFriends: ()=>_myHomeFriends,     // 읽는 함수 — 친구 구독이 다시 대입한다
-  friendNet: ()=>window.firebaseAPI,      // 읽는 함수 — 데이터 provider 고르기 한 줄(sendFriendRequest 를 가진 것)
+  friendNet: ()=>({ sendFriendRequest: …, isFriendRequestAlive }),   // 읽는 함수 — 친구 요청 포트(send) · 마이홈 단추와 같이 쓰는 isFriendRequestAlive(포트 sentIds — GET 한 번)
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
 });
@@ -26,12 +27,12 @@ const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
 mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // 좌석 우클릭 메뉴(room/seat-menu.js)
 ```
 
-**확장할 때 고칠 자리** — 기다리는 시간은 `FRIEND_REQ_ARM_MS`. 서버(API)로 옮길 때는 app.js 의 `friendNet:` 한 줄만 그쪽 provider(`sendFriendRequest(나, 상대)` → `{ ok, reason }`)로 바꾼다 — 모듈 안에서 `firebaseAPI` 를 직접 부르지 않는다. 앞단 검사를 늘리면 마이홈 [친구 추가](`add-friend.js` 쪽)도 같은 순서 · 문구로 같이 고친다.
+**확장할 때 고칠 자리** — 기다리는 시간은 `FRIEND_REQ_ARM_MS`. provider 를 바꿀 때는 app.js 의 `friendNet:` 한 줄만 고친다(`sendFriendRequest(나, 상대, 사유)` → `{ ok, reason }` · `isFriendRequestAlive(상대, 나)` → boolean) — 모듈 안에서 `firebaseAPI` 를 직접 부르지 않는다. 앞단 검사를 늘리면 마이홈 [친구 추가](`add-friend.js` 쪽)도 같은 순서 · 문구로 같이 고친다.
 
 **함정** — 확인창(native 다이얼로그 · 새 fixed 오버레이)으로 바꾸지 말 것: 실행 화면은 투명 전체화면이라 다이얼로그가 안 보이고, 새 오버레이는 audit 검사 여럿에 항목이 는다.
 회사원 모드에서는 부르는 쪽(app.js)이 먼저 막는다 — 토스트도 뜨면 안 된다.
 
-검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결 · mutation test).
+검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 열린 요청이면 안 보냄 · 결과 문구 · 연결 · mutation test).
 
 ## friends-sub.js — 내 친구 목록 구독 한 벌
 - 책임: 친구 목록 구독(포트 `friends/friends-port.js` 의 watchList)을 **동시에 하나만** 건다. 실패하면 **목록을 열 때만**(친구 탭 · 워킹룸 초대 목록) 다시 건다 — 타이머 재시도 · 연결 감시는 없다.
@@ -113,7 +114,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 ## `inbox-api.js` · `mail-feed.js` — 📩 내 우편(서버 원본)
 
 **책임** — 우편의 원본은 서버다(`GET /v2/me/notifications?section=MAIL` · 읽음 `PATCH …/{id}` · 모두 읽음 `POST …/read-all` · 지우기 `DELETE …/{id}` · 읽은 우편 한꺼번에 `POST …/delete-read` — 서버가 내 읽은 우편을 한 번에 지우고 지운 수를 준다).
-`inbox-api.js` 는 서버 모양(종류 · `readAt` · `createdAt` · `payload` · 서버가 센 `unreadCount`)을 화면 모양(`{ tag, title, body, ts, read, bugId? }`)으로 맞추는 provider 한 곳.
+`inbox-api.js` 는 서버 모양(종류 · `readAt` · `createdAt` · `payload` · 서버가 센 `unreadCount`)을 화면 모양(`{ tag, kind, title, body, ts, read, bugId? }`)으로 맞추는 provider 한 곳. `kind` 는 서버 종류 이름 그대로(없으면 `''`) · 태그는 `TAG_BY_KIND`(🎄 `XMAS_LETTER` · `XMAS_RETURNED` → `xmas` · 모르는 종류는 `reward`).
 `mail-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음 상태, 새 우편 알림(realtime `notification`)이 오면 다시 받기, 읽음 · 지우기(서버가 됐다 한 뒤에만 화면 값을 고침).
 옛 장치는 걷었다: 앱이 세는 안 읽은 수 사본(서버 값을 쓴다) · Firebase 수령함 구독 · 앱이 고치던 읽음 표시.
 
@@ -123,6 +124,8 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+  refreshDelayMs: ()=>…,   // 새 우편 알림 뒤 다시 받기 전 기다림(ms · 0 = 곧바로) — 🎄 짝 짓기 10분만 0~30초(TwXmasRules.mailDelayMs · 날짜 한 벌은 xmasApiMod.scheduleNow() · 꺼져 있으면 0)
+  timers: window,
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · 토스트(처음 받은 판은 새 우편이 아니다)
 ```
@@ -132,6 +135,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 부르는 곳: `myhome-init.js`(켜기 · 받은 뒤 화면) · `myhome-inbox.js`(그리기 · 누름) · `focus-level.js`(해금 안내를 이미 받았는지 — `_myInbox` · `_myInboxReady` 는 `mailFeed.items()` · `ready()`).
 
 **오류 번호** — `E-MH-08`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 새 우편 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.
+알림 뒤 기다림(`refreshDelayMs` > 0)이 걸린 동안 온 알림은 그 한 번으로 묶고, 멈추면(계정 바뀜 · 로그아웃) 기다림을 버린다.
 못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 새 우편 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
 
 **함정**
@@ -161,7 +165,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 **오류 번호** — `E-GB-01`(방명록 받기 실패 — 연 · 누른 받기만) · `E-GB-02`~`05`(서버 거절) · `E-GB-06`(박수 그림을 쓸 수 없음) · `E-GB-07`(512KB 초과). 그 밖의 실패는 공통 `E-NET-*`.
 
 **함정** — 글 쓰기 · 박수는 `requestId` 를 싣는다. 닿지 못한 일은 같은 번호로 다시(서버가 한 번만 반영), 서버가 답한 일(거절 포함)은 번호를 놓는다.
-방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림은 요청 둘이다 — `POST /v2/me/images?purpose=clap`(바이트 그대로 · 512KB 이하 png/webp/jpeg → `{ url }`) 다음 `PATCH /v2/me/guestbook { version, clapImageUrl }`. 첫째가 실패하면 겉모습은 그대로, 둘째가 409 면 다시 받는다. 올리는 사이 연결이 끊기거나(`release()`) 계정 · 주인이 바뀌면 둘째를 보내지 않고 `{ ok:false, reason:'gone' }` — 겉모습을 못 바꿨는데 성공으로 돌려주지 않는다. `setImage(dataUrl)`.
+방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림은 두 단계다 — Storage 내 폴더에 바로 올리기(`shared/own-image.js` `clap` · 512KB 이하 png/webp/jpeg · 읽은 토큰 주인과 견줌 · 10초 상한 → 주소) 다음 `PATCH /v2/me/guestbook { version, clapImageUrl }`. 첫째가 실패하면 겉모습은 그대로, 둘째가 409 면 다시 받는다. 올리는 사이 연결이 끊기거나(`release()`) 계정 · 주인이 바뀌면 둘째를 보내지 않고 `{ ok:false, reason:'gone' }` — 겉모습을 못 바꿨는데 성공으로 돌려주지 않는다. `setImage(dataUrl)`.
 
 검사: `checks/sim-guestbook-api.js` · `checks/sim-guestbook-feed.js` · `checks/sim-guestbook.js`(입력 → 출력 · 상태 · 계정 바뀜 · mutation test).
 
@@ -170,6 +174,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 **책임** — 마이홈 «도움말» 탭 한 칸: 왼쪽 목차(묶음 접고 펴기) · 오른쪽 도움말 웹 페이지 틀(도움말 전용 Hosting 사이트 `help.together-working.com` · `?embed=1`) · 못 불러옴.
 사용법 글은 앱을 다시 내지 않고 고치려고 웹 페이지(`hosting/help/`)에 둔다. 목차는 앱에 박지 않고, 페이지(`hosting/help/embed.js`)가
 `postMessage({ type:'tw-help', v:1, page, toc })` 로 보내 오면 그것으로 그린다 — 페이지 안 «이전 · 다음» 으로 옮겨도 왼쪽 표시가 따라간다.
+목차 아래 «❓ 자주 묻는 질문»(`FAQ_PAGE` = `faq` — 페이지 `/faq`) 한 줄만 앱이 단다 — FAQ 페이지는 목차(toc.json)에 없는 편이라서. FAQ 의 «🔗» 링크로 편에 가면 그 편 표시로 따라간다.
 
 **만드는 법** — app.js 가 마이홈 창(`createMyHomeUi`) 바로 앞에서 만들고 deps `helpTab` 으로 넘긴다. 테마를 바꾸면 `themeMod.onApplied` 로 `themeChanged`:
 
@@ -299,25 +304,46 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · mutation test).
 
+## `mallang-sent.js` — 🎁 보낸 말랑이 기록 규칙
+
+- **책임**: 보낸 선물 기록(`users/{내 코드}/mallangSent/{선물 id}` = `{ to, toName, src, img, ts, msg? }`)의 모양 씻기 · 최근 순서 · 30개 넘는 옛 기록 · 같은 친구에게 같은 그림을 보낸 적 있나. 순수 모듈(`window.TwMallangSent`).
+- **쓰는 곳**: `mallang.js`(선물 창 — 이미 보낸 그림에 «보냄» · 누르면 묻기 · 보낸 뒤 기록 + 옛 기록 지우기). 💝 선물함 «보낸 선물» 목록은 이 모듈을 쓰지 않고 서버(`GET /v2/me/gifts/sent` — `giftBox.fetchSent`)에서 받는다.
+- **내놓는 것**: `SENT_MAX` · `record` · `list` · `overflow` · `lastTo`.
+- **함정**: `src` 는 내 말랑이 칸의 원래 그림 주소(같은 그림 가르기), `img` 는 보낸 사본(목록 그림) — 둘 다 Storage 주소만(서버 규칙과 짝). 기록은 선물을 보낸 **뒤** 남겨서 실패해도 알리지 않는다(«보냄» 표시만 빠진다). 0.14.0 전에 보낸 선물은 기록이 없다. 검사 `sim-mallang-sent.js`.
+
+## friend-req-btn.js — 🙋 남의 마이홈 [친구 신청] · 신청 사유 창
+
+- **책임**: 친구 홈 구경 화면에서 이름 옆 [＋ 친구 신청] 단추를 보이고 숨긴다. 남의 홈이고 친구가 아니고 내가 보낸 요청도 없을 때만 보인다. 누르면 사유(100자) 창을 띄우고 [신청하기]로 보낸다(네이버 이웃 신청처럼).
+- **deps**: `sendFriendReq(uid, name, msg)` → `{ok, reason}` · `resultView(res, name)` → `{kind, text}`(둘 다 좌석 친구 신청 `seat-friend-req.js` 와 같은 한 벌 — 앞단 검사 · 안내 문구) · `friendNet()`(데이터 provider — `isFriendRequestAlive(toId, myId)` 로 내가 보낸 요청이 살아 있나 · 좌석 친구 신청과 같은 모양) · `friends()`(읽는 함수) · `getMyUserId` · `toast`.
+- **내놓는 것**: `refresh(viewUid, name)` — `myhome-visit.js` `_mhApplyVisitUI` 가 부른다(내 홈 · 미리보기면 `null`) · `openDialog(uid, name)`. 순수 함수 `cleanReason` · `REASON_MAX` 도 내놓는다(검사용).
+- **함정**
+  - «살아 있나» 를 묻는 동안 다른 홈으로 넘어가면 늦은 답을 버린다 — 안 버리면 다음 화면에 단추가 켜진다. 확인을 못 하면 숨긴다(이미 보낸 요청을 또 보내지 않게).
+  - 관람 화면 하나를 여는 동안 `_mhApplyVisitUI` 가 여러 번 불린다 — 같은 uid 면 다시 묻지 않는다. 내 홈으로 오면(`refresh(null)`) 기억을 비운다.
+  - 사유 · 이름은 `textContent` 로만 넣는다. 받는 쪽(`friend-manage.js`)도 목록은 `textContent`, 👋 팝업은 `escHtml` 이다.
+  - 사유 길이 100자는 서버(`POST /v2/me/friend-requests` 의 `message` · UTF-16 100자)와 규칙 `friendRequests/$toId/$fromId/msg` 와 같다 — 한쪽만 바꾸지 말 것. 사유 칸은 `TwServerFeatures.on('friendReqMsg')` 가 켠다.
+  - 실패(저장 실패 · 던짐)는 `E-FR-06`, 이미 친구 · 정원 · 나 · 준비 안 됨은 안내 토스트(좌석 친구 신청과 같은 문구).
+  - 검사: `checks/sim-friend-req-btn.js` · `sim-seat-friend-req.js`(보내기 한 벌).
+검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · mutation test).
+
 ## `schedule-api.js` — 🌐 일정 · 디데이 · 일정 알림 서버 경로 provider
 
 - **책임**: 내 달력 한 달 읽기 · 일정 쓰기 · 지우기(`GET` · `POST` · `DELETE /v2/me/schedules`) · 남의 공개 일정(`GET /v2/schedules/{userCode}`) · 디데이 보드 통째 읽기 · 통째 저장(`GET` · `PUT /v2/me/ddays`) · 남의 공개 보드(`GET /v2/ddays/{userCode}`) · 친구가 태그한 알림(`GET` · `DELETE /v2/me/notifications` 의 🔔 칸). 서버 모양(`visibility` · `countFromOne` · `bgImage` · `cards` / `banners` 두 목록)을 화면 모양(`public` · `base1` · `bgImg` · `kind` · `order`)으로 맞추는 곳은 여기뿐이다. 신원은 토큰(`/v2/me/…`) — 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐).
-- **만드는 법**: `TwScheduleApi.createScheduleApi({ authed, newId, warn })` — app.js 가 스케줄러보다 먼저 만들어 `scheduleApi` deps 로 넘긴다.
-- **deps**: `authed`(`TwApi.authed`) · `newId`(`TwRequestId.newId` — 일정 쓰기의 요청 번호) · `warn`.
+- **만드는 법**: `TwScheduleApi.createScheduleApi({ authed, newId, imageBytes, ownImage, warn })` — app.js 가 스케줄러보다 먼저 만들어 `scheduleApi` deps 로 넘긴다. 그림 넷(마이홈 · 디데이 · 박수 · 말랑이)은 `ownImage`(shared/own-image.js — Storage 내 폴더에 바로)로 올린다.
+- **deps**: `authed`(`TwApi.authed`) · `newId`(`TwRequestId.newId` — 일정 쓰기의 요청 번호) · `imageBytes`(`TwImageBytes`) · `ownImage`(`TwOwnImage` — 카드 그림 올리기) · `warn`.
 - **내보내는 것**: `fetchMonth(uid, ym)` · `fetchMonthOf(userCode, ym)` · `createItem(uid, { date, text, public, tagFriends })` · `deleteItem(uid, id, version)` · `fetchBoard(uid)` · `fetchBoardOf(userCode)` · `saveBoard(uid, ddays, tag)` · `fetchBell(uid)` · `deleteBell(uid, id)` · `orderedIds(ddays, kind)`(그리기와 저장이 같은 순서를 쓰는 순수 함수) · `reset()`. 모두 못 읽으면 던진다 — 빈 달 · 빈 보드 · 알림 없음은 `{}` 로 돌려줘 «못 읽음» 과 가른다.
 - **함정**
   - 보드는 **통째**다 — 한 장을 고쳐도 두 목록(카드 · 배너)을 순서대로 다 보낸다. 새 장은 `ddayId` 를 싣지 않고(UUID 가 아닌 임시 열쇠) 서버가 정한 id · 순서로 돌려준 보드가 정답이다. 배너에는 셈법(`countFromOne`) · 배경이 없다.
   - 저장은 마지막으로 읽은 판을 싣는다. **409 `CONCURRENT_UPDATE` 면 판을 버려** 다시 받기(`fetchBoard`) 전에는 쓰지 못한다(같은 판으로 다시 보내 남의 고침을 덮지 않게). 같은 409 라도 `SCHEDULE_DDAY_FULL`(상한)은 판이 그대로다.
   - 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽은 뒤 로그인한 사람이 바뀌면 요청 0 으로 `OWNER_CHANGED`. 읽은 적이 없으면(받기 전) `NOT_RECEIVED` — 요청 0.
-  - 카드 그림은 `data:` 로 들고 있다가 저장할 때만 서버에 올린다(`POST /v2/me/images?purpose=dday` — 바이트 그대로 · `Content-Type` png / webp / jpeg · 1MB 이하 · 응답 `{ url }`, `authed` 의 `rawType` 길). 1MB 를 넘거나 형식이 아니면 요청 없이, 서버가 400 · 413 · 415 로 거절해도 `IMAGE_UPLOAD`(→ `E-MH-05`)로 던지고 보드를 보내지 않는다. 계정이 바뀐 것(`OWNER_CHANGED`)은 조용히 버린다.
+  - 카드 그림은 `data:` 로 들고 있다가 저장할 때만 올린다(Storage 내 폴더에 바로 — `ownImage.upload('dday', img, { expectOwner })` · png / webp / jpeg · 1MB 이하 · 10초 상한). 1MB 를 넘거나 형식이 아니면 요청 없이, Storage 가 거절하거나 닿지 못해도 `IMAGE_UPLOAD`(→ `E-MH-05`)로 던지고 보드를 보내지 않는다. 계정이 바뀐 것(`OWNER_CHANGED` — 그림도 보드도 요청 0)은 조용히 버린다.
   - 친구를 태그하면 서버가 공개로 바꾸고(provider 는 화면 값 그대로 보낸다 — 스케줄러가 태그할 때 «공개» 체크를 켜고 잠그고 까닭을 보이며, 태그를 빼면 원래 값으로 돌린다), **같은 요청이 알림까지 보낸다**(일정만 되고 알림만 빠지는 일이 없다). 보드는 «이번에 저장한 한 장이 속한 목록의 몇 번째» 로 태그를 싣는다.
   - 일정의 `ts` 는 서버가 준 `createdAt` 을 ms 로 옮긴 만든 시각이다(없거나 깨지면 0 = 오래된 것). 🔔 뱃지의 «오늘 내 일정» 은 `tw.bellSeenTs` 뒤에 만든 것만 센다.
 - **검사**: `checks/sim-schedule-api.js`(가짜 `authed` 로 실제로 불러 판정 · mutation test).
 
 ## `myhome-api.js` — 🏠 마이홈 서버 경로 provider
 
-- **책임**: 내 마이홈 읽기(`GET /v2/me/myhome` — 페이지 + 바탕화면 한 번) · 남의 마이홈(`GET /v2/myhomes/{userCode}`) · 내 책장(`GET /v2/me/myhome/bookshelf`) · 남의 공개 책(`GET /v2/myhomes/{userCode}/bookshelf`) · 페이지 칸 저장(`PATCH /v2/me/myhome`) · 디자인(`PUT …/design`) · 바탕화면(`PUT …/desktop`) · 책장(`PUT …/bookshelf`) · 그림 올리기(`POST /v2/me/images?purpose=myhome`). 서버 모양(스티커 목록 · `image` · 프리셋 `withImage` · 책 `width` · `titleColor` · `public` · `addedAt` ISO)을 화면 모양(스티커 `{sid:…}` · `img` · `img:true` · `w` · `tcolor` · `pub` · `at` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰.
-- **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다.
+- **책임**: 내 마이홈 읽기(`GET /v2/me/myhome` — 페이지 + 바탕화면 한 번) · 남의 마이홈(`GET /v2/myhomes/{userCode}`) · 내 책장(`GET /v2/me/myhome/bookshelf`) · 남의 공개 책(`GET /v2/myhomes/{userCode}/bookshelf`) · 페이지 칸 저장(`PATCH /v2/me/myhome`) · 디자인(`PUT …/design`) · 바탕화면(`PUT …/desktop`) · 책장(`PUT …/bookshelf`) · 그림 올리기(Storage 내 폴더에 바로 — `ownImage.upload('myhome', …)`). 서버 모양(스티커 목록 · `image` · 프리셋 `withImage` · 책 `width` · `titleColor` · `public` · `addedAt` ISO)을 화면 모양(스티커 `{sid:…}` · `img` · `img:true` · `w` · `tcolor` · `pub` · `at` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰.
+- **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, ownImage, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다.
 - **내보내는 것**: `fetchMine()` → `{ page, pageVersion, desktop, desktopVersion }` · `fetchOf(code)` → `{ page, desktop }` · `fetchBookshelf()` → `{ books, version }` · `fetchBookshelfOf(code)` → `{ books }` · `patchPage(version, fields)` · `putDesign(version, d)` · `putDesktop(version, d)` → 새 `version` · `putBookshelf(version, books)` → `{ books, version }` · `uploadImage(dataUrl)` → `url` · `reset()`. 순수: `homeOf` · `stickersOf` · `stickersBody` · `presetsOf` · `presetsBody` · `desktopOf` · `desktopBody` · `booksOf` · `booksBody` · `failOf` · `PATHS` · `LIMITS`.
 - **함정**
   - `patchPage` 는 `fields` 에 열쇠가 있는 칸만 싣는다(지우기는 `null` · `stickers` 는 그리는 순서 목록 통째 · `clearTheme:true` 는 `theme:null`). 안 바뀐 칸을 실으면 다른 기기의 고침을 덮는다.
@@ -349,10 +375,10 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 ## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 경로 provider
 
-- **책임**: 내 말랑이 칸 읽기 · 통째 저장(`GET` · `PUT /v2/me/mallangs`) · 그림 올리기(`POST /v2/me/images?purpose=mallang`) · 남의 집 칸(`GET /v2/mallangs/{userCode}`) · 내 선물함(`GET /v2/me/gifts`) · 봤음(`POST /v2/me/gifts/seen`) · ⭐ · 치움(`PATCH /v2/me/gifts/{id}`) · 지우기(`DELETE /v2/me/gifts/{id}`) · 오늘 보낸 수(`GET /v2/me/gifts/sent-today`) · 그 집에 나온 선물(`GET /v2/gifts/{userCode}`) · 보내기(`POST /v2/gifts/{userCode}`). 서버 모양(`sentAt` ISO)을 화면 모양(`sentAt` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰 — 보내기 본문에 내 코드 · 이름 · 날짜 · 그림 주소를 싣지 않는다.
-- **만드는 법**: app.js 가 `const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, warn })` 로 한 벌 만들어 상태 주인에 넘긴다 — 지금은 말랑이 칸(`mallang-store.js`)이 쓰고, 선물함 · 보내기는 선물 묶음에서 같은 한 벌을 받는다.
-- **deps**: `authed`(`TwApi.authed`) · `warn`.
-- **내보내는 것**: `fetchMine()` · `fetchOf(userCode)` → `{ slots:[{ slot, imageUrl, enabled }], version }` · `uploadImage(dataUrl)` → `url` · `saveMallangs(version, slots)` · `fetchBox()` → `{ items:[{ id, senderName, imageUrl, message, starred, hidden, sentAt }], unseenCount, starCount, boxKeep, starMax }` · `markSeen()` · `star(id, on)` · `hide(id, on)` · `remove(id)` · `fetchSentToday()` → `{ count, dailyMax }` · `fetchVisible(userCode)` → `{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }` · `send(userCode, { requestId, mallang, message })` → `{ giftId, sentToday, dailyMax }` · `reset()`. 순수 함수(`slotsOf` · `slotsBody` · `boxOf` · `sendBody` · `failOf` 등)는 `TwGiftApi` 위. 모두 못 읽으면 던진다 — 빈 칸 · 빈 선물함은 빈 배열로 돌려줘 «못 읽음» 과 가른다.
+- **책임**: 내 말랑이 칸 읽기 · 통째 저장(`GET` · `PUT /v2/me/mallangs`) · 그림 올리기(Storage 내 폴더에 바로 — `ownImage.upload('mallang', …)`) · 남의 집 칸(`GET /v2/mallangs/{userCode}`) · 내 선물함(`GET /v2/me/gifts`) · 봤음(`POST /v2/me/gifts/seen`) · ⭐ · 치움(`PATCH /v2/me/gifts/{id}`) · 지우기(`DELETE /v2/me/gifts/{id}`) · 오늘 보낸 수(`GET /v2/me/gifts/sent-today`) · 보낸 말랑이(`GET /v2/me/gifts/sent?limit=`) · 그 집에 나온 선물(`GET /v2/gifts/{userCode}`) · 보내기(`POST /v2/gifts/{userCode}`). 서버 모양(`sentAt` ISO)을 화면 모양(`sentAt` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰 — 보내기 본문에 내 코드 · 이름 · 날짜 · 그림 주소를 싣지 않는다.
+- **만드는 법**: app.js 가 `const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes, ownImage, warn })` 로 한 벌 만들어 상태 주인에 넘긴다 — 지금은 말랑이 칸(`mallang-store.js`)이 쓰고, 선물함 · 보내기는 선물 묶음에서 같은 한 벌을 받는다.
+- **deps**: `authed`(`TwApi.authed`) · `imageBytes`(`TwImageBytes`) · `ownImage`(`TwOwnImage` — 말랑이 그림 올리기) · `warn`.
+- **내보내는 것**: `fetchMine()` · `fetchOf(userCode)` → `{ slots:[{ slot, imageUrl, enabled }], version }` · `uploadImage(dataUrl)` → `url` · `saveMallangs(version, slots)` · `fetchBox()` → `{ items:[{ id, senderName, imageUrl, message, starred, hidden, sentAt }], unseenCount, starCount, boxKeep, starMax }` · `markSeen()` · `star(id, on)` · `hide(id, on)` · `remove(id)` · `fetchSentToday()` → `{ count, dailyMax }` · `fetchSent(limit?)` → `{ items:[{ id, recipientName, recipientCode, imageUrl, message, sentAt }] }`(최근 1~30개 · 그림은 보낸 때 내 칸의 원본 — 지워졌을 수 있다) · `fetchVisible(userCode)` → `{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }` · `send(userCode, { requestId, mallang, message })` → `{ giftId, sentToday, dailyMax }` · `reset()`. 순수 함수(`slotsOf` · `slotsBody` · `boxOf` · `sendBody` · `failOf` 등)는 `TwGiftApi` 위. 모두 못 읽으면 던진다 — 빈 칸 · 빈 선물함은 빈 배열로 돌려줘 «못 읽음» 과 가른다.
 - **오류 갈래**: `failOf(err, TwApiErrors)` → `{ kind, code, message }`. `kind` — `guide`(⭐ 가득 · 보내기 거절 같은 안내 — 서버 문구 그대로 · 번호 없음) · `gone`(`GIFT_NOT_FOUND` — 안내 + 받기 한 번) · `missing`(`USER_NOT_FOUND` — «없음») · `site`(그 자리의 `E-GIFT-*` 번호 — 닿지 못함 · 모르는 코드도 여기) · `common`(`PREMIUM_REQUIRED` 같은 공통 코드 — `TwApiErrors.store.notify`) · `conflict`(409 `CONCURRENT_UPDATE` — 다시 받기) · `stale`(계정이 바뀌는 중 · 받기 전 — 조용히). 번호는 표에 두지 않고 부르는 자리가 정한다.
 - **함정**
   - 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 내 것(칸 · 선물함 · 오늘 보낸 수)을 읽은 적이 없으면 `NOT_RECEIVED` · 읽은 뒤 로그인한 사람이 바뀌면 `OWNER_CHANGED`, 둘 다 요청 0. 남의 집 읽기는 주인 기억을 남기지 않는다.
@@ -365,7 +391,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 ## `mallang.js` — 🧸 말랑이 · 🎁 선물 화면
 
-- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 경로로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 경로(`giftBox.send` · `fetchSentToday` · `fetchVisible`)다 — 창 상태(`giftPop`)는 이 파일 안.
+- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 경로로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 경로(`giftBox.send` · `fetchSentToday` · `fetchVisible` · `fetchSent`)다 — 창 상태(`giftPop`)는 이 파일 안. 이 친구에게 이미 보낸 그림(보낸 기록 최근 30개 안에서 `recipientCode` · 원본 그림이 같음)은 칸 구석 «보냄» · 누르면 «또 보낼까요?»(막지 않음 · 기록을 못 받으면 묻지 않고 보낸다).
 - **만드는 법**: app.js 가 마이홈 수령함(`createMyHomeInbox`)보다 먼저 만든다 — 수령함 · 마이홈 창 · 친구 홈 구경이 값으로 받는다.
 
 ```js
@@ -412,7 +438,7 @@ const mallangMod = TwMallang.createMallang({
   - **보내기 계약**: 칸 번호(`slot`)는 서버가 저장 때마다 0부터 다시 매기므로 낡을 수 있다. 앱은 번호를 보내지 않고 누른 그림의 `imageUrl` 만 보낸다(`POST /v2/gifts/{userCode}` `{ requestId, imageUrl, message? }`). 서버가 칸에 없는 주소면 409 `GIFT_SLOT_CHANGED` → `E-GIFT-08` + 내 칸 다시 받기. 그래서 이 모듈은 지운 뒤 번호를 비우지 않고, 보내기 쪽도 저장 중 눌림을 막지 않는다.
   - 받기 전(`load !== 'ready'`)엔 고치지 못한다(`locked` · 요청 0). 저장 중이거나 못 올린 고침이 있으면 내 칸 받기는 요청하지 않는다(받은 판이 고친 칸을 덮지 않게).
   - 409 `CONCURRENT_UPDATE` 는 내 고침을 버리고 서버 것을 받아 «다른 기기에서 바꾼 내용을 받아왔어요». 실패는 화면을 고친 대로 두고 `E-GIFT-03` 한 번 — 혼자 다시 보내지 않는다(타이머 없음). 다음 고침 · `flush()` 가 한 번 보낸다.
-  - 올리기(`POST /v2/me/images?purpose=mallang`) 실패는 칸을 그대로 두고 `E-GIFT-02`(PUT 없음). 올리는 중 또 등록은 `busy`. 409 로 다시 받는 사이 올리기가 끝나면 그 그림은 칸에 붙이지 않는다(파일은 남는다 — 탈퇴 때 서버가 지운다).
+  - 올리기(Storage 내 폴더 — `ownImage` · 10초 상한) 실패는 칸을 그대로 두고 `E-GIFT-02`(PUT 없음). 올리는 중 또 등록은 `busy`. 409 로 다시 받는 사이 올리기가 끝나면 그 그림은 칸에 붙이지 않는다(파일은 남는다 — 탈퇴 때 서버가 지운다).
   - 오류: 받기 `E-GIFT-01`(보내기 창 열기는 `site: 'sendOpen'` → `E-GIFT-07`) · 공통 code(`PREMIUM_REQUIRED` 등)는 `TwApiErrors.store.notify` · 계정이 바뀌는 중(`OWNER_CHANGED` · `NOT_RECEIVED`)은 조용히 · 없는 사람(`USER_NOT_FOUND`)은 «말랑이 없음».
 - **검사**: `checks/sim-mallang-store.js`(진짜 모듈을 가짜 서버 경로 위에서 — 저장 차례 · 409 · 실패 한 번 · 등록 · 집 gen · reset · 배선 · mutation test).
 
@@ -463,6 +489,12 @@ const mallangMod = TwMallang.createMallang({
 - **책임**: `createMyHomeDesktop({ advStore: accountStoreMod })` 한 줄. 바탕화면은 app.js 뒤에 실리고 싣자마자 돌아야 해서, app.js 가 만든 계정 칸을 deps 로 넘기는 자리를 별도 파일로 둔다.
 - **함정**: 순서 — `app.js` → `myhome-desktop.js` → 이 파일. 사이에 다른 스크립트를 끼우지 않는다(`bookmark.js` 는 app.js 가 만들어 앞에 실린다). html 에 `myhome-desktop-boot.js` 가 있는지는 `sim-account-store.js` 가 본다.
 
+
+## 🎨 마이홈 스티커 보이기(이 PC 설정)
+- **책임**: 설정 › 디스플레이 «마이홈 스티커» 의 켜짐 · 꺼짐. 끄면 이 PC 화면에서 내 홈 · 친구 홈의 스티커를 그리지 않는다(그림도 받지 않는다). 서버 값(스티커 자체)은 그대로다.
+- **만드는 법**: 따로 파일이 없다 — app.js 가 설정 창보다 먼저 `TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.mhStickerLayer' })`(`shared/device-toggle.js`) → 설정 창 · 스티커 그리기 · 관리 창에 `stickerLayer` 로 넘긴다.
+- **함정**: 바뀐 뒤 다시 그리기는 위층을 부르지 않고 app.js 가 `onChange` 에 건다(설정 창이 스티커 배치 모듈을 부르면 순환 — `sim-dep-cycles`). 꺼져 있을 때 관리 창을 열면 «숨겨져 있어요» 안내가 뜬다.
+- 검사: `sim-device-toggle.js` · `sim-myhome-sticker-render.js` §1b
 
 ## myhome-sticker-render.js — 🎨 마이홈 스티커 그리기
 

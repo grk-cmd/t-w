@@ -38,7 +38,7 @@ function build(src, o){
   const names = Object.keys(g);
   new Function(...names, src)(...names.map(n => g[n]));
   const store = { removeSticker: (sid) => { log.push('remove:' + sid); delete data[sid]; return Promise.resolve('ok'); } };
-  const mod = win.TwMyHomeStickerRender.createMyHomeStickerRender({ mhPageMod: { _mhStickerDragDist: () => st.drag }, mhStLayoutMod: layout, myHomeSticker: () => sticker, myhomeStore: store });
+  const mod = win.TwMyHomeStickerRender.createMyHomeStickerRender({ mhPageMod: { _mhStickerDragDist: () => st.drag }, mhStLayoutMod: layout, myHomeSticker: () => sticker, myhomeStore: store, stickerLayer: { on: () => o.layerOff !== true } });
   return { mod, log, zone, data, st };
 }
 const kids = (b) => b.zone.children;
@@ -50,6 +50,22 @@ say('§1 탭 · 영역');
   chk(b.zone.classList.contains('hidden') && b.log.join() === 'fit,editEnd' && kids(b).length === 0, '마이홈 탭이 아니면 숨기고 창 맞춤 · 편집 끝냄 · 그리지 않음');
   b = build(SRC, { tab: 'home', data: {} }); b.mod.renderMyHomeStickers();
   chk(!b.zone.classList.contains('hidden') && b.log.join() === 'fit', '마이홈 탭이면 보이고 다 그린 뒤 창 맞춤');
+}
+say('§1b 스티커 보이기(이 PC 설정)');
+{
+  const data = { a: { img: 'https://x/a.png' }, b: { emoji: '🍀' } };
+  const off = build(SRC, { tab: 'home', data, canEdit: true, layerOff: true });
+  off.zone.children.push(mkEl('div'));   // 켜져 있을 때 그려 둔 것이 남아 있다
+  off.mod.renderMyHomeStickers();
+  chk(off.zone.classList.contains('hidden') && kids(off).length === 0 && off.log.join() === 'fit,editEnd', '★ 꺼져 있으면 마이홈 탭이어도 숨기고 · 그려 둔 것도 비운다(그림을 받지 않게) · 편집 끝냄');
+  const on = build(SRC, { tab: 'home', data, canEdit: true }); on.mod.renderMyHomeStickers();
+  chk(!on.zone.classList.contains('hidden') && kids(on).length === 2, '켜져 있으면 그대로 그린다');
+  const mOff = SRC.replace("zone.classList.toggle('hidden', !onHomeTab || !layerOn);", "zone.classList.toggle('hidden', !onHomeTab);").replace("if(!onHomeTab || !layerOn){", "if(!onHomeTab){");
+  const bm = build(mOff, { tab: 'home', data, layerOff: true }); bm.mod.renderMyHomeStickers();
+  chk(mOff !== SRC && !bm.zone.classList.contains('hidden'), 'mutation test — 설정을 안 보면 꺼져 있어도 보인다 → 빨강');
+  const mKeep = SRC.replace("  if(!layerOn) zone.innerHTML='';\n", '');
+  const bk = build(mKeep, { tab: 'home', data, layerOff: true }); bk.zone.children.push(mkEl('div')); bk.mod.renderMyHomeStickers();
+  chk(mKeep !== SRC && kids(bk).length === 1, 'mutation test — 비우지 않으면 그려 둔 것이 남는다 → 빨강');
 }
 say('§2 그리기');
 {
@@ -116,13 +132,13 @@ say('§5 연결');
   const code = stripC(APP);
   const pairs = depPairs(APP, 'stickerRenderMod', 'TwMyHomeStickerRender', 'createMyHomeStickerRender');
   const get = (k) => (pairs.find(p => p[0] === k) || [])[1];
-  chk(!!pairs && pairs.length === 4 && get('myHomeSticker') === '()=>myHomeSticker' && get('myhomeStore') === 'myhomeStoreMod' && get('mhPageMod') === 'mhPageMod' && get('mhStLayoutMod') === 'mhStLayoutMod', '★ deps 넷 — myHomeSticker 는 읽는 함수(뒤에서 만들어짐) · 상태 주인 myhomeStore · 나머지는 값');
+  chk(!!pairs && pairs.length === 5 && get('myHomeSticker') === '()=>myHomeSticker' && get('myhomeStore') === 'myhomeStoreMod' && get('mhPageMod') === 'mhPageMod' && get('mhStLayoutMod') === 'mhStLayoutMod' && get('stickerLayer') === 'stickerLayerMod', '★ deps 다섯 — 스티커 보이기 stickerLayer · myHomeSticker 는 읽는 함수(뒤에서 만들어짐) · 상태 주인 myhomeStore · 나머지는 값');
   chk(!/function renderMyHomeStickers\b/.test(code) && (code.match(/stickerRenderMod\.renderMyHomeStickers\(\.\.\.a\)/g) || []).length >= 4 && !/onStickersRendered|stickerRenderMod\.onRendered/.test(code) && !/setRenderMyHomeStickers|getRenderMyHomeStickers/.test(code), '본문이 app.js 에 안 남고 부르는 자리는 그대로 부른다(감싸 다시 대입 · 그린 뒤 알림 없음)');
 }
 say('§6 mutation test');
 {
   const brk = (a, c) => { const m = SRC.replace(a, c); return m === SRC ? null : m; };
-  const m1 = brk("zone.classList.toggle('hidden', !onHomeTab);", "");
+  const m1 = brk("zone.classList.toggle('hidden', !onHomeTab || !layerOn);", "");
   chk(!!m1 && (() => { const b = build(m1, { tab: 'friends', data: {} }); b.mod.renderMyHomeStickers(); return !b.zone.classList.contains('hidden'); })(), '탭 숨김을 빼면 빨강');
   const m2 = brk("TwSafeHtml.safeUrl(s.img, 'image')", "s.img");
   chk(!!m2 && (() => { const b = build(m2, { tab: 'home', data: { c: { img: 'http://bad' } } }); b.mod.renderMyHomeStickers(); return !!kids(b)[0].children[0].src; })(), '그림 주소를 거르지 않으면 빨강(남의 스티커)');

@@ -8,7 +8,8 @@
      session 은 로그인(연결)마다 새로 뽑는 값(저장 안 함) — stop · bye · quit 뒤 처음 start 가 새로 뽑고, 다시 붙기 · 토큰 갱신 · «여기서 계속»(멈춤 뒤 start)은 같은 값이다. 서버는 «갱신 hello 의 사람 · 기기 · 세션이 다르면 4001» 이라 같은 렌더러에서 A → B 로 바뀔 때 연결도 id 도 새것이어야 한다.
      deviceId 는 device-id.js(API 머리 X-Device-Id 와 같은 값).
    [닫힘 번호] CLOSE_CODES(서버 통신 규약 7-1 과 같은 이름 · 값) → closeAction 한 곳(설계 04-realtime-disconnect 4-D-2).
-     4004 는 닫힘 까닭(reason)으로 둘을 가른다 — 'deviceRemoved'(이 PC 가 등록돼 있지 않음 · 다른 PC 가 지움) · 그 밖('sessionLost' — 이 PC 가 새 세션을 등록함).
+     4004 는 닫힘 까닭(reason)으로 셋을 가른다 — 'deviceRemoved'(이 PC 가 등록돼 있지 않음 · 다른 PC 가 지움) · 'otherDevice'(계정의 다른 PC 가 지금 쓰는 PC 가 됨 — 쓰는 PC 는 한 번에 1대) ·
+     그 밖('sessionLost' — 이 PC 가 새 세션을 등록함).
      다시 붙는 것은 사고(1006 · 1009 · 4008 · 모르는 1000번대 · 1001 은 첫 시도를 흩고 오래 기다림 · 4005 는 아래 [4005])뿐. 멈추는 번호 뒤엔
      사용자 누름 · 서버 신호(점검 해제)로만 start 를 다시 부른다(자동 재시도 없음). 4001 은 새 토큰으로 한 번 더 — ready 전 error auth 도 같게 센다.
    [4005 · 서버 바쁨] 서버가 API 로 토큰을 확인하지 못함(4005) · ready 기다림 시간 초과(번호 없이 앱이 끊음 — 같은 «서버가 느림»)는 1 · 2 · 4초로 다시 붙으면 몰림을 키운다. 첫 시도는 0~60초 흩고(jitter),
@@ -45,10 +46,10 @@ const ANSWERS = Object.freeze({ presence: 'presenceGet', random: 'random', peek:
 const CLOSE_CODES = Object.freeze({ bye: 1000, restart: 1001, tooLarge: 1009, auth: 4001, protocol: 4003, sessionLost: 4004,
   unavailable: 4005, maintenance: 4006, accountGone: 4007, helloTimeout: 4008 });
 /* 4004 의 닫힘 까닭 — 이 이름이면 «이 PC 가 등록돼 있지 않음(다른 PC 가 지움)», 아니면 옛 뜻(이 PC 가 새 세션을 등록해 이 연결이 밀림) */
-const CLOSE_REASONS = Object.freeze({ deviceRemoved: 'deviceRemoved' });
+const CLOSE_REASONS = Object.freeze({ deviceRemoved: 'deviceRemoved', otherDevice: 'otherDevice' });
 /* 닫힘마다 할 일 — 한 코드 한 처리. 표에 없는 번호는 closeAction 이 가른다(1000번대 · 번호 없음 = 사고 · 4000번대 = 멈춤) */
 const ACTION = Object.freeze({ END: 'end', RECONNECT: 'reconnect', RESTART: 'restart', UNAVAILABLE: 'unavailable', AUTH: 'auth', UPDATE: 'update',
-  SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', UNKNOWN: 'unknown' });
+  SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', OTHER_DEVICE: 'otherDevice', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', UNKNOWN: 'unknown' });
 const CLOSE_ACTIONS = Object.freeze({
   [CLOSE_CODES.bye]: ACTION.END, [CLOSE_CODES.restart]: ACTION.RESTART, [CLOSE_CODES.tooLarge]: ACTION.RECONNECT,
   [CLOSE_CODES.auth]: ACTION.AUTH, [CLOSE_CODES.protocol]: ACTION.UPDATE, [CLOSE_CODES.sessionLost]: ACTION.SESSION_LOST,
@@ -59,15 +60,16 @@ const CLOSE_ACTIONS = Object.freeze({
 function closeAction(code, reason){
   if(typeof code !== 'number') return ACTION.RECONNECT;
   if(code === CLOSE_CODES.sessionLost && reason === CLOSE_REASONS.deviceRemoved) return ACTION.DEVICE_REMOVED;
+  if(code === CLOSE_CODES.sessionLost && reason === CLOSE_REASONS.otherDevice) return ACTION.OTHER_DEVICE;
   if(Object.prototype.hasOwnProperty.call(CLOSE_ACTIONS, code)) return CLOSE_ACTIONS[code];
   return (code >= 4000 && code <= 4999) ? ACTION.UNKNOWN : ACTION.RECONNECT;
 }
 const STATE = Object.freeze({ OFF: 'off', CONNECTING: 'connecting', READY: 'ready', RETRYING: 'retrying',
-  SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', UPDATE: 'update', AUTH_FAILED: 'authFailed', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' });
+  SESSION_LOST: 'sessionLost', DEVICE_REMOVED: 'deviceRemoved', OTHER_DEVICE: 'otherDevice', UPDATE: 'update', AUTH_FAILED: 'authFailed', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' });
 /** 서버가 이 PC 의 연결을 끝낸 상태인가(4004 — 다른 PC 가 이 기기를 지움 · 이 PC 의 새 세션). 이 판정은 여기 한 곳 — 부르는 쪽이 상태 이름을 다시 늘어놓지 않는다 */
-const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED;
+const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED || s === STATE.OTHER_DEVICE;
 /* 멈춤 할 일 → 상태 */
-const STOP_STATES = Object.freeze({ [ACTION.UPDATE]: STATE.UPDATE, [ACTION.SESSION_LOST]: STATE.SESSION_LOST, [ACTION.DEVICE_REMOVED]: STATE.DEVICE_REMOVED, [ACTION.MAINTENANCE]: STATE.MAINTENANCE,
+const STOP_STATES = Object.freeze({ [ACTION.UPDATE]: STATE.UPDATE, [ACTION.SESSION_LOST]: STATE.SESSION_LOST, [ACTION.DEVICE_REMOVED]: STATE.DEVICE_REMOVED, [ACTION.OTHER_DEVICE]: STATE.OTHER_DEVICE, [ACTION.MAINTENANCE]: STATE.MAINTENANCE,
   [ACTION.ACCOUNT_GONE]: STATE.ACCOUNT_GONE, [ACTION.UNKNOWN]: STATE.CLOSED, [ACTION.END]: STATE.OFF });
 const BYE_WHY = Object.freeze({ LOGOUT: 'logout', QUIT: 'quit', WITHDRAW: 'withdraw', SWITCH: 'switch' });   // 서버 BYE_WHYS 와 같다
 const START_WAIT_MS = 10000;     // start 가 첫 ready 를 기다리는 시간 — 넘으면 백오프로 계속 붙는다
@@ -203,7 +205,7 @@ function createRtHub(deps){
     busyUntil = 0;
     /* hello 뒤 ready 기다림 시간 초과(link fatal 'readyTimeout' · 번호 없음) — 서버가 느린 것이라 4005 와 같게. 소켓도 못 연 'timeout' 은 그대로 1~15초 */
     const act = (fatal === 'readyTimeout' && typeof closeCode !== 'number') ? ACTION.UNAVAILABLE : closeAction(closeCode, closeReason);
-    if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED ? STATE.DEVICE_REMOVED : STATE.SESSION_LOST); return; }
+    if(sawSessionLost){ sawSessionLost = false; stopWith(act === ACTION.DEVICE_REMOVED || act === ACTION.OTHER_DEVICE ? STOP_STATES[act] : STATE.SESSION_LOST); return; }
     if(STOP_STATES[act]){ stopWith(STOP_STATES[act]); return; }
     if(act === ACTION.AUTH){
       // 멈추는 것은 서버가 4001(ready 전 error auth 포함 — link 가 같은 번호로 넘김)을 두 번 보냈을 때만.

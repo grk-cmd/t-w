@@ -91,6 +91,10 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'account.delete': '계정 삭제',
   'account.selfDelete': '회원 탈퇴(본인)',
   'account.resetPassword': '비밀번호 초기화',
+  'xmas.returnLetter': '🎄 편지 반송',
+  'xmas.removeOrnament': '🎄 장식 지우기',
+  'xmas.removeLetter': '🎄 받은 편지 지우기',
+  'xmas.dismiss': '🎄 신고 문제없음',
 };
 
 /** 필터 칩 — action 의 앞부분(«종류»)으로 묶는다. */
@@ -108,6 +112,7 @@ export const LOG_GROUPS = [
   { id: 'todo', label: '할 일' },
   { id: 'improvements', label: '개선 기록' },
   { id: 'account', label: '계정' },
+  { id: 'xmas', label: '크리스마스' },
 ] as const;
 
 export type LogGroup = (typeof LOG_GROUPS)[number]['id'];

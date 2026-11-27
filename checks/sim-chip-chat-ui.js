@@ -77,7 +77,7 @@ chk(/id="chatMinBtn"/.test(titlebar), '★ 타이틀바에 최소화 버튼이 �
 chk(titlebar.indexOf('chatMinBtn') < titlebar.indexOf('chatCloseBtn'), '   닫기 왼쪽에 있다');
 
 // 접었을 때 감추는 것 넷 — 하나라도 빠지면 그 줄만 덩그러니 남는다
-['chat-menubar', 'chat-memberbar', 'chat-messages', 'chat-profile'].forEach(c => {
+['chat-menubar', 'chat-memberbar', 'chat-msgbox', 'chat-messages', 'chat-profile'].forEach(c => {
   chk(new RegExp('#chatWindow\\.min[^{]*\\.' + c).test(HTML), '접으면 .' + c + ' 가 숨는다');
 });
 // 남겨야 하는 것 — 이게 숨으면 최소화의 의미가 없다

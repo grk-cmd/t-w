@@ -7,7 +7,7 @@
    ・3절: 방 — 평소·입장 payload 에 mobile 한 칸 · 받는 쪽 거르기 · 말풍선 순서(상태 > 📱 > 🕒) · _statusOut 을 실제로 돌려 본다.
    ・4절: 서버 경로 — 진짜 focus-level.js 를 가짜 deps 위에서 돌린다(D5-5). realtime mobileFocus{on} → 켜짐 · at 이 4시간 넘음 → 꺼짐(서버 시각) ·
           계정 바뀜 뒤 신호 → 무시 · 키 만들기 · 끊기는 진척을 받은 뒤에만 부르고(읽기 전이면 요청 0 · E-FOCUS-08 · 09) · 실패 → 번호 · 키 유지 ·
-          성공 → 계정 칸 tw.mobileKey · 끊기 → 키 지움 · 단추 잠금 · 늦은 답 버림 · 옛 { u, k } 칸 읽기.
+          성공 → 계정 칸 tw.mobileKey · 끊기 → 키 지움 · 단추 잠금 · 늦은 답 버림 · 옛 { u, k } 칸 읽기 · 쉬는 중이면 «마지막 신호» 한 줄(lastSignalText).
    ・5절: 규칙 — mobileKeys 읽기 금지 · state 쓰기 = 주인 또는 (key 일치 + live 있음) · 방 mobile ≤ 40.
    ・6절: 화면 — 📱 칸이 #fsTabApp 안 · #fsSlotHint 뒤 · QR 창 베젤 radius · 클릭 목록 두 곳 · QR 라이브러리가 로컬 파일 ·
           새 클래스에 fly 없음 · 키는 주소의 # 뒤 · 안내 페이지.
@@ -287,6 +287,23 @@ say('── 4. 서버 경로 (focus-level.js 를 돌린다)');
       wn.els.fsMobUnlink.onclick(); wn.els.fsMobUnlink.onclick(); await tick();
       chk(wn.env.notes.join() === 'E-FOCUS-09' && !wn.env.calls.some((c) => c.startsWith('unlink')) && wn.env.store['tw.mobileKey'] === KEY, '★ 진척을 못 받았으면 요청 0 · E-FOCUS-09'); }
 
+    /* (g) «마지막 신호» 한 줄 — [신호 보내 보기] 는 초록인데 앱을 열면 «쉬는 중» 일 때(B-1125-2 · B-1123-12) 폰 자동화가 신호를 보냈는지 가르게 */
+    { const T = (src) => new Function('window', 'module', src + '\nreturn window.TwFocusLevel;')({}, undefined).lastSignalText;
+      const L = T(LEVEL), now = 5e12, m = (x) => now - x * 60000;
+      chk(L({ on: false, app: 'Procreate', at: m(5) }, now) === '마지막 신호 5분 전 · Procreate 닫힘' && L({ on: true, app: '', at: m(0.5) }, now) === '마지막 신호 방금 · 열림'
+        && L({ on: false, app: 'A', at: m(125) }, now) === '마지막 신호 2시간 전 · A 닫힘', '«마지막 신호» — 방금 · N분 전 · N시간 전 · 앱 이름 · 열림/닫힘');
+      chk(L({ on: false, app: 'A', at: m(5) }, null) === '마지막 신호 · A 닫힘' && L({ on: false, app: 'A', at: 0 }, now) === '' && L(null, now) === '',
+        '  서버 시각을 모르면 시간 말은 빼고 · 신호가 없으면 빈 글');
+      const w = mk({ store: { 'tw.mobileKey': KEY } }); w.api.startMobile('u1', {}, w.session);
+      chk(w.els.fsMobSub.textContent === '폰에서 [신호 보내 보기]를 눌러 보세요', '  신호를 받기 전에는 예전 안내 그대로');
+      fire(w, { on: false, app: '연결 테스트', at: w.env.now - 2 * 60000 });
+      chk(w.els.fsMobMain.textContent === '연결됨 · 폰에서 쉬는 중' && w.els.fsMobSub.textContent === '마지막 신호 2분 전 · 연결 테스트 닫힘' && w.els.fsMobSub.style.display === '',
+        '★ 쉬는 중이면 아래 줄에 마지막 신호(무엇이 · 언제) — 그림 앱을 열었는데 «연결 테스트» 가 그대로면 자동화가 안 보낸 것');
+      const bk = LEVEL.replace('    sb = lastSignalText(_mobileFocus, _mobileNow());', '');
+      const wb = bk !== LEVEL ? mk({ src: bk, store: { 'tw.mobileKey': KEY } }) : null;
+      if(wb){ wb.api.startMobile('u1', {}, wb.session); fire(wb, { on: false, app: '연결 테스트', at: wb.env.now }); }
+      chk(!!wb && wb.els.fsMobSub.textContent === '', '  (mutation test) 쉬는 중 줄에서 마지막 신호를 빼면 위 판정이 빨강'); }
+
     /* (f) 글 — 걷은 길 */
     const LV = strip(LEVEL);
     chk(!/firebaseAPI\.mobile|mobileDiag|mobileLinkStart|mobileSetKey|mobileUnlink|localStorage|getRandomValues|\bsetInterval\(/.test(LV.replace(/session\.setInterval\(/g, '')), 'Firebase 경로 · 진단 줄 · PC 에서 키를 짓는 코드 · 모듈 꼭대기 타이머가 없다(키는 서버가 만든다)');
@@ -315,11 +332,11 @@ say('── 5. 규칙');
 
 say('── 6. 화면');
 {
-  const iTab = HTMLC.indexOf('id="fsTabApp"'), iHint = HTMLC.indexOf('id="fsSlotHint"'), iMob = HTMLC.indexOf('id="fsMob"'), iNext = HTMLC.indexOf('id="fsTabDisplay"');
+  const iTab = HTMLC.indexOf('id="fsTabApp"'), iHint = HTMLC.indexOf('id="fsSlotHint"'), iMob = HTMLC.indexOf('id="fsMob"'), iNext = HTMLC.indexOf('id="fsTabMulti"');   // 포커싱 탭 다음은 방 연결 탭(#540 P1 탭 차례)
   chk(iTab > 0 && iHint > iTab && iMob > iHint && iMob < iNext, '📱 칸 — #fsTabApp 안 · #fsSlotHint 뒤');
   const blk = HTMLC.slice(iMob, iNext);
   chk(/id="fsMobSt"/.test(blk) && /id="fsMobQr"/.test(blk) && /id="fsMobUnlink"/.test(blk) && /id="fsMobNote"/.test(blk), '  상태 칸 · 버튼 둘 · 안내 줄');
-  chk((blk.match(/<button/g) || []).length <= 2, '  버튼 한 줄 최대 2개(패널 300px)');
+  chk((blk.match(/<button/g) || []).length <= 2, '  버튼 한 줄 최대 2개(좁은 패널)');
   chk(/#mobLinkOverlay \.box\{[^}]*border-color:var\(--win-hi\)[^}]*border-radius:var\(--win-radius-el\)/.test(HTML), 'QR 창 베젤 radius');
   chk(/html\[data-theme="bubble"\] #mobLinkOverlay \.ttl,/.test(HTML), '  제목줄이 버블 목록에');
   chk(/const UI_HIT_SEL = '[^']*#mobLinkOverlay/.test(CODE), '클릭 통과 목록(UI_HIT_SEL)에 QR 창');

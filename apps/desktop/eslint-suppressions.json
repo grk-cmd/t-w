@@ -6,12 +6,17 @@
   },
   "app/parts/account/account.js": {
     "tw/no-firebase-api": {
-      "count": 18
+      "count": 17
+    }
+  },
+  "app/parts/account/google-confirm.js": {
+    "tw/no-timer": {
+      "count": 1
     }
   },
   "app/parts/account/license-gate.js": {
     "tw/no-firebase-api": {
-      "count": 3
+      "count": 1
     },
     "tw/no-timer": {
       "count": 3
@@ -105,7 +110,17 @@
       "count": 8
     }
   },
+  "app/parts/chat/chat-focus.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
   "app/parts/chat/chat-history.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/chat/chat-notice.js": {
     "tw/no-timer": {
       "count": 1
     }
@@ -160,7 +175,7 @@
   },
   "app/parts/firebase-init.js": {
     "tw/no-firebase-data": {
-      "count": 29
+      "count": 32
     },
     "tw/no-timer": {
       "count": 1
@@ -305,6 +320,11 @@
       "count": 3
     }
   },
+  "app/parts/room/room-invite-ui.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
   "app/parts/room/room-rt.js": {
     "tw/no-timer": {
       "count": 1
@@ -349,6 +369,11 @@
     }
   },
   "app/parts/shared/net-ready.js": {
+    "tw/no-timer": {
+      "count": 1
+    }
+  },
+  "app/parts/shared/own-image.js": {
     "tw/no-timer": {
       "count": 1
     }

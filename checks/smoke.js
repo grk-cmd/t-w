@@ -333,6 +333,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* mac-tooltip.js — 💬 맥 설명 말풍선. 싣기만 하면 맥에서 스스로 건다(smoke 무대는 맥이 아니라 안 건다). */
 PRELOAD.push('mac-tooltip.js');
 PRELOAD.push('safe-html.js');
+/* server-features.js — 서버가 아직 안 받는 0.14 기능 표(window.TwServerFeatures). app.js · 모듈이 입구를 닫을 때 읽는다. */
+PRELOAD.push('server-features.js');
 /* person-name.js — 🏷️ 사람 이름을 화면 글로(window.TwPersonName). 이름을 그리는 모듈 · app.js 가 부를 때 읽는다. */
 PRELOAD.push('person-name.js');
 /* account-store.js — 🗂️ 계정별 로컬 칸(window.TwAccountStore). app.js 가 getMyUserId 바로 뒤에서 만들므로 그보다 먼저. */
@@ -347,7 +349,7 @@ PRELOAD.push('idle-gate.js');
 PRELOAD.push('skeleton-share.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
-PRELOAD.push('image-bytes.js', 'request-id.js');   // 🖼 data: 그림 → 바이트 판정 · 🔁 요청 번호 — schedule-api.js 가 app.js 에서 넘겨 받는다
+PRELOAD.push('image-bytes.js', 'own-image.js', 'request-id.js');   // 🖼 data: 그림 → 바이트 판정 · 🔁 요청 번호 — schedule-api.js 가 app.js 에서 넘겨 받는다
 PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 서버 경로 provider — app.js 가 로그인 통로를 넘겨 만든다
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
@@ -366,8 +368,10 @@ PRELOAD.push('scheduler.js');
 /* chal-store.js · weekly-challenge.js — 👑 달성표 상태(서버 한 주 한 벌) · 화면(앱 FSD 2번). 같은 까닭 — 화면이 만들 때 하는 일(버튼 연결)을 같이 굴린다. 저장소가 먼저. */
 PRELOAD.push('chal-store.js');
 PRELOAD.push('weekly-challenge.js');
-/* pk-bgm.js — 🎵 스티커사진 창 BGM. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
-PRELOAD.push('pk-bgm.js');
+/* bgm-hush.js — 🔇 듣던 유튜브 BGM 재우기 · 되살리기. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
+PRELOAD.push('bgm-hush.js');
+/* win-bgm.js — 🎵 창 배경음악(스티커사진 · 크리스마스). purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
+PRELOAD.push('win-bgm.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
 PRELOAD.push('purikura-rt.js');   // 📷 스티커사진 세션 포트 — app.js _purikura() 가 처음 부를 때 만든다
 PRELOAD.push('purikura-ui.js');
@@ -387,13 +391,15 @@ PRELOAD.push('pomodoro.js');
 /* myhome-sticker-rules.js — 🔒 스티커 잠금 · 순서 규칙(순수 함수). 관리 창 · 편집 묶음이 만들 때 TwMyHomeStickerRules 를 받으므로 먼저. */
 PRELOAD.push('myhome-sticker-rules.js');
 PRELOAD.push('myhome-sticker.js');
-/* gacha.js — 🎰 파츠 가챠 코어 · 파츠 보관함(T) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(보유분 · 보너스 읽기 · 부팅 동기화 4.2초 · 10분 tick · 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
+/* gacha.js — 🎰 파츠 가챠 코어 · 도감(꾸미기 창 «도감» 탭) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(뽑기 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
 PRELOAD.push('gacha-api.js');   // 🎰 가챠 서버 경로 — app.js 가 만들 때 TwGachaApi 를 부른다
+PRELOAD.push('gacha-album.js');    // 📚 도감 규칙(순수) — gacha.js 가 만들 때 TwGachaAlbum 을 읽는다
 PRELOAD.push('gacha.js');
 /* myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋(앱 FSD 7-2). 같은 까닭 — 만들 때 하는 일(버튼 · 입력칸 연결 · window 고리 · BGM 창 구독)을 같이 굴린다. */
 PRELOAD.push('myhome-edit.js');
 /* room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기 팝업(앱 FSD 10번). 같은 까닭 — 만들 때 하는 일(친구 고르기 창 버튼 · 끌기 · resize 연결 · 초대 수신 구독 또는 firebase-ready 기다림)을 같이 굴린다. */
 PRELOAD.push('room-invite-ui.js');
+PRELOAD.push('invite-notice.js');   // 🙋 마지막 방 초대 한 줄 — app.js 가 마이홈 스케줄러보다 먼저 만든다
 /* focus-log.js — 🕒 포커스 기록 팝업(앱 FSD 13번). 같은 까닭 — 만들 때 하는 일(버튼 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 타이틀바 끌기 연결)을 같이 굴린다. */
 PRELOAD.push('focus-log.js');
 /* chat-window.js — 💬 대화창 배선(앱 FSD 14번). 같은 까닭 — 만들 때 하는 일(버튼 · 메뉴 · 끌기 · 크기 손잡이 · ESC · 입력 · 이모티콘 그리드 연결 · 저장값 반영 · 복사 · 탭 묶기)을 같이 굴린다. */
@@ -409,6 +415,8 @@ PRELOAD.push('run-cost-diag.js');
 /* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
+/* mallang-sent.js — 🎁 보낸 말랑이 기록 규칙(순수) — myhome-inbox.js · mallang.js 가 부를 때 읽는다 */
+PRELOAD.push('mallang-sent.js');
 /* gift-save.js — 💾 선물 그림 저장. app.js 가 수령함 모듈을 만들 때 TwGiftSave.createGiftSave 를 부르므로 진짜가 먼저 있게. */
 PRELOAD.push('gift-save.js');
 PRELOAD.push('myhome-inbox.js');
@@ -422,9 +430,13 @@ PRELOAD.push('help-site.js');
 PRELOAD.push('help-tab.js');
 /* bgm-diag.js — 🔍 플레이리스트 소리 진단 줄. app.js 가 TwBgmDiag.createBgmDiag 로 만든다. */
 PRELOAD.push('playlist-api.js');   // 🌐 플레이리스트 서버 경로 provider — app.js 가 로그인 통로(TwApi.authed)를 넘겨 만든다
+PRELOAD.push('xmas-rules.js');   // 🎄 크리스마스 규칙(날짜 한 벌 scheduleOf) — xmas-api 가 받는다
+PRELOAD.push('xmas-api.js');     // 🎄 크리스마스 서버 endpoint provider — app.js 가 로그인 통로(TwApi.authed)를 넘겨 만든다
 PRELOAD.push('bgm-diag.js');   // 🔍 소리 진단 줄 — app.js 가 만들 때 TwBgmDiag 를 부른다
 /* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
    300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
+PRELOAD.push('playlist-like.js');      // 👍 반응 규칙 · provider — app.js 가 TwPlaylistLike 를 값으로 넘긴다(스텁이면 화면 모양이 안 돈다)
+PRELOAD.push('playlist-like-ui.js');   // 👍 반응 서랍 — app.js 가 플레이리스트보다 먼저 만든다(순서가 틀리면 TDZ 로 선다)
 PRELOAD.push('playlist.js');
 /* admin/admin-api.js — 🛠️ 앱 관리자 창의 서버 경로 provider. app.js 가 만들 때 TwAdminApi 를 부른다. */
 PRELOAD.push('admin-api.js');
@@ -468,9 +480,18 @@ PRELOAD.push('part-paint.js');
 /* focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿(앱 FSD 26번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusLevel 를 같이 굴린다. */
 PRELOAD.push('focus-level.js');
 /* chat-ui.js — 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘(앱 FSD 24번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatUi 를 같이 굴린다. */
+/* chat-notice.js — 📢 시크릿룸 공지. app.js 가 채팅 모듈보다 먼저 TwChatNotice.createChatNotice 로 만들므로 진짜가 먼저 있게. */
+PRELOAD.push('chat-notice-net.js');   // 📢 공지 서버 읽기 · 쓰기(firebase-init.js 가 TwChatNoticeNet 으로 연결)
+PRELOAD.push('chat-notice.js');
+PRELOAD.push('room-focus-days.js');   // 📅 집중 기록 날 키 규칙(집중 탭 · 올리기가 같이 씀)
+PRELOAD.push('room-focus-net.js');   // 📊 집중 기록 서버 읽기 · 쓰기(firebase-init.js 가 TwRoomFocusNet 으로 연결)
+PRELOAD.push('room-focus-sync.js');   // 📊 내 집중 시간 올리기
+PRELOAD.push('chat-focus.js');   // 📊 시크릿룸 #집중 탭
 PRELOAD.push('chat-ui.js');
 /* nav.js — 🧭 창 열기 통로(모듈 순환 끊기 6). 같은 까닭 — 창 모듈이 만들 때 여는 함수를 걸고 부르는 쪽이 이름으로 부탁한다(빈 껍데기면 부탁이 아무 일도 안 한다). */
 PRELOAD.push('nav.js');
+/* device-toggle.js — 이 PC 의 켜고 끄는 화면 설정 하나. app.js 가 설정 창을 만들기 전에 createDeviceToggle 을 부른다. */
+PRELOAD.push('device-toggle.js');
 /* demoji-catalog.js — 😊 기본 이모티콘 목록(맨 아래 고정 표). chat-ui 를 만드는 줄이 TwDemojiCatalog 를 넘기므로 먼저 싣는다. */
 PRELOAD.push('demoji-catalog.js');
 /* account-state.js — 🪪 계정 핵심 상태(모듈 순환 끊기 5). 같은 까닭 — 초대 게이트 · 계정 · 내 정보 · 포커스 레벨이 만들 때 이 모듈의 알림 자리(onPremiumChanged)를 받는다. */
@@ -482,11 +503,14 @@ PRELOAD.push('login-diag.js');   // 🩺 켤 때 로그인 진단(window.TwLogin
 PRELOAD.push('auth-barrier.js');   // 🚧 로그인 복원 대기선(window.TwAuthBarrier) — firebase-init.js 가 만든다(html 에서 그보다 먼저)
 /* license-api.js · license-premium.js — 🔑 프리미엄 판정. app.js 가 계정 핵심 상태 · 초대 게이트 뒤에서 createLicensePremium 을 부르므로 그보다 먼저. */
 PRELOAD.push('license-api.js', 'license-premium.js', 'license-screen.js');
+/* google-confirm.js — 🔑 구글을 계정에 처음 붙이기 전에 묻기. app.js 가 초대 게이트 · 계정을 만들기 전에 createGoogleConfirm 으로 만든다. */
+PRELOAD.push('google-confirm.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
 PRELOAD.push('license-gate.js');
 /* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */
 PRELOAD.push('account.js');
 /* wardrobe.js — 🎨 꾸미기 창(앱 FSD 29번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobe 를 같이 굴린다. */
+PRELOAD.push('wardrobe-place.js');   // 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 가 TwWardrobePlace 를 읽는다
 PRELOAD.push('wardrobe.js');
 /* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
 /* panel-fit.js — 📐 아래 기준 창을 화면 안으로. settings-panel.js · status-chip.js 가 부른다. */
@@ -565,10 +589,16 @@ PRELOAD.push('ad-banner.js');
 PRELOAD.push('user-local.js');
 /* app-boot.js — 🚀 켜는 순서 한 곳. app.js 가 만드는 createAppBoot 를 같이 굴린다(차례 표와 starts 이름이 어긋나면 던진다). */
 PRELOAD.push('app-boot.js');
+/* open-on-show.js — 🪟 창이 보이면 그 창의 기능 시작 부탁(app.js 가 app-boot 뒤에 만든다). */
+PRELOAD.push('open-on-show.js');
 /* fn-keys.js — 함수키 단축키(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFnKeys 를 같이 굴린다. */
 PRELOAD.push('fn-keys.js');
 /* hidden-seats.js — 워킹룸 숨기기(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createHiddenSeats 를 같이 굴린다. */
 PRELOAD.push('hidden-seats.js');
+/* font-choice.js · font-ui.js — 🔤 창 글꼴 규칙(순수) · 칸(app.js 가 테마 뒤에서 만든다) */
+PRELOAD.push('font-choice.js', 'font-ui.js');
+/* theme-custom.js — 👑 내 색 규칙(순수) — theme-ui · theme 가 만들 때 읽는다 */
+PRELOAD.push('theme-custom.js');
 /* theme-ui.js — 테마(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createThemeUi 를 같이 굴린다. */
 PRELOAD.push('theme-ui.js');
 /* myhome-sticker-layout.js — 마이홈 스티커 배치(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeStickerLayout 를 같이 굴린다. */
@@ -666,6 +696,8 @@ PRELOAD.push('admin-thumbs.js');
 PRELOAD.push('mat-tone.js');
 /* seat-friend-req.js — 🙋 좌석 우클릭 친구 신청(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatFriendReq 를 같이 굴린다. */
 PRELOAD.push('seat-friend-req.js');
+/* friend-req-btn.js — 🙋 남의 마이홈 [친구 신청](app.js 가 친구 홈 구경보다 먼저 만든다) */
+PRELOAD.push('friend-req-btn.js');
 /* glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createGlbIdbCache 를 같이 굴린다. */
 PRELOAD.push('glb-idb-cache.js');
 /* catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCatalogGlb 를 같이 굴린다. */

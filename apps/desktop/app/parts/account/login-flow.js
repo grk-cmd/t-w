@@ -12,7 +12,8 @@
    [복원 기다림] 8초 대기선(auth.ready — 쓰기용)이 풀린 뒤에도 저장된 로그인의 첫 답이 없으면 «로그인 없음» 으로 보지 않고 더 기다린다 —
      렌더러가 바쁜 PC 는 복원이 8초를 넘겨 켤 때마다 로그인 화면으로 떨어졌다. Firebase 가 «사용자 없음» 으로 답하면(저장된 로그인을 지움) 그때는 login.
    [가입] 비밀번호: POST /v2/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
-     (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v2/users { inviteCode }.
+     (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 처음 보는 구글인지 묻고(deps.askGoogle —
+     구글을 여러 개 쓰는 사람이 다른 구글로 빈 계정을 만들지 않게) → POST /v2/users { inviteCode }.
    [realtime] goOnline() — 서버가 계정을 돌려주고 이 PC 를 등록한 뒤(launcher/app-boot.js) 켠다. 예외: 서버에 닿지 못한 화면 동안은 waitForServer 가 켜 두고 ready 를 다시 묻는 계기로 쓴다(계정이 정해지면 같은 연결을 그대로). 끊기면(4004) onSessionLost(까닭)로 기기 안내 화면을 띄운다.
    classic script — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 싣는다(window.TwLoginFlow). Firebase 를 모른다 — Auth 원시는 deps.auth. */
 (function(){
@@ -43,7 +44,8 @@ function joinKey(inviteCode, password){
  *   auth: { ready: () => Promise<void>, user: () => ({ uid: string, anonymous: boolean } | null),
  *           restoring: () => boolean,   // 켤 때 저장된 로그인이 있었고 아직 Firebase 첫 답이 없다(auth-barrier.js)
  *           answered: (maxMs?: number) => Promise<boolean>,   // 첫 답이 오면 true · maxMs 안에 안 오면 false · maxMs 를 빼면 상한 없음
- *           signInGoogle: (idToken: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
+ *           signInGoogle: (idToken: string) => Promise<{ ok: boolean, uid?: string, fresh?: boolean, email?: string, reason?: string }>,   // fresh = 이 로그인으로 Auth 사용자가 새로 생김
+ *           deleteNewLogin: (uid: string) => Promise<{ ok: boolean }>,   // 지금 로그인이 그 uid 일 때만 Auth 사용자를 지운다(지우면 로그인도 풀린다)
  *           signInPassword: (code: string, pw: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
  *           signOut: () => Promise<void>, identity: () => ({ email: string | null, uid: string | null }) },
  *   googleWindow: () => Promise<{ ok: boolean, idToken?: string, canceled?: boolean, reason?: string }>,
@@ -51,7 +53,7 @@ function joinKey(inviteCode, password){
  *   leaveRoom: () => Promise<void>,   // 방 안이면 나가기(leave → left 기다림) · 방 밖이면 바로 풀린다
  *   pending: { idFor: (k: string) => string, settle: (k: string) => void },
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
- *   onSessionLost: (kind: 'sessionLost' | 'deviceRemoved') => void,
+ *   onSessionLost: (kind: 'sessionLost' | 'deviceRemoved' | 'otherDevice') => void,
  *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
  *   now: () => number,
  *   onConfirmed: (r: { state: string }, info: { hadUser: boolean, anonymous: boolean, err: any, restore: null | { ok: boolean, ms: number } }) => void,   // 확인 결과 진단(TwLoginDiag.store.confirmed) — 결과를 바꾸지 않는다
@@ -119,7 +121,7 @@ function createLoginFlow(deps){
     return { state: STATE.IN, me };
   }
 
-  /* realtime 상태 신호 — 끊김(4004 — 이 PC 가 지워짐 · 이 PC 의 새 세션)은 기기 안내 화면(어느 쪽인지 실어서) · ready(서버가 다시 답함)는 기다리는 화면이 있을 때 계정을 한 번 다시 묻는 계기 */
+  /* realtime 상태 신호 — 끊김(4004 — 이 PC 가 지워짐 · 다른 PC 가 씀 · 이 PC 의 새 세션)은 기기 안내 화면(어느 쪽인지 실어서) · ready(서버가 다시 답함)는 기다리는 화면이 있을 때 계정을 한 번 다시 묻는 계기 */
   function hookState(){
     if(stateHooked) return;
     stateHooked = true;
@@ -175,8 +177,19 @@ function createLoginFlow(deps){
     const a = await auth.signInGoogle(g.idToken);
     if(!a || !a.ok) return { ok: false, reason: (a && a.reason) || '구글 계정 확인에 실패했어요' };
     const c = await confirm();
-    if(c.state === STATE.SIGNUP && !keepOnSignup){ try{ await auth.signOut(); }catch(_){} }
-    return { ok: c.state === STATE.IN, state: c.state, me: c.me, email: a.email || null, reason: c.reason || '' };
+    if(c.state === STATE.SIGNUP && !keepOnSignup) await dropGoogleLogin(a, true);
+    return { ok: c.state === STATE.IN, state: c.state, me: c.me, email: a.email || null, reason: c.reason || '', login: a };
+  }
+  /* 계정 없는 구글 로그인을 놓는다. 이 로그인으로 Auth 사용자가 새로 생겼으면(fresh) 지운다 — 남기면 그 구글이 Auth 에 묶인 채라
+     나중에 친구 코드 계정에 «구글 연결» 이 credential-already-in-use 로 막힌다. 원래 있던 Auth 사용자는 지우지 않는다(0.12 계정 등 서버가 아직 모르는 주인일 수 있다).
+     canDelete — 서버가 «계정 없음 · 가입 거절» 을 확실히 답했을 때만 true. 답을 못 받았거나 이미 가입됐다면 서버 계정이 그 uid 로 있을 수 있어 지우면 다시 못 들어간다. */
+  async function dropGoogleLogin(a, canDelete){
+    if(canDelete && a && a.fresh && a.uid){
+      let r = null;
+      try{ r = await auth.deleteNewLogin(a.uid); }catch(_){ r = null; }
+      if(r && r.ok) return;
+    }
+    try{ await auth.signOut(); }catch(_){}
   }
   /* 친구코드 + 비밀번호 로그인 → confirm. 계정이 없으면(탈퇴 등) 로그인을 놓는다 — «로그인은 됐는데 계정은 없는» 상태를 남기지 않는다. */
   async function loginPassword(code, password){
@@ -204,20 +217,24 @@ function createLoginFlow(deps){
     deps.pending.settle(key);
     return { ok: true, me: c.me };
   }
-  /* 구글 가입 — 구글 로그인 → 이미 계정이면 그 계정(existing) · 없으면 POST /v2/users { inviteCode }. */
+  /* 구글 가입 — 구글 로그인 → 이미 계정이면 그 계정(existing) · 없으면 묻고 → POST /v2/users { inviteCode }.
+     묻기에서 [다른 계정으로 로그인] · 닫기면 가입하지 않고 로그인을 놓는다(canceled — 화면은 조용히 끝). */
   async function joinGoogle(o){
     const l = await googleSignInConfirm(true);
     if(l.ok) return { ok: true, existing: true, me: l.me };
     if(l.state !== STATE.SIGNUP) return l;
-    const dropLogin = async () => { try{ await auth.signOut(); }catch(_){} };   // 가입이 안 됐으면 계정 없는 로그인을 남기지 않는다
+    const dropLogin = (canDelete) => dropGoogleLogin(l.login, canDelete);   // 가입이 안 됐으면 계정 없는 로그인을 남기지 않는다
+    let answer = 'cancel';
+    try{ answer = await deps.askGoogle(l.email); }catch(_){}
+    if(answer !== 'yes'){ await dropLogin(true); return { ok: false, canceled: true, other: answer === 'other', reason: '' }; }   // 서버가 «계정 없음» 이라 답했고 가입을 보내지 않았다 — 방금 생긴 로그인이면 지운다
     let me = null;
     try{ me = await userApi.joinWithGoogle({ inviteCode: (o && o.inviteCode) || null }); }
     catch(e){
       if(e && e.code === 'USER_ALREADY_JOINED'){ const c = await confirm(); if(c.state === STATE.IN) return { ok: true, existing: true, me: c.me }; }
-      await dropLogin();
+      await dropLogin(!!e && e.kind === 'request' && e.status !== 408 && e.code !== 'USER_ALREADY_JOINED');   // 서버가 확실히 거절했을 때만 지운다 — 구글 가입은 요청 번호가 없어 시간 초과(408 포함)여도 계정이 생겼을 수 있다
       return { ok: false, reason: deps.reasonOf(e), code: (e && e.code) || '' };
     }
-    if(!me){ await dropLogin(); return { ok: false, reason: '서버 답의 모양이 달라요' }; }
+    if(!me){ await dropLogin(false); return { ok: false, reason: '서버 답의 모양이 달라요' }; }
     writeCache(me);
     return { ok: true, me };
   }

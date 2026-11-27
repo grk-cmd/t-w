@@ -1,0 +1,336 @@
+/* ═══ 🔑 sim-google-confirm.js — 구글을 계정에 처음 붙이기 전에 묻는 창(parts/account/google-confirm.js) ═══════════════
+   ・1절: maskEmail — 앞 두 글자(짧으면 한 글자)만 · 빈 값 · @ 없음
+   ・2절: tokenEmail — ID 토큰 가운데 칸의 email(한글 포함) · 모양이 틀리면 null
+   ・3절: ask — 가린 주소 · 친구 코드(넘긴 것 > 이 PC 것 > —) · 세 버튼 · ESC · 기본 포커스 [다른 계정으로 로그인] · 겹쳐 열면 앞의 것은 취소 · 창이 없으면 취소
+   ・4절: pickForLink — [다른 구글 고르기]면 구글 창을 다시 연다 · 닫으면 취소 · 창이 실패하면 그 이유
+   ・5절: 연결 — html(창 · z 층 · 스크립트 차례) · smoke PRELOAD · app.js 가 만들어 초대 게이트 · 계정에 넘긴다 · 묻는 세 길(로그인 · 구글 가입 · 연결하기 둘)
+   ・6절: mutation test
+   (로그인 · 가입이 «묻고 · 아니면 묶지 않는» 것은 sim-google-login §3-3 이 돌려 본다)
+   [실행] node checks/run.js sim-google-confirm */
+'use strict';
+const fs = require('fs');
+let pass = 0, fail = 0;
+const say = (s) => console.log(s);
+const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
+const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
+const MOD = ['google-confirm.js', 'parts/account/google-confirm.js', 'app/parts/account/google-confirm.js'].map(read).find(Boolean);
+const SRC = read('app.js'), HTML = read('desk-companion-prototype.html'), SMOKE = read('smoke.js');
+if(!MOD || !SRC || !HTML){ say('  ? 원본 못 찾음 — google-confirm.js · app.js · desk-companion-prototype.html'); process.exit(2); }
+const MOD_ACC = ['account.js', 'parts/account/account.js', 'app/parts/account/account.js'].map(read).find(Boolean) || '';
+const MOD_LG = ['license-gate.js', 'parts/account/license-gate.js', 'app/parts/account/license-gate.js'].map(read).find(Boolean) || '';
+
+function load(src){
+  const m = { exports: {} };
+  new Function('window', 'module', 'atob', src)(undefined, m, (s) => Buffer.from(s, 'base64').toString('binary'));
+  return m.exports;
+}
+/* 버튼 · 칸만 있는 작은 가짜 DOM — 창이 무엇을 보이고 무엇을 돌려주는지만 본다 */
+function fakeDom(withOverlay){
+  const els = {};
+  const mk = () => ({ style: { display: 'none' }, textContent: '', onclick: null, focused: 0, focus(){ this.focused++; } });
+  if(withOverlay !== false) ['gConfirmOverlay', 'gcTitle', 'gcMail', 'gcLead', 'gcCode', 'gcCard', 'gcWarn', 'gcFresh', 'gcOther', 'gcYes', 'gcClose'].forEach(i => { els[i] = mk(); });
+  const keys = [];
+  const doc = { getElementById: (i) => els[i] || null,
+    addEventListener: (t, f) => { if(t === 'keydown') keys.push(f); },
+    removeEventListener: (t, f) => { const k = keys.indexOf(f); if(k >= 0) keys.splice(k, 1); } };
+  return { els, doc, keys, press: (key) => keys.slice().forEach(f => f({ key, stopPropagation(){} })) };
+}
+const tick = () => new Promise(r => setImmediate(r));
+/* 끝나지 않는 약속(mutation test에서 ESC 를 안 들으면 등)은 '시간초과' 로 — 안 그러면 할 일이 없어진 node 가 조용히 0 으로 끝난다 */
+const within = (p) => Promise.race([p, new Promise(r => setTimeout(() => r('시간초과'), 300))]);
+const jwt = (o) => 'h.' + Buffer.from(JSON.stringify(o), 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') + '.s';
+
+async function judgeAll(src){
+  const r = [];
+  const t = (ok, m) => r.push([!!ok, m]);
+  let G;
+  try{ G = load(src); }catch(e){ t(false, '불러오다 던짐 — ' + String(e.message || e).slice(0, 80)); return r; }
+  /* 1 */
+  const M = G.maskEmail;
+  t(M('minty.draw@gmail.com') === 'mi***@gmail.com' && M('  Ab@x.com ') === 'A***@x.com' && M('a@x.com') === 'a***@x.com', '1 ★ 앞 두 글자만(두 글자 이하면 한 글자) · 도메인은 그대로');
+  t(M('') === '' && M(null) === '' && M('noat') === '***' && M('@x.com') === '***', '1   빈 값은 빈 값 · @ 가 없거나 앞이 비면 전부 가림');
+  /* 2 */
+  const E = G.tokenEmail;
+  t(E(jwt({ email: 'me@gmail.com', sub: '1' })) === 'me@gmail.com' && E(jwt({ email: '한글@x.com' })) === '한글@x.com', '2 ★ ID 토큰 가운데 칸의 email(한글도)');
+  t(E('') === null && E('a.b.c') === null && E(jwt({ sub: '1' })) === null && E(null) === null, '2   모양이 틀리거나 email 이 없으면 null');
+  /* 3 */
+  const D = fakeDom();
+  globalThis.document = D.doc;
+  let pc = 'MATE-JNY9';
+  const mod = G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? pc : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => ({ ok: false }) });
+  let p = mod.ask('minty.work@gmail.com', 'bind');
+  await new Promise(r => setTimeout(r, 5));   // 포커스는 setTimeout 0 뒤에 간다
+  const e = D.els;
+  t(e.gConfirmOverlay.style.display === 'flex' && e.gcMail.textContent === 'mi***@gmail.com' && e.gcCode.textContent === 'MATE-JNY9', '3 ★ 뜬다 · 주소는 가려서 · 이 PC 친구 코드');
+  t(/처음 보는 구글/.test(e.gcTitle.textContent) && /예전에 다른 구글 계정/.test(e.gcWarn.textContent) && /처음 시작하는 거라면 \[이 계정에 연결\]/.test(e.gcFresh.textContent) && e.gcOther.textContent === '다른 계정으로 로그인',
+    '3   로그인 문구 — 제목 · 경고(예전 다른 구글) · 처음 시작 한 줄 · [다른 계정으로 로그인]');
+  t(e.gcOther.focused === 1 && e.gcYes.focused === 0, '3 ★ 기본 포커스는 [다른 계정으로 로그인]');
+  e.gcOther.onclick();
+  t(await within(p) === 'other' && e.gConfirmOverlay.style.display === 'none' && D.keys.length === 0, '3 ★ [다른 계정으로 로그인] → other · 창 닫힘 · ESC 듣기 해제');
+  p = mod.ask('x@y.z', 'bind'); await tick(); e.gcYes.onclick();
+  t(await within(p) === 'yes', '3 ★ [이 계정에 연결] → yes');
+  p = mod.ask('x@y.z', 'bind'); await tick(); e.gcClose.onclick();
+  t(await within(p) === 'cancel', '3   ✕ → cancel');
+  p = mod.ask('x@y.z', 'bind'); await tick(); D.press('Escape');
+  t(await within(p) === 'cancel' && D.keys.length === 0, '3   ESC → cancel');
+  p = mod.ask('x@y.z', 'signup', 'MATE-NEW1'); await tick();
+  t(e.gcCode.textContent === 'MATE-NEW1', '3   넘긴 코드(가입 중 새 아이디)가 이 PC 코드보다 먼저');
+  t(e.gcTitle.textContent === '이 구글 계정으로 가입할까요?' && /예전에 다른 구글 계정/.test(e.gcWarn.textContent) && /처음 시작하는 거라면/.test(e.gcFresh.textContent) && e.gcOther.textContent === '다른 계정으로 로그인',
+    '3 ★ 구글로 가입 — 제목만 «이 구글 계정으로 가입할까요?» · 나머지는 로그인 문구 그대로(A안)');
+  const p2 = mod.ask('x@y.z', 'link'); await tick();
+  t(await within(p) === 'cancel', '3   겹쳐 열면 앞의 것은 cancel 로 끝난다');
+  t(/연결할까요/.test(e.gcTitle.textContent) && e.gcOther.textContent === '다른 구글 고르기' && e.gcFresh.style.display === 'none', '3   연결 문구 — 제목 · [다른 구글 고르기] · 처음 시작 줄 없음');
+  e.gcYes.onclick(); await within(p2);
+  pc = null;
+  p = mod.ask('', 'bind'); await tick();
+  t(e.gcCode.textContent === '—' && e.gcMail.textContent === '(주소 모름)', '3   코드 · 주소가 없으면 — · (주소 모름)');
+  e.gcClose.onclick(); await within(p);
+  const D0 = fakeDom(false); globalThis.document = D0.doc;
+  t(await within(G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? null : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => ({}) }).ask('a@b.c', 'bind')) === 'cancel', '3   창이 없으면 cancel(묶지 않는다)');
+  /* 4 */
+  globalThis.document = D.doc;
+  const runPick = async (results, answers) => {
+    let opened = 0;
+    const m = G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? 'MATE-N2PV' : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => { const g = results[Math.min(opened, results.length - 1)]; opened++; return g; } });
+    const pr = m.pickForLink();
+    for(const a of answers){ await tick(); if(a === 'yes') e.gcYes.onclick(); else if(a === 'other') e.gcOther.onclick(); else e.gcClose.onclick(); }
+    const res = await within(pr);
+    return { res: res === '시간초과' ? { ok:false, reason:'시간초과' } : res, opened };
+  };
+  let x = await runPick([{ ok: true, idToken: jwt({ email: 'mo@x.com' }) }, { ok: true, idToken: 'T2' }], ['other', 'yes']);
+  t(x.opened === 2 && x.res.ok && x.res.idToken === 'T2', '4 ★ [다른 구글 고르기] → 구글 창을 한 번 더 · 두 번째 것을 붙인다');
+  x = await runPick([{ ok: true, idToken: 'T1' }], ['cancel']);
+  t(x.opened === 1 && !x.res.ok && x.res.canceled, '4 ★ 묻는 창을 닫으면 취소(붙이지 않음)');
+  x = await runPick([{ ok: false, reason: '구글이 막았어요' }], []);
+  t(!x.res.ok && !x.res.canceled && x.res.reason === '구글이 막았어요', '4   구글 창이 실패하면 그 이유');
+  x = await runPick([{ ok: false }], []);
+  t(!x.res.ok && x.res.canceled, '4   구글 창을 그냥 닫으면 취소');
+  /* 5 🔁 구글 바꾸기 — 지금 구글 확인 · 새 구글 고르기 */
+  const mkPick = (results) => { let n = 0; return { n: () => n, m: G.createGoogleConfirm({ storage: { getItem: (k) => (k === 'tw.myFriendCode' ? 'MATE-N2PV' : null) }, friendCodeKey: 'tw.myFriendCode', signInWithGoogle: async () => { const g = results[Math.min(n, results.length - 1)]; n++; return g; } }) }; };
+  let P = mkPick([{ ok: true, idToken: jwt({ email: 'Minty@Gmail.com' }) }]);
+  let q = await within(P.m.pickCurrent('minty@gmail.com'));
+  t(q.ok && q.idToken && P.n() === 1, '5 ★ 지금 구글 확인 — 같은 주소(대소문자 무시)면 통과');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'other@gmail.com' }) }]);
+  q = await within(P.m.pickCurrent('minty@gmail.com'));
+  t(!q.ok && !q.canceled && q.reason === '지금 연결된 구글(mi***@gmail.com)을 골라 주세요', '5 ★ 다른 구글을 고르면 — 바꾸지 않고 «지금 연결된 구글(가린 주소)을 골라 주세요»');
+  P = mkPick([{ ok: false }]); q = await within(P.m.pickCurrent('minty@gmail.com'));
+  t(!q.ok && q.canceled, '5   구글 창을 닫으면 취소');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'minty@gmail.com' }) }]);
+  q = await within(P.m.pickForChange('minty@gmail.com'));
+  t(!q.ok && q.same && /이미 연결된 구글/.test(q.reason) && e.gConfirmOverlay.style.display === 'none', '5   새로 고른 게 지금 구글과 같으면 — 묻지 않고 «이미 연결된 구글 계정이에요»');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }, { ok: true, idToken: jwt({ email: 'mo2@x.com' }) }]);
+  let pr = P.m.pickForChange('minty@gmail.com');
+  await tick();
+  t(e.gcTitle.textContent === '구글 계정을 바꿀까요?' && e.gcMail.textContent === 'mo***@x.com' && /지금 구글 mi\*\*\*@gmail\.com 대신/.test(e.gcCard.textContent) && /지금 구글\(mi\*\*\*@gmail\.com\)로는 더 이상/.test(e.gcWarn.textContent) && e.gcYes.textContent === '바꾸기' && e.gcOther.textContent === '취소' && e.gcFresh.style.display === 'none',
+    '5 ★ 묻는 창(시안) — «구글 계정을 바꿀까요?» · 새 주소 · 지금 주소(가림) · [취소] / [바꾸기]');
+  e.gcYes.onclick();
+  q = await within(pr);
+  t(q.ok && q.email === 'mo1@x.com' && P.n() === 1, '5 ★ [바꾸기] → 고른 새 구글 토큰 · 주소');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }]);
+  pr = P.m.pickForChange('minty@gmail.com'); await tick(); e.gcOther.onclick();
+  q = await within(pr);
+  t(!q.ok && q.canceled && P.n() === 1, '5 ★ [취소] → 바꾸지 않음 · 구글 창을 다시 안 연다');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }]);
+  pr = P.m.pickForChange('minty@gmail.com'); await tick(); e.gcClose.onclick();
+  q = await within(pr);
+  t(!q.ok && q.canceled, '5   묻는 창을 닫으면 취소(바꾸지 않음)');
+  p = mod.ask('x@y.z', 'bind'); await tick();
+  t(e.gcYes.textContent === '이 계정에 연결', '5   바꾸기 창 뒤에 로그인 창을 열면 버튼 글은 다시 [이 계정에 연결]');
+  e.gcClose.onclick(); await within(p);
+  delete globalThis.document;
+  return r;
+}
+
+let finished = false;
+process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌았다'); process.exitCode = 1; } });
+(async () => {
+  say('── 1~4. 순수 함수 · 묻는 창 · 다른 구글 고르기');
+  (await judgeAll(MOD)).forEach(([ok, m]) => chk(ok, m));
+
+  say('── 5. 연결');
+  const noCm = (s) => String(s || '').replace(/<!--[\s\S]*?-->/g, '');
+  const H = noCm(HTML);
+  const ov = H.slice(H.indexOf('<div id="gConfirmOverlay"'), H.indexOf('<div id="charsLinkedOverlay"') > 0 ? H.indexOf('<div id="charsLinkedOverlay"') : undefined);
+  chk(['gcTitle', 'gcMail', 'gcLead', 'gcCode', 'gcCard', 'gcWarn', 'gcFresh', 'gcOther', 'gcYes', 'gcClose'].every(i => ov.includes('id="' + i + '"')), 'html — 창 #gConfirmOverlay 와 칸 열');
+  try{
+    const Z = require('./sim-z-layers.js'), T = Z.parseTable(HTML), m = /z-index:([^;]+);/.exec(ov), v = Z.resolveZ(HTML, m && m[1]);
+    chk(v != null && v > T['--z-gate-done'] && (T['--z-gate-signup'] == null || v > T['--z-gate-signup']) && v > T['--z-gate-invite'], 'html — 게이트 · 가입 완료보다 위(그 위에서 뜬다 · 0.13 은 가입 게이트가 없다)');
+  }catch(e){ chk(false, 'z 층 표를 못 읽음 — ' + String(e.message || e).slice(0, 60)); }
+  const iG = HTML.indexOf('<script src="parts/account/google-confirm.js">'), iL = HTML.indexOf('<script src="parts/account/license-gate.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
+  chk(iG > 0 && iG < iL && iG < iA, 'html — 초대 게이트 · app.js 보다 먼저 싣는다');
+  chk(!SMOKE || /PRELOAD\.push\('google-confirm\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 있다');
+  const DR = ['desktop-run.js', 'parts/launcher/desktop-run.js', 'app/parts/launcher/desktop-run.js'].map(read).find(Boolean) || '';
+  chk(/const UI_HIT_SEL = '[^']*#gConfirmOverlay[,']/.test(DR), '바탕화면 실행 화면에서 창을 누를 수 있다(클릭 통과 목록 UI_HIT_SEL)');
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const A = strip(SRC);
+  const iMk = A.indexOf('const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm(');
+  chk(iMk > 0 && iMk < A.indexOf('const licenseGateMod = TwLicenseGate.createLicenseGate(') && iMk < A.indexOf('const accountMod = TwAccount.createAccount('), 'app.js — 초대 게이트 · 계정보다 먼저 만든다');
+  chk(/const licenseGateMod = TwLicenseGate\.createLicenseGate\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC) && /const accountMod = TwAccount\.createAccount\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC), 'app.js — 초대 게이트 · 계정에 deps 로 넘긴다');
+  /* 구글 가입(login-flow.js joinGoogle — 서버가 «계정 없음» 이라 답한 뒤)은 deps.askGoogle 로 묻는다 — app.js 가 이 창의 'signup' 으로 잇는다.
+     묻기 · 답에 따른 가입 여부는 sim-login-flow.js 5절. 계정 · 게이트는 ask 를 직접 부르지 않는다(연결하기는 pickForLink 안에서). */
+  chk(/askGoogle: \(email\)=>googleConfirmMod\.ask\(email, 'signup'\),/.test(SRC), '★ 구글 가입 전 묻기 — app.js 가 login-flow 에 이 창의 signup 묻기를 넘긴다(#1101)');
+  chk(!/googleConfirmMod\.ask\(/.test(strip(MOD_ACC) + strip(MOD_LG)), '  계정 · 게이트는 ask 를 직접 부르지 않는다');
+  const linkSites = (MOD_ACC.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length + (MOD_LG.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length;
+  const rawSites = (strip(MOD_ACC).match(/companion\.signInWithGoogle\(\)/g) || []).length + (strip(MOD_LG).match(/companion\.signInWithGoogle\(\)/g) || []).length;
+  chk(linkSites === 2, '★ 구글 [연결하기](내 정보) · [구글도 연결하기](가입 완료) 둘 다 묻는 창을 거친다');
+  chk(/const r = await _acctLinkGoogle\(\);/.test(strip(MOD_ACC)), '  내 정보 [연결하기] 단추가 _acctLinkGoogle 을 부른다');
+  chk(rawSites === 1, '  계정 · 게이트가 구글 창을 직접 여는 곳은 비밀번호 만들기 재확인 하나뿐(로그인 · 가입은 login-flow.js · 연결하기는 pickForLink 안에서) — 지금 ' + rawSites);
+
+  const ACC = strip(MOD_ACC);
+  const fl = (ACC.match(/async function _acctChangeGoogle\([\s\S]*?\n\}/) || [''])[0];
+  const iC = fl.indexOf('googleConfirmMod.pickCurrent(from)'), iN = fl.indexOf('googleConfirmMod.pickForChange(from)'), iX = fl.indexOf('userApiMod.changeGoogle(cur.idToken, nw.idToken)');
+  chk(iC > 0 && iC < iN && iN < iX, '★ 🔁 구글 바꾸기 — 지금 구글 확인 → 새 구글 고르기 · 묻기 → 바꾸기 차례(account.js _acctChangeGoogle)');
+  chk(/if\(m\.mode !== 'c2'\)\{ sayG\('구글을 바꾸려면 먼저 비밀번호를 만들어 주세요'/.test(ACC), '  비밀번호가 없는 계정(C3)은 [바꾸기]에서 막는다(서버도 USER_NO_PASSWORD_LOGIN 으로 한 번 더 막는다)');
+  say('── 5-2. 🔁 구글 바꾸기 흐름(account.js _acctChangeGoogle)을 떼어 돌린다');
+  const judgeFlow = async (accSrc) => {
+    const r = [];
+    const t = (ok, m) => r.push([!!ok, m]);
+    const fsrc = (accSrc.match(/async function _acctChangeGoogle\([\s\S]*?\n\}/) || [''])[0];
+    if(!fsrc){ t(false, '_acctChangeGoogle 을 못 찾음'); return r; }
+    const G0 = load(MOD);
+    const run = async (o) => {
+      const calls = [];
+      const st = { 'tw.loginEmail': o.login };
+      const ls = { getItem: k => (k in st ? st[k] : null), setItem: (k, v) => { st[k] = String(v); } };
+      const gcm = { maskEmail: G0.maskEmail, sameEmail: (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase(),
+        pickCurrent: async () => (o.cur || { ok:true, idToken:'OLD' }), pickForChange: async () => (o.nw || { ok:true, idToken:'NEW', email:'new@x.com' }) };
+      const reloads = [];
+      /* 서버 PUT /v2/me/google(user-api changeGoogle) 흉내 — o.code 면 그 code 로 거절 · o.throws 면 닿지 못함 */
+      const uapi = { changeGoogle: async (a, b) => { calls.push(a + '>' + b); if(o.throws) throw Object.assign(new Error('x'), { kind:'unavailable' }); if(o.code) throw Object.assign(new Error('x'), { kind:'request', code:o.code }); return { userCode:'u1' }; },
+        reasonOf: (e) => (e && e.code) ? 'R:' + e.code : '서버에 닿지 못했어요' };
+      const fbapi = { authReload: async () => { reloads.push(1); return { ok:true }; } };
+      const sf = { on: (n) => n === 'googleChange' };
+      const f = new Function('window', 'TwServerFeatures', 'localStorage', 'googleConfirmMod', 'LOGIN_EMAIL_KEY', 'userApiMod', 'firebaseAPI', fsrc + '\nreturn _acctChangeGoogle;')({ TwServerFeatures: sf }, sf, ls, gcm, 'tw.loginEmail', uapi, fbapi);
+      const res = await f('old@x.com', () => {});
+      return { res, calls, login: st['tw.loginEmail'], reloads: reloads.length };
+    };
+    let X = await run({ login: 'Old@X.com' });
+    t(X.res.ok && X.calls.join() === 'OLD>NEW' && X.login === 'new@x.com' && X.reloads === 1, '5-2 ★ 구글로 로그인한 PC(대소문자 달라도) — 바꾸면 표시 이메일도 새 구글로 · 로그인 정보 새로 받기');
+    X = await run({ login: 'mate-ab12@tw.local' });
+    t(X.res.ok && X.login === 'mate-ab12@tw.local', '5-2 ★ 친구 코드로 로그인한 PC — 표시 이메일 그대로');
+    for(const [name, o, err] of [['이미 다른 계정 것', { code:'USER_GOOGLE_IN_USE' }, false], ['지금 구글이 아님', { code:'USER_GOOGLE_MISMATCH' }, false],
+      ['서버가 모르는 거절', { code:'USER_AUTH_UNAVAILABLE' }, true], ['닿지 못함', { throws: true }, true]]){
+      X = await run(Object.assign({ login: 'old@x.com' }, o));
+      t(!X.res.ok && X.login === 'old@x.com' && X.reloads === 0 && X.res.err === err && /\S/.test(X.res.reason || ''),
+        '5-2   ' + name + ' — 표시 이메일 그대로 · 서버 문구 · ' + (err ? '에러코드(err)' : '안내만'));
+    }
+    for(const [name, o] of [['지금 구글 확인 거절', { cur: { ok:false, reason:'지금 연결된 구글을 골라 주세요' } }], ['지금 구글 창 닫음', { cur: { ok:false, canceled:true } }], ['새 구글 [취소]', { nw: { ok:false, canceled:true } }], ['같은 구글', { nw: { ok:false, same:true, reason:'이미' } }]]){
+      X = await run(Object.assign({ login: 'old@x.com' }, o));
+      t(!X.res.ok && X.calls.length === 0 && X.login === 'old@x.com', '5-2   ' + name + ' — 바꾸기를 부르지 않는다');
+    }
+    return r;
+  };
+  (await judgeFlow(MOD_ACC)).forEach(([ok, m]) => chk(ok, m));
+  for(const [name, a, b] of [
+    ['표시 이메일 조건을 뺌', "  try{ if(googleConfirmMod.sameEmail(localStorage.getItem(LOGIN_EMAIL_KEY), from)) localStorage.setItem(", "  try{ if(true) localStorage.setItem("],
+    ['실패에도 표시 이메일을 씀', "  catch(e){ const code = (e && e.code) || ''; return {", "  catch(e){ const code = (e && e.code) || ''; localStorage.setItem(LOGIN_EMAIL_KEY, 'x'); return {"],
+    ['사람 조건도 에러코드', "err: USER_CODES.indexOf(code) < 0,", "err: true,"],
+    ['지금 구글 확인 거절에도 바꿈', "  if(!cur.ok) return cur;\n", ""],
+  ]){
+    const a2 = MOD_ACC.replace(a, b);
+    let rows; try{ rows = await judgeFlow(a2); }catch(_){ rows = [[false, '던짐']]; }
+    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+
+  say('── 5-3. 🔗 [연결하기](account.js _acctLinkGoogle)를 떼어 돌린다');
+  const takeFn = (src, head) => { const i = src.indexOf(head); if(i < 0) return ''; let k = src.indexOf('{', src.indexOf(')', i)), d = 0; for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
+  const judgeLink = async (accSrc) => {
+    const r = [];
+    const t = (ok, m) => r.push([!!ok, m]);
+    const fsrc = takeFn(accSrc, 'async function _acctLinkGoogle(') + '\n' + takeFn(accSrc, 'async function _withRecentLogin(');
+    if(!/_acctLinkGoogle/.test(fsrc) || !/_withRecentLogin/.test(fsrc)){ t(false, '_acctLinkGoogle · _withRecentLogin 을 못 찾음'); return r; }
+    const run = async (o) => {
+      const calls = []; let reloads = 0, reauth = 0, n = 0;
+      const uapi = { linkGoogle: async (tok) => { calls.push(tok); n++; const e = o.fail && o.fail(n); if(e) throw e; return { userCode:'u1' }; },
+        reasonOf: (e) => 'R:' + ((e && e.code) || '') };
+      const fbapi = { authReload: async () => { reloads++; return { ok:true }; }, authProviders: () => ({ google:false, password:true }) };
+      const gcm = { pickForLink: async () => (o.pick || { ok:true, idToken:'G-TOK' }) };
+      const f = new Function('googleConfirmMod', 'userApiMod', 'firebaseAPI', '_reauthByGoogle', '_reauthByPassword', 'REAUTH_NO_METHOD', fsrc + '\nreturn _acctLinkGoogle;')(
+        gcm, uapi, fbapi, async () => ({ ok:true }), async () => { reauth++; return o.reauth || { ok:true }; }, '없음');
+      const res = await f();
+      return { res, calls, reloads, reauth };
+    };
+    const reauthErr = { kind:'request', code:'USER_REAUTH_REQUIRED' };
+    let X = await run({});
+    t(X.res.ok && X.calls.join() === 'G-TOK' && X.reloads === 1, '5-3 ★ 고른 구글 토큰으로 linkGoogle 한 번 · 성공 뒤 authReload 한 번');
+    X = await run({ fail: () => ({ kind:'request', code:'USER_GOOGLE_IN_USE' }) });
+    t(!X.res.ok && X.calls.length === 1 && X.reloads === 0 && X.res.reason === 'R:USER_GOOGLE_IN_USE', '5-3   실패 — authReload 없음 · 서버 문구(화면이 띄운다)');
+    X = await run({ pick: { ok:false, canceled:true } });
+    t(!X.res.ok && X.res.canceled && X.calls.length === 0 && X.reloads === 0, '5-3   구글 창 · 묻기를 닫음 — 조용히 끝(linkGoogle 0)');
+    X = await run({ fail: (k) => (k === 1 ? reauthErr : null) });
+    t(X.res.ok && X.calls.join() === 'G-TOK,G-TOK' && X.reauth === 1 && X.reloads === 1, '5-3 ★ USER_REAUTH_REQUIRED — 비밀번호로 다시 확인 뒤 한 번 더');
+    X = await run({ fail: () => reauthErr, reauth: { ok:false, canceled:true } });
+    t(!X.res.ok && X.res.canceled && X.calls.length === 1 && X.reloads === 0, '5-3   다시 확인을 닫음 — 다시 보내지 않고 조용히 끝');
+    return r;
+  };
+  (await judgeLink(MOD_ACC)).forEach(([ok, m]) => chk(ok, m));
+  for(const [name, a, b] of [
+    ['연결 뒤 새로 받지 않음', "  try{ await firebaseAPI.authReload(); }catch(_){}\n  return { ok:true };", "  return { ok:true };"],
+    ['실패에도 새로 받음', "  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));\n  if(!r.ok) return r;", "  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));\n  if(!r.ok){ try{ await firebaseAPI.authReload(); }catch(_){} return r; }"],
+    ['다시 확인 없이 보냄', "  const r = await _withRecentLogin(() => userApiMod.linkGoogle(g.idToken));", "  const r = await userApiMod.linkGoogle(g.idToken).then(v => ({ ok:true, value:v }), e => ({ ok:false, reason:userApiMod.reasonOf(e) }));"],
+    ['창을 닫아도 보냄', "  if(!g.ok) return g;\n  const r = await _withRecentLogin(", "  const r = await _withRecentLogin("],
+  ]){
+    const a2 = MOD_ACC.replace(a, b);
+    let rows; try{ rows = await judgeLink(a2); }catch(_){ rows = [[false, '던짐']]; }
+    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+
+  say('── 5-4. 🔗 [연결하기] 단추(account.js gl.onclick 몸통)를 떼어 돌린다 — 화면에 무엇이 남나');
+  const judgeLinkBtn = async (accSrc) => {
+    const r = [];
+    const t = (ok, m) => r.push([!!ok, m]);
+    const i = accSrc.indexOf('    if(gl) gl.onclick = async ()=>{');
+    const j = i < 0 ? -1 : accSrc.indexOf('\n    };', i);
+    if(i < 0 || j < 0){ t(false, '[연결하기] onclick 을 못 찾음'); return r; }
+    const body = accSrc.slice(i, j + 7);
+    const run = async (res) => {
+      const ev = [];
+      const gl = { disabled: false };
+      const f = new Function('gl', 'say', 'sayG', '_acctLinkGoogle', '_acctMethodsRender', 'window', 'companion', body + '\nreturn gl.onclick;')(
+        gl, (txt, k) => ev.push('say:' + k + ':' + txt), (txt, k) => ev.push('sayG:' + k + ':' + txt),
+        async () => { ev.push('link'); return res; }, async () => { ev.push('render'); },
+        { companion: { signInWithGoogle(){} } }, { signInWithGoogle(){} });
+      await f();
+      return { ev, disabled: gl.disabled };
+    };
+    let X = await run({ ok:false, canceled:true });
+    t(!X.ev.some(e => e.startsWith('sayG')) && X.ev[X.ev.length - 1] === 'say:info:' && !X.disabled, '5-4   닫음 — sayG 없음 · 글 비움 · 단추 다시 켬');
+    X = await run({ ok:false, reason:'이미 다른 계정' });
+    t(X.ev.includes('sayG:err:이미 다른 계정') && !X.ev.includes('render') && !X.disabled, '5-4   실패 — sayG(까닭, err) · 다시 그리지 않음 · 단추 다시 켬');
+    X = await run({ ok:true });
+    const iR = X.ev.indexOf('render'), iOk = X.ev.findIndex(e => /^sayG:ok:✅/.test(e));
+    t(iR > 0 && iOk > iR, '5-4 ★ 성공 — 로그인 수단을 다시 그린 뒤 ✅');
+    return r;
+  };
+  (await judgeLinkBtn(MOD_ACC)).forEach(([ok, m]) => chk(ok, m));
+  for(const [name, a, b] of [
+    ['닫아도 실패 문구', "      if(!r.ok){ if(r.canceled) say('', 'info'); else sayG(", "      if(!r.ok){ sayG("],
+    ['실패에 단추를 안 켬', "구글을 연결하지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }", "구글을 연결하지 못했어요 — 다시 시도해 주세요', 'err'); return; }"],
+    ['성공에 다시 그리지 않음', "      try{ await _acctMethodsRender(true); }catch(_){}\n      sayG('✅ 구글이 연결됐어요.", "      sayG('✅ 구글이 연결됐어요."],
+  ]){
+    const a2 = MOD_ACC.replace(a, b);
+    let rows; try{ rows = await judgeLinkBtn(a2); }catch(_){ rows = [[false, '던짐']]; }
+    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), 'mutation test — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+  say('── 6. mutation test');
+  for(const [name, a, b] of [
+    ['주소를 안 가림', "  return local.slice(0, keep) + '***@' + domain;", "  return s;"],
+    ['기본 포커스가 [연결]', "setTimeout(()=>{ if(other) other.focus(); }, 0);", "setTimeout(()=>{ if(yes) yes.focus(); }, 0);"],
+    ['[다른 계정]이 yes', "if(other) other.onclick = () => finish('other');", "if(other) other.onclick = () => finish('yes');"],
+    ['ESC 를 안 들음', "if(e.key === 'Escape'){ e.stopPropagation(); finish('cancel'); }", "if(e.key === 'Nope'){ finish('cancel'); }"],
+    ['다른 구글 고르기에서 안 되돌아감', "      if(a === 'cancel') return { ok:false, canceled:true, reason:'' };\n    }", "      return { ok:false, canceled:true, reason:'' };\n    }"],
+    ['지금 구글이 아니어도 통과', "    if(!sameEmail(tokenEmail(g.idToken), from)) return", "    if(false) return"],
+    ['[취소]가 창을 다시 엶', "      return { ok:false, canceled:true, reason:'' };   // [취소] · ✕ · ESC", "      if(a === 'cancel') return { ok:false, canceled:true, reason:'' };"],
+    ['같은 구글로 바꾸기를 물음', "      if(sameEmail(email, from)) return { ok:false, same:true, reason:'이미 연결된 구글 계정이에요' };\n", ''],
+    ['버튼 글이 남음', "      set('gcYes', t.yes || '이 계정에 연결');\n", "      if(t.yes) set('gcYes', t.yes);\n"],
+    ['넘긴 코드를 무시', "set('gcCode', code || friendCode() || '—');", "set('gcCode', friendCode() || '—');"],
+  ]){
+    const m2 = MOD.replace(a, b);
+    let rows; try{ rows = await judgeAll(m2); }catch(_){ rows = [[false, '던짐']]; }
+    chk(m2 !== MOD && rows.some(([ok]) => !ok), 'mutation test — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+
+  finished = true;
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})();

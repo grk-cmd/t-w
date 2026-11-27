@@ -15,6 +15,8 @@ function createChatUi(deps){
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const chatAccountStore = deps.chatAccountStore;   // 🗂️ 계정별 칸(shared/account-store.js) — 읽음 표시 · 입장 표시 · 마지막 탭은 이 계정이 이 PC 에서 본 것이라 계정 칸에 둔다(닫혀 있으면 읽기 null · 쓰기 거절)
 const demojiCatalog = deps.demojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js)
+const chatFocus = deps.chatFocus;   // 📊 시크릿룸 #집중 탭(chat-focus.js — 방 전체 집중 기록 보기)
+const chatNotice = deps.chatNotice;   // 📢 시크릿룸 공지(chat-notice.js — #공지 탭 · 고정 줄 · 공지 쓰기)
 const CHAT_WIN_POS_KEY = deps.CHAT_WIN_POS_KEY;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const _chatDelClose = deps._chatDelClose;
@@ -525,6 +527,8 @@ function openChatWindow(){
   /* 💬 탭 — 방이 바뀌었으면 그 방에서 마지막에 보던 탭(이 PC 에 기억 · 없으면 #일반). 같은 방이면 그대로. */
   _chatTabSyncRoom(room);
   _chatSubscribeTab(room);
+  chatNotice.start();    // 📢 시크릿룸이면 공지 구독(창이 열려 있는 동안만)
+  chatFocus.start();     // 📊 #집중 탭 보는 중이면 방이 바뀐 것에 맞춰 다시(구독은 탭을 보는 동안만)
   _chatOffRefreshUI();   // 입력칸 안내문의 #탭 이름을 방 · 탭이 정해진 뒤에 다시
   const inp=document.getElementById('chatInput'); if(inp){ inp.value=''; setTimeout(()=>inp.focus(),0); }
 }
@@ -532,6 +536,8 @@ function closeChatWindow(){
   // 🔖 닫는 시점까지를 읽음 처리 — 다음에 열면 그 아래로 쌓인 메시지에 구분선이 붙는다.
   _markChatRead();
   _chatTabUnreadStop();   // 💬 다른 탭 안 읽음 구독은 창이 열려 있는 동안만
+  chatNotice.stop();      // 📢 공지 구독도 창이 열려 있는 동안만
+  chatFocus.stop();       // 📊 집중 기록 구독 해제
   /* ▁ 최소화한 채로 닫으면 다음에 열 때 입력칸만 뜬다 — "채팅창이 사라졌다"로 읽힌다.
      닫을 때 항상 원래 크기로 되돌린다(높이 복원도 여기서 같이 일어난다). */
   _setChatMinimized(false);
@@ -597,6 +603,8 @@ async function _refreshChatProfile(){
   }
 }
 
+chatFocus.onChange(() => { _chatTabsRender(); _chatOffRefreshUI(); });   // 📊 #집중 탭을 열고 닫으면 탭 줄 · 입력칸 안내문을 다시
+chatNotice.onChange(() => { _chatTabsRender(); _chatOffRefreshUI(); });   // 📢 공지 탭을 열고 닫거나 개수가 바뀌면 탭 줄 · 입력칸 안내문을 다시(공지 모듈은 채팅 모듈을 모른다)
 let _chatMyTab = 'general';
 let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 그 방의 기억한 탭으로
 const CHAT_TAB_LS_PREFIX = 'tw.chatTab.';   // + 방 코드 → 마지막에 보던 탭 id (#일반이면 지운다)
@@ -738,6 +746,7 @@ function _chatTabsOnMeta(){
     _chatTabUnreadStart(room);
   }
   _chatTabSig = sig;
+  if(_chatWindowIsOpen()){ chatNotice.start(); chatFocus.start(); }   // 📢 방 메타가 온 뒤에야 시크릿룸인 줄 알 수 있는 경우 · 방이 바뀐 경우
   _chatTabsRender();
 }
 /* 탭 줄 — 고정 · 스크롤바 없음. 좁아지면 이름만 줄임표, 인원 · 안 읽음 숫자는 늘 보인다(CSS). */
@@ -753,13 +762,25 @@ function _chatTabsRender(){
   const people = seats.filter(st => st && (st.isMe || st.remote)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
   const cnt = ChatTabs.counts(people, _chatTabMeta());
   const host = _chatIsHost();
-  const h = tabs.map(t => {
-    if(_chatTabEdit && _chatTabEdit.mode === 'rename' && _chatTabEdit.id === t.id) return _chatTabEditHtml(t.name);
+  /* 📢 #공지 — 시크릿룸에서만 맨 앞. 채팅 탭이 아니라 «보기 상태»라 저장 · 방송 · 안 읽음이 없다(숫자는 공지 개수). */
+  const noticeOn = chatNotice.isActive();
+  const h = [];
+  if(chatNotice.available()){
+    const nn = chatNotice.count();
+    h.push('<span class="ct-tab ct-notice' + (noticeOn ? ' on' : '') + '" data-tab="notice" title="#공지 — 시크릿룸 공지"><span class="ct-name">#공지</span>' + (nn ? '<span class="ct-n">' + Number(nn) + '</span>' : '') + '</span>');
+  }
+  /* 📊 #집중 — #공지 다음. 숫자 없는 보기 탭(집중 기록은 탭을 열어야 읽는다) */
+  const focusOn = chatFocus.isActive();
+  if(chatFocus.available()){
+    h.push('<span class="ct-tab ct-focus' + (focusOn ? ' on' : '') + '" data-tab="focus" title="#집중 — 방 전체 집중 기록"><span class="ct-name">#집중</span></span>');
+  }
+  tabs.forEach(t => {
+    if(_chatTabEdit && _chatTabEdit.mode === 'rename' && _chatTabEdit.id === t.id){ h.push(_chatTabEditHtml(t.name)); return; }
     const unk = t.id !== cur && _chatTabUnread[t.id] === null;   // 못 불러옴 — «?» (0 이 아니다)
     const un = t.id === cur ? 0 : (_chatTabUnread[t.id] || 0);
-    return '<span class="ct-tab' + (t.id === cur ? ' on' : '') + '" data-tab="' + escHtml(t.id) + '" title="#' + escHtml(t.name) + '">' +
+    h.push('<span class="ct-tab' + ((t.id === cur && !noticeOn && !focusOn) ? ' on' : '') + '" data-tab="' + escHtml(t.id) + '" title="#' + escHtml(t.name) + '">' +
       '<span class="ct-name">#' + escHtml(t.name) + '</span><span class="ct-n">' + Number(cnt[t.id] || 0) + '</span>' +
-      (unk ? '<span class="ct-unread" title="안 읽은 수를 못 불러왔어요">?</span>' : un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : Number(un)) + '</span>' : '') + '</span>';
+      (unk ? '<span class="ct-unread" title="안 읽은 수를 못 불러왔어요">?</span>' : un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : Number(un)) + '</span>' : '') + '</span>');
   });
   if(_chatTabEdit && _chatTabEdit.mode === 'add') h.push(_chatTabEditHtml(''));
   else if(ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
@@ -813,6 +834,7 @@ function _chatAsk(text, btns){
 }
 function _chatTabMenu(id){
   if(!_chatIsHost()) return;   // 참여자에게는 메뉴가 없다
+  if(id === 'notice' || id === 'focus') return;  // #공지 · #집중 은 이름을 바꾸거나 지우는 탭이 아니다(보기 상태)
   if(id === 'general'){ _chatAsk('#일반은 이름을 바꾸거나 지울 수 없어요.', [{ label:'확인' }]); return; }
   const name = _chatTabName(id);
   _chatAsk('#' + name + ' 채널을 삭제할까요?\n대화 기록도 같이 지워지고, 있던 사람은 #일반으로 옮겨져요.', [
@@ -825,6 +847,8 @@ function _chatTabMenu(id){
     { label:'취소' },
   ]);
 }
+/* #공지 · #집중 보기 상태일 때 입력칸 안내문(둘 다 아니면 빈 글 — 원래 안내문을 쓴다) */
+function _chatViewHint(){ return chatNotice.isActive() ? chatNotice.hint() : (chatFocus.isActive() ? chatFocus.hint() : ''); }
 /* 💬 채팅 탭 — 내가 있는 탭은 마지막으로 누른 탭(방마다 localStorage 에 기억).
    방 메타(탭 목록)가 아직 안 왔으면 «지워졌다» 로 보지 않고 기다린다.
    ⚠️ 방장 제한은 **화면 수준**이다(Firebase 방 — `_meta.host` 는 문자열이라 서버가 방장을 검증하지 못한다). 🛰 서버 방은 서버가 방장만 받는다. */
@@ -836,7 +860,12 @@ function _bindChatTabs(){
     const bt = e.target.closest('[data-ct]');
     if(bt){ if(bt.dataset.ct === 'ok') _chatTabEditSubmit(); else { _chatTabEdit = null; _chatTabsRender(); } return; }
     if(e.target.closest('.ct-add')){ if(_chatIsHost()){ _chatTabEdit = { mode:'add' }; _chatTabsRender(); } return; }
-    const t = e.target.closest('.ct-tab'); if(t) _chatSwitchTab(t.dataset.tab);
+    const t = e.target.closest('.ct-tab'); if(!t) return;
+    if(t.dataset.tab === 'notice'){ if(chatFocus.isActive()) chatFocus.close(); chatNotice.open(); return; }
+    if(t.dataset.tab === 'focus'){ if(chatNotice.isActive()) chatNotice.close(); chatFocus.open(); return; }
+    if(chatNotice.isActive()) chatNotice.close();   // 다른 탭을 누르면 공지 · 집중 보기에서 나온다
+    if(chatFocus.isActive()) chatFocus.close();
+    _chatSwitchTab(t.dataset.tab);
   });
   bar.addEventListener('keydown', e => {
     if(!e.target.closest('.ct-edit')) return;
@@ -934,9 +963,10 @@ function _chatChipRefresh(){
   chip.classList.toggle('on', on);
   if(!on) return;
   chip.textContent = '새 메시지 ' + _chatHeldN + ' ↓';
-  // 대화 칸 오른쪽 아래 — offset 값이라 창의 transform·화면 배율과 무관하다
-  const win = document.getElementById('chatWindow');
-  if(win) chip.style.bottom = (win.clientHeight - (box.offsetTop + box.offsetHeight) + 8) + 'px';
+  // 대화 칸 오른쪽 아래 — offset 값이라 창의 transform·화면 배율과 무관하다.
+  // ⚠️ 대화 칸은 .chat-msgbox(position:relative) 안이라 offsetTop 은 상자 기준 — 창 기준 자리는 상자의 offsetTop 으로 잰다
+  const win = document.getElementById('chatWindow'), holder = box.parentElement;
+  if(win && holder) chip.style.bottom = (win.clientHeight - (holder.offsetTop + holder.offsetHeight) + 8) + 'px';
 }
 /* 보류해 둔 list 로 그리고 맨 아래로. */
 function _chatFlushHeld(){
@@ -1117,6 +1147,8 @@ function _chatNoteSent(text){
 // 대화창에서 메시지 전송 (Enter)
 function _sendChatWindowMsg(){
   const inp=document.getElementById('chatInput'); if(!inp) return;
+  if(chatFocus.submit()) return;   // 📊 #집중 탭이면 쓸 곳이 없다(안내만 · 친 글은 그대로)
+  if(chatNotice.submit(inp)) return;   // 📢 #공지 탭이면 채팅이 아니라 공지로 올린다(말풍선 · 기록에 안 실린다)
   let text=inp.value.trim(); if(!text) return;
   inp.value='';
   if(window._activeChannel !== 2) return;                 // 투게더룸에서만
@@ -1360,6 +1392,7 @@ return {
   FLY_COLOR_LEVEL,
   _bindChatCopy,
   _bindChatTabs,
+  _chatViewHint,
   _chatClearNow,
   _chatClearUndo,
   _chatFlyColor: ()=>_chatFlyColor,   // 읽는 함수

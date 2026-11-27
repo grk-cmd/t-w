@@ -33,6 +33,7 @@ function createMyHomeInbox(deps){
 const escHtml = deps.escHtml;
 const toast = deps.toast;
 const getMyUserId = deps.getMyUserId;
+const twNav = deps.twNav;                            // 🧭 창 열기 통로(nav.js) — 🎄 편지 알림이 크리스마스 창을 연다
 const giftSave = deps.giftSave;                     // 💾 선물 그림 저장(gift-save.js) — 우클릭 [저장]
 // 📩 수령함 — app.js 의 let(구독이 다시 대입)과 저장 키
 const mailFeed = deps.mailFeed;                      // 📩 내 우편 한 벌 — 받는 중 · 못 받음 · 읽음 · 지우기(mail-feed.js)
@@ -382,8 +383,26 @@ function _bindExtLinks(root){
 /* 💝 선물함 — 받은 말랑이 선물 목록. 원본은 서버(gift-box.js) — 여기는 그 값을 그리고 누름을 동작 함수(star · hide · remove)로 넘긴다.
    ⚠️ 배지 확인 처리(giftBox.openTab 의 봤음)는 **선물함 서브탭을 눌렀을 때**만 — 탭을 스치기만 해도 선물을 본 것으로 처리되면 안 되기 때문이다(myhome-ui.js).
    값이 바뀌면(받기 · 신호 · ⭐ · 지우기) giftBox.onChange 가 다시 그린다 — 선물함 서브탭이 눈앞일 때만. */
+/* 🎁 선물함 탭 줄의 «받은 선물 · 보낸 선물»(#mhGiftSub — 선물함 탭일 때만 CSS 가 보인다). 고른 쪽은 마이홈 창을 닫아도 남는다(다음에 열면 그 쪽) */
+let _giftSub = 'got';
+let _sentGen = 0;   // «보낸 선물» 을 열 때마다 오른다 — 늦게 온 답이 다음 열기를 덮지 않게
+/* 선물함의 그 쪽(got · sent)이 지금 눈앞인가 — 마이홈 친구 탭 · 선물함 서브탭 · 고른 쪽이 다 맞아야 한다.
+   늦게 온 답 · 받은 선물 바뀜이 다른 서브탭(받은 요청 · 보낸 요청)이 쓰는 같은 칸(#mhFmList)을 덮지 않게 이것 하나로 본다 */
+function _giftShowing(sub){
+  const tab = document.querySelector('.mh-tab.on'), fm = document.querySelector('#mhFmTabs .mh-ibx-tab.on');
+  return !!tab && tab.dataset.tab === 'friend' && !!fm && fm.dataset.fm === 'gift' && _giftSub === sub;
+}
+function _giftSubBar(listEl){
+  document.querySelectorAll('#mhGiftSub [data-gs]').forEach(b=>{
+    b.classList.toggle('on', b.dataset.gs === _giftSub);
+    b.onclick = (e)=>{ e.stopPropagation(); _giftSub = b.dataset.gs; renderGiftBox(listEl); };
+  });
+}
 function renderGiftBox(listEl){
   if(!listEl) return;
+  _giftSubBar(listEl);
+  _sentGen++;
+  if(_giftSub === 'sent'){ if(_giftShowing('sent')) _sentPaint(listEl); return; }   // 친구 탭이 안 보이면(다른 탭으로 마이홈을 열 때) 받지 않는다 — 친구 탭에 들어오면 다시 그린다
   const b = giftBox.box();
   if(b.load === giftBox.LOAD.IDLE) giftBox.pull(false);   // 아직 한 번도 못 받았다 — 받는 중으로 바뀌며 다시 그린다(번호 없음)
   _giftBoxPaint(listEl, b);
@@ -467,14 +486,40 @@ async function _giftRespawn(k){
   else if(r === 'already') toast('이미 마이홈에 나와 있어요');
   else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
 }
+/* 🎁 보낸 선물 — 최근 30개(그림 · 받은 친구 · 보낸 때 · 메시지). 원본은 서버(GET /v2/me/gifts/sent) — 열 때마다 받는다.
+   그림은 보낸 때 내 칸의 원본 — 칸을 바꿔 지워졌으면 빈 그림으로 그린다. 받은 친구 이름은 서버가 붙인 지금 이름(탈퇴면 «알 수 없음»).
+   🛡️ 이름 · 메시지 · 그림 주소는 남이 정한 문자열 — escHtml · safeUrl 만 쓴다. */
+async function _sentPaint(listEl){
+  const my = _sentGen;
+  listEl.onclick = null; listEl.oncontextmenu = null;
+  _giftStat('');
+  listEl.innerHTML = '<div class="mh-ibx-empty">불러오는 중…</div>';
+  const r = await giftBox.fetchSent();
+  if(my !== _sentGen || !_giftShowing('sent')) return;   // 그사이 다른 서브탭 · 탭으로 갔다 — 같은 칸을 덮지 않는다
+  if(!r.ok){
+    listEl.innerHTML = '<div class="mh-ibx-empty">못 불러왔어요 <button type="button" class="gift-retry">다시 시도</button></div>';
+    listEl.onclick = (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.gift-retry')) renderGiftBox(listEl); };
+    return;
+  }
+  if(!r.items.length){ listEl.innerHTML = '<div class="mh-ibx-empty">🎁 아직 보낸 선물이 없어요<br><small>0.14.0 부터 보낸 말랑이가 여기에 남아요</small></div>'; return; }
+  _giftStat('최근 '+r.items.length+'개');
+  listEl.innerHTML = '<div class="gift-sent">'+r.items.map(s=>{
+    const pic = TwSafeHtml.safeUrl(s.imageUrl, 'image');
+    return '<div class="gs-row">'+(pic ? '<img src="'+escHtml(pic)+'" alt="" draggable="false">' : '<span class="gs-noimg"></span>')+
+      '<span class="gs-mid"><b>'+escHtml(TwPersonName.shown(s.recipientName))+'</b><span>'+escHtml(_inboxTimeStr(s.sentAt))+(s.message ? ' · 💬 '+escHtml(s.message) : '')+'</span></span></div>';
+  }).join('')+'</div>';
+  listEl.querySelectorAll('.gs-row img').forEach(im=>TwImgRetry.retryOnError(im, ()=>{   // 원본이 지워졌다 — 빈 그림으로
+    const empty = document.createElement('span'); empty.className = 'gs-noimg';
+    if(im.parentNode) im.parentNode.replaceChild(empty, im);
+  }));
+}
 /* 서브탭 줄 오른쪽의 「⭐ n/20 · 보관 m/30」. 다른 서브탭으로 가면 renderFriendManage 가 비운다. */
 function _giftStat(text){
   const el = document.getElementById('mhGiftStat');
   if(el) el.textContent = text;
 }
 giftBox.onChange(()=>{   // 선물함 서브탭이 눈앞일 때만 다시 그린다(같은 칸 #mhFmList 를 다른 서브탭도 쓴다)
-  const on = document.querySelector('#mhFmTabs .mh-ibx-tab.on');
-  if(!on || on.dataset.fm !== 'gift') return;
+  if(!_giftShowing('got')) return;
   const el = document.getElementById('mhFmList');
   if(el) _giftBoxPaint(el, giftBox.box());
 });
@@ -542,8 +587,8 @@ function _inboxBodyEl(cls, m){
   _bindExtLinks(body);
   return body;
 }
-const _INBOX_ICON = { reward:'🎁', bug:'🛠️', update:'🆕', notice:'📢' };
-const _INBOX_CAT_NAME = { notice:'공지', update:'업데이트', reward:'우편', bug:'버그제보 답변' };
+const _INBOX_ICON = { reward:'🎁', bug:'🛠️', update:'🆕', notice:'📢', xmas:'🎄' };
+const _INBOX_CAT_NAME = { notice:'공지', update:'업데이트', reward:'우편', bug:'버그제보 답변', xmas:'크리스마스 편지' };
 
 /* 📩 우편함 — 왼쪽 세로 메뉴(📩 우편 · 📢 소식)와 고른 칸을 그린다. 칸 나누기 · 순서 · 안 읽은 수는 inbox-sections.js. */
 function renderInbox(){
@@ -615,7 +660,7 @@ function _renderInboxMail(merged){
     sub.textContent = _INBOX_CAT_NAME[tag] + (m.ts ? ' · ' + _inboxTimeStr(m.ts) : '');
     main.appendChild(title); main.appendChild(sub);
     const go = document.createElement('button'); go.type = 'button'; go.className = 'mh-ibx-go';
-    go.textContent = (tag === 'bug' && m.bugId) ? '가기' : (isOpen ? '접기' : '보기');   // 누르면 카드 누르기로 올라간다
+    go.textContent = ((tag === 'bug' && m.bugId) || tag === 'xmas') ? '가기' : (isOpen ? '접기' : '보기');   // 누르면 카드 누르기로 올라간다
     row.appendChild(ic); row.appendChild(main); row.appendChild(go);
     const pinBtn = _inboxPinBtn(id, m); if(pinBtn) row.appendChild(pinBtn);
     row.appendChild(_inboxXBtn(id, m));
@@ -628,6 +673,10 @@ function _renderInboxMail(merged){
       // 🛠️ 답변 알림 — 펼치는 대신 버그제보 탭의 그 글로 간다(bug-board-ui.js)
       if(m.tag === 'bug' && m.bugId){
         _inboxOpenId = null; window._bugBoardOpen(m.bugId); return;
+      }
+      // 🎄 편지 알림(받은 편지 · 반송) — 마이홈을 닫고 크리스마스 편지 창으로(일회성 · 다음 업데이트에서 걷는다)
+      if(tag === 'xmas'){
+        _inboxOpenId = null; twNav.go(twNav.NAV.MY_HOME_CLOSE, ()=>twNav.go(twNav.NAV.XMAS, 'letter')); return;
       }
       renderInbox();
     };

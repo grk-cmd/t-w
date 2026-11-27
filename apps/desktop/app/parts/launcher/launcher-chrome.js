@@ -32,10 +32,12 @@ const myInfoMod = deps.myInfoMod;
   if(!card) return;
   const overlaySelectors = ['#codeOverlay','#exportOverlay','#glbEncOverlay','#glbLoadOverlay',
     '#assetGenOverlay','#assetImpOverlay','#inviteOverlay','#commGenOverlay','#commImpOverlay',
-    '#partRegOverlay','#creatorOverlay','#programSettingsOverlay','#adminPassOverlay','#licenseGenOverlay',
+    '#partRegOverlay','#creatorOverlay','#focusSettingsPanel','#adminPassOverlay','#licenseGenOverlay',
     '#adBannerOverlay','#gameCfgOverlay','#raceOverlay'];
+  /* ⚙️ 설정 창은 런처에서 연 것(.fs-in-launcher)만 센다 — 실행 화면에서 연 채 런처로 돌아와도 흐려지지 않게 */
+  const DIM_ONLY_WITH = { '#focusSettingsPanel': 'fs-in-launcher' };
   function refresh(){
-    const anyOpen = overlaySelectors.some(sel=>{ const el=document.querySelector(sel); return el && el.classList.contains('on'); });
+    const anyOpen = overlaySelectors.some(sel=>{ const el=document.querySelector(sel); return el && el.classList.contains('on') && (!DIM_ONLY_WITH[sel] || el.classList.contains(DIM_ONLY_WITH[sel])); });
     card.classList.toggle('dimmed', anyOpen);
   }
   overlaySelectors.forEach(sel=>{

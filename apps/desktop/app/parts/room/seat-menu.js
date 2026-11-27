@@ -128,7 +128,7 @@ function _seatCtxMenu(ev, seat){
     if(b.bottom > innerHeight - 4) menu.style.top = Math.max(4, innerHeight - b.height - 4) + 'px';
   }catch(_){}
   closer = e=>{ if(!menu.contains(e.target)) close(); };
-  /* 단축키(T 가챠 · F2 꾸미기 …)로 창이 열리면 뒷판(9998) 밑에 깔려, 다음 클릭을 뒷판이 받는다 — 그 창은 «바깥 클릭» 으로 저장 · 닫힌다.
+  /* 단축키(F2 꾸미기 · I 책상 인벤토리 …)로 창이 열리면 뒷판(9998) 밑에 깔려, 다음 클릭을 뒷판이 받는다 — 그 창은 «바깥 클릭» 으로 저장 · 닫힌다.
      그래서 조합 키가 아닌 키는 메뉴부터 닫고 그대로 흘려보낸다(Esc 만 삼킨다). */
   onEsc = e=>{
     if(e.key === 'Escape'){ e.stopPropagation(); close(); return; }

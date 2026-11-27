@@ -4,8 +4,8 @@
 - 책임: 서버 user · invite 길과 탈퇴 미리보기 · 방문 기록 길(`/v2`)을 부르는 한 벌. 경로 · 본문 모양 · 오류 code 는 여기만 안다.
 - deps: `api()`(로그인 통로 `TwApi.authed` — 부를 때 찾음) · `newId()`(요청 번호 `TwRequestId.newId`).
 - 내놓는 것: `me` · `joinWithPassword` · `joinWithGoogle` · `updateMe` · `attachPasswordLogin` · `changePassword` · `withdrawalPreview` · `withdraw` ·
-  `checkInvite` · `myInvites` · `createInvite` · `findByFriendCode` · `visit`. 순수: `meFrom(서버 Me)` · `reasonOf(err)`(code → 화면 한 줄) · `inviteReasonOf`.
-  앱 한 벌은 `TwUserApi.store`.
+  `checkInvite` · `myInvites` · `createInvite` · `findByFriendCode` · `getTheme` · `putTheme`(👑 내 색 `/v2/me/theme-custom`) · `visit`. 순수: `meFrom(서버 Me)` · `themeFrom` · `reasonOf(err)`(code → 화면 한 줄) · `inviteReasonOf`.
+  앱 한 벌은 `TwUserApi.store`. 👑 내 색 provider 는 `TwUserApi.themeCustom`(`createThemeCustomSync` — theme-ui 모양 `load → obj | {} | null` · `save → saved | conflict | failed`, 읽은 판을 들고 다음 쓰기에 싣는다 · 409 면 판을 버린다).
 - 함정:
   - 실패는 ApiError 를 그대로 던진다 — «가입 전(401 `USER_CODE_NOT_BOUND`)» 과 «닿지 못함» 을 부르는 쪽이 가른다. 빈 값으로 바꾸지 않는다.
   - 토큰 없는 길은 셋뿐(초대 확인 · 비밀번호 가입 · 방문 기록). 구글 가입에 `password` · `requestId` 를 실으면 서버가 거절한다.
@@ -61,13 +61,14 @@
 ## login-flow.js — 로그인 흐름(classic script `window.TwLoginFlow`)
 - 책임: 로그인(Auth) → 서버 가입 확인(`GET /v2/me`) → (이 PC 등록 뒤 app-boot 가 부르는) realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm({ onRestoreWait })` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검 · `restoring:true` 면 저장된 로그인의 첫 답이 60초 안에 안 옴 — 로그인은 둔다).
-- deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · restoring · answered · signInGoogle · signInPassword · signOut) ·
-  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved`) · `now` · `onConfirmed(r, info)`(확인 결과 진단 — login-diag.js · 던져도 결과는 그대로).
+- deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · restoring · answered · signInGoogle(`fresh` 를 돌려줌) · signInPassword · signOut · deleteNewLogin) ·
+  `googleWindow`(main 의 구글 창) · `rt`(rt-hub — start · stop · bye · onState) · `leaveRoom`(방 안이면 나가기 — 창 열기 통로 LEAVE_ROOM) · `pending`(request-id createPending) · `storage` · `onSessionLost(kind)`(`sessionLost` · `deviceRemoved` · `otherDevice`) · `now` · `onConfirmed(r, info)`(확인 결과 진단 — login-diag.js · 던져도 결과는 그대로).
 - 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 켜 두고 서버 신호(ready · 등록 전이라 4004 로 끊김) 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout({ why })`(`logout` · `withdraw`) · `release(why)`(계정 바꾸기 `switch` — 로그인은 둔다) · `meCache` · `mode`.
 - 함정:
   - realtime 은 서버가 계정을 돌려주고 이 PC 를 등록한 뒤(app-boot → `goOnline`) 켜는 것이 기본이다 — 등록 전 세션으로 hello 하면 서버가 4004 로 끊는다. 예외는 서버에 닿지 못한 화면: `waitForServer` 가 켜 두고 그 신호(ready · 4004)를 계정 다시 묻기에 쓴다(그 4004 는 안내 화면이 아니다). 닿아도 여기서 다시 켜지 않는다 — 등록 뒤 `goOnline` 이 켠다(켜져 있으면 허브가 무시). 계정이 없거나 로그인이 풀린 것으로 드러나면 끈다.
   - 복원 기다림: 8초 대기선(`auth.ready` — 쓰기용)이 풀려도 켤 때 저장된 로그인이 있고 Firebase 첫 답이 없으면(`auth.restoring()`) «로그인 없음» 으로 보지 않고 `RESTORE_WAIT_MS`(60초)까지 기다린다(`onRestoreWait` 한 번 — 게이트가 «연결 중 · 로그인을 확인하는 중» 카드). 넘기면 `local` + `restoring` — 같은 카드에 [다시 시도](다시 기다림) · 늦게 온 첫 답에 혼자 이어 감. Firebase 가 «사용자 없음» 으로 답하면 그때 `login`.
+  - 구글 로그인 · 구글 가입이 계정 없이 끝나면 로그인을 놓는데, 이 로그인으로 Auth 사용자가 새로 생겼으면(`signInGoogle` 의 `fresh`) `deleteNewLogin(uid)` 로 지운다 — 남기면 그 구글이 Auth 에 묶인 채라 나중에 친구 코드 계정에 «구글 연결» 이 «이미 다른 계정에 쓰이고 있어요» 로 막힌다. 원래 있던 Auth 사용자는 지우지 않는다(서버가 아직 모르는 주인일 수 있다). 구글 가입은 `POST /v2/users` 가 `kind 'request'` 이고 408 이 아니며 `USER_ALREADY_JOINED` 도 아닐 때만 지운다 — 답을 못 받았거나(`unavailable` · 408 · kind 없는 오류) 이미 가입이거나 답 모양이 다르면 서버 계정이 그 uid 로 있을 수 있어 로그아웃만(지우면 그 계정에 다시 못 들어간다).
   - 비밀번호 가입은 답을 못 받아 다시 누르면 같은 요청 번호 — 비밀번호를 바꾸면 새 번호(같은 번호면 첫 비밀번호의 계정이 돌아온다).
   - 이 PC 계정 몫 지우기 · 다시 켜기는 부르는 쪽(account.js) 몫 — 여기는 화면 · 저장 키 목록을 모른다.
   - 연결을 놓는 차례(설계 04-realtime-disconnect 4-D-3): 방 leave → left 기다림 → realtime `bye{why}` → 서버 닫힘 기다림(1초) → 그 뒤에 로그인을 놓는다. 거꾸로 하면 방 사람들 · 친구는 유예(20초) 뒤에야 나간 것을 본다.
@@ -94,7 +95,7 @@
 - 책임: 한 계정은 PC 를 서버가 정한 상한까지 쓴다(앱은 대수를 모른다 — 글에 숫자를 쓰지 않는다). 자리는 서버가 정한다 — 켤 때 realtime 보다 먼저 이 PC 를 등록(`POST /v2/me/devices { deviceId, session, os }` — `device-register.js ensure()` → `ok` · `canceled` · `failed`).
   다 찬 계정에 새 PC 면 서버가 409 `USER_DEVICE_LIMIT` 와 가장 오래 안 쓴 기기(`items[0]`)를 준다 → 확인창(`device-limit-dialog.js`) «가장 오래된 기기 Windows PC (11월 3일 등록) · 마지막 사용 11월 10일 — 이 기기를 지우고 이 PC를 쓸까요?» [취소] · [지우고 사용].
   [지우고 사용]이면 보여 준 그 기기 id 를 `replaceOldest` 로 다시 — 그사이 바뀌었으면 서버가 또 409(새 기기로 다시 묻는다). [취소]면 등록하지 않고 로그인 화면(app-boot `toLogin`). 저절로 지우지 않는다.
-  realtime 이 이 연결을 4004 로 끊으면(까닭 `deviceRemoved` — 다른 PC 가 이 기기를 지움 · `sessionLost` — 이 PC 에서 앱을 새로 엶) `device-lost.js` 안내 화면 · 단추는 같은 등록 흐름 → 되면 같은 realtime 연결로 다시.
+  realtime 이 이 연결을 4004 로 끊으면(까닭 `deviceRemoved` — 다른 PC 가 이 기기를 지움 · `otherDevice` — 계정의 다른 PC 가 켜져 지금 쓰는 PC 가 됨(쓰는 PC 는 한 번에 1대 · «다른 기기에서 사용 중이에요») · `sessionLost` — 이 PC 에서 앱을 새로 엶) `device-lost.js` 안내 화면 · 단추는 같은 등록 흐름 → 되면 같은 realtime 연결로 다시.
 - 기기 이름: OS + 처음 등록한 날(`deviceLabel` — «Windows PC (11월 3일 등록)» · «Mac (…)» · 모르면 «PC»), 마지막 사용은 따로. **호스트 이름은 쓰지 않는다**(사람 이름이 든 경우가 많다).
 - deps: register — `registerDevice` · `limitOldestOf`(user-api.js) · `deviceId`(device-id.js) · `session`(rt-hub `session()` — hello.session 과 같은 값) · `os`(`osOf(navigator)`) · `ask(question)`(확인창) · `notifyError`. dialog — `document`. lost — `twNav` · `continueHere`(등록 → realtime).
 - 함정: 같은 계정이 다른 PC 에서 같은 방에 들어온 것(`left{replaced}`)은 이 화면이 아니다 — 방에서만 나오고 «다른 PC에서 이 방에 들어왔어요» 한 줄(room-entry.js). 등록 실패(E-ACC-04)는 그대로 이어 간다 — realtime 이 안 들이면 안내 화면이 [다시 등록]을 준다.
@@ -108,3 +109,27 @@
 - 자리: 캐릭터 · 라이선스 단계는 진짜 함수(`legacyStep` · `licenseKeyStep`). 라이선스 키는 `license-premium.js activate` 로 올리고, 올린 뒤에야 지운다 — 로그아웃은 `tw.licenseKey` · `tw.licenseOptOut` 을 지우지 않는다. 기다림(`pendingStep`)이 있는 동안 지우기는 돌지 않는다.
 - 함정: 단계는 서버 답(`…_DONE`)으로 «이미 했다» 를 알아 같은 결과를 내야 한다(이 파일은 차례만 지킨다). 지울 키는 단계가 돌려준 것만 — 기기 id(`tw.deviceId`) · 내 계정 사본(`tw.me`)은 넣지 않는다.
 - 검사: `checks/sim-first-run-013.js`.
+
+## google-confirm.js — 🔑 구글을 계정에 처음 붙이기 전에 묻기
+
+- **책임**: 처음 보는 구글 계정이 이 PC 의 계정(친구 코드)에 묶이기 전에, 가린 주소(`mi***@gmail.com`)와 친구 코드를 보이고 묻는다. 구글을 여러 개 쓰는 사람이 다른 구글을 골라 빈 계정에 묶이는 실수(«데이터가 사라졌다»)를 막는다.
+- **만드는 법**: app.js 가 초대 게이트 · 계정보다 먼저 `const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm({ friendCode, signInWithGoogle })` · 두 모듈에 deps `googleConfirmMod` 로 넘긴다.
+- **내놓는 것**
+  - `ask(email, mode, code?)` → `'yes' | 'other' | 'cancel'` — `bind`(로그인) · `signup`(구글로 가입 — 제목만 «이 구글 계정으로 가입할까요?» · 새 아이디를 넘긴다) · `link`(로그인된 계정에 구글 붙이기). 옛 0.14 판은 로그인 · 가입 때 `authSignInWithGoogle` 의 셋째 인자로 넘겨 처음 보는 구글을 묶기 직전에 불렀다 — 지금은 부르는 곳이 없다(아래 TODO). 계정 없이 끝난 구글 로그인의 새 Auth 사용자를 지우는 일은 login-flow.js `dropGoogleLogin`.
+  - `pickForLink()` — 구글 창 → 묻기 → [다른 구글 고르기]면 다시 → `{ ok, idToken }`. 내 정보 [연결하기] · 가입 완료 [구글도 연결하기].
+  - `maskEmail` · `tokenEmail` — 순수 함수.
+- **함정**
+  - 기본 포커스는 [다른 계정으로 로그인] — 잘못 묶은 쪽이 되돌리기 어렵다.
+  - 창(`#gConfirmOverlay`)은 게이트 · 가입 완료 위(`--z-gate-confirm`) · 바탕화면 실행 화면 클릭 통과 목록(`UI_HIT_SEL`)에 있어야 눌린다.
+  - `tokenEmail` 은 보여 주기만 한다 — 신원은 서버(Firebase Auth)가 정한다.
+- 구글 가입(login-flow.js `joinGoogle` — 서버가 «계정 없음» 이라 답한 뒤)은 `deps.askGoogle` 로 `ask(email, 'signup')` 를 부른다. [이 계정에 연결]이 아니면 가입하지 않고 로그인을 놓는다.
+- **검사**: `sim-google-confirm.js`(창 · 순수 함수 · 연결)
+
+## 🔁 구글 계정 바꾸기 · 🔗 연결하기 — 서버 `/v2/me/google`
+
+- **책임**: 로그인된 계정(같은 Auth uid · 유저 코드)에 구글을 붙이거나 구글 연결만 새 구글로 갈아 끼운다 — 서버가 Identity Toolkit 으로 한다(앱은 Firebase 에 직접 붙이지 않는다 — 서버가 «남의 계정 구글» 을 가른다). 바꾸기는 떼고 붙이기가 서버 한 요청이라 되돌리기가 없다.
+- **흐름**: [연결하기] `pickForLink` → `userApi.linkGoogle`(`USER_REAUTH_REQUIRED` 면 `_withRecentLogin` 이 비밀번호로 다시 확인하고 한 번 더) · [바꾸기] `_acctChangeGoogle` — `pickCurrent` → `pickForChange` → `userApi.changeGoogle`. 성공 뒤 `firebaseAPI.authReload()` 로 providerData 를 새로 받는다.
+- **함정**
+  - [바꾸기]는 비밀번호(친구 코드 + 비밀번호)가 있는 계정만 — 서버도 `USER_NO_PASSWORD_LOGIN` 으로 막는다.
+  - 이 PC 를 구글로 로그인했다면 표시 이메일(`tw.loginEmail`)도 새 구글로 — 친구 코드로 로그인했으면 그대로.
+- **검사**: `sim-google-confirm.js` 5절(고르기 · 묻는 창 · 바꾸기 흐름) · `sim-user-api.js`(경로 · 문구) · `sim-signup.js` 10절(구글 줄 그리기)

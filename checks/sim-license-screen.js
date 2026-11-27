@@ -374,6 +374,12 @@ function wiringRows(S){
   const ids = ['licenseStatusBox', 'licenseStatusMsg', 'licenseRetryBtn', 'licenseAdminNote', 'licenseActiveBox', 'licenseActiveTitle', 'licenseDeviceHead', 'licenseDeviceList', 'licenseDeviceNote', 'licenseRegisterThisBtn', 'licenseDeactivateBtn', 'licenseKeyBox', 'licenseKeyInput', 'licenseErrorMsg', 'licenseSubmitBtn'];
   const miss = ids.filter((i) => !new RegExp('id="' + i + '"').test(H));
   t(!miss.length, 'html 에 구획의 칸이 다 있다' + (miss.length ? ' — 없음: ' + miss.join(' · ') : ''));
+  /* «보이는가» 는 실제 창 · 탭 id 로 묻는다 — 없는 id 를 보면 늘 false 라 열린 채 온 알림을 다시 받지 않는다 */
+  const shown = (A.match(/\n  isShown: \(\)=>\{([^\n]*)\},/) || [])[1] || '';
+  const shownIds = [...shown.matchAll(/getElementById\('([\w-]+)'\)/g)].map((m) => m[1]);
+  const lic = H.indexOf('id="licenseStatusBox"'), tab = shownIds[1] ? H.lastIndexOf('id="' + shownIds[1] + '"', lic) : -1;
+  t(shownIds.length === 2 && shownIds.every((i) => new RegExp('id="' + i + '"').test(H)) && tab > 0 && H.indexOf('id="' + shownIds[0] + '"') < tab,
+    'isShown 은 html 에 있는 설정 창 · 탭 id 로 묻고, 라이선스 칸은 그 탭 안에 있다(' + (shownIds.join(' · ') || '없음') + ')');
   return rows;
 }
 

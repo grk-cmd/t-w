@@ -21,7 +21,7 @@
 - **확장할 때 고칠 자리**: 색 단계 · 디더 행렬은 `ps1-dither.js` 한 곳(스티커사진 PS1 필터도 같이 바뀐다) · 넣을 GLSL 은 `_PS1_FRAG_INJECT` · 필터를 바꿀 텍스처 칸은 `DOT_TEX_KEYS` · 다시 훑는 간격은 `SWEEP_MS`.
 - **함정**
   - «걸렸나» 는 `userData._ps1Hooked` 표식이 아니라 **지금 `onBeforeCompile` 이 우리 훅인가**로 본다. `m.clone()` 은 userData 를 JSON 으로 복사하고 `onBeforeCompile` 은 안 옮겨서 표식만 따라온 가짜가 생기고, 색조 셰이더(`_ensureHueUniforms`)가 나중에 훅을 덮어쓰기도 한다. 표식은 스티커사진(`purikura-ui.js`)이 읽어서 그대로 적어 둔다.
-  - three r128 은 셰이더를 `customProgramCacheKey()`(기본 = `onBeforeCompile` 글자)로 나눠 쓴다. 감싼 훅은 글자가 늘 같으니 키에 원래 훅 글자를 넣어야 염색 재질과 보통 재질이 한 셰이더를 나눠 쓰지 않는다(염색 빠짐).
+  - three r128 은 셰이더를 `customProgramCacheKey()`(기본 = `onBeforeCompile` 글자)로 나눠 쓴다. 감싼 훅은 글자가 늘 같으니 키에 원래 훅 글자를 넣어야 염색 재질과 보통 재질이 한 셰이더를 나눠 쓰지 않는다(염색 빠짐). 키는 그릴 때마다 계산한다 — 켠 뒤 처음 색조를 걸면 색조 셰이더가 우리 훅을 덮어쓰는데, 그동안은 three 기본 키(그 훅 글자)를 낸다. 켤 때 적어 둔 키면 색조가 빠지고, 접두사를 붙이면 다시 감싼 뒤 키가 같아 PS1 이 영영 안 걸린다.
   - 끌 때 그새 남이 덮어쓴 `onBeforeCompile`(색조)은 지우지 않는다 — 우리 훅일 때만 되돌린다.
   - 켬 상태에서 텍스처에 `needsUpdate` 를 다시 걸지 않는다(이미 Nearest 면 건너뜀) — 걸면 0.5초마다 텍스처를 GPU 에 다시 올린다.
   - 셰이더는 three 의 `#include <dithering_fragment>` 뒤에 붙는다. 그 줄이 없는 머티리얼이면 마지막 `}` 앞에 넣는다.
@@ -44,12 +44,22 @@
   - `purikura-net.js` 는 `TwPs1Dither` 를 **부를 때** 읽는다 — 그 파일만 node 로 싣는 검사가 많아서, 실을 때 읽으면 그 검사들이 죽는다.
   - 검사: `checks/sim-ps1-dither.js`(값 · 경계값 · 도트 셰이더 글 · 스티커사진 필터 결과가 묶기 전과 픽셀까지 같음 · mutation test).
 
+## etag-store.js — 🏷️ ETag 기억을 껐다 켜도 남게
+
+- **책임**: api-client 의 ETag 기억({ etag, data })을 IndexedDB `tw-etag-cache`(저장소 `etag`, keyPath `k`)에 남겨, 켤 때 첫 읽기에도 If-None-Match 를 싣는다. 값은 서버가 304 로 답할 때만 쓴다 — 서버에 묻기 전에 이 값으로 화면을 그리지 않는다.
+- **만드는 법**: api-client.js 가 앱 한 벌을 만들 때 `TwEtagStore.createEtagStore()` 한 벌을 두 통로에 `persist: { store, paths }` 로 넘긴다. 남기는 길은 api-client.js `PERSIST_PUBLIC`(설정 · 공지) · `PERSIST_AUTHED`(카탈로그 · 옷장 · 보유분 · 포커스 · 친구 · 플레이리스트).
+- **내보내는 것**: `load(key)` → `Promise<{ etag, data } | null>` · `save(key, etag, data)` · `clear()` · 상한 `MAX`(64 — 넘으면 오래된 것부터).
+- **함정**
+  - 열쇠는 api-client 의 «누구(토큰 sub) + 경로» — 다른 계정 값을 돌려주지 않는다. 계정을 놓으면(`forgetSession`) 통째로 지운다.
+  - 길을 더할 땐 서버가 그 길에 ETag 를 주는지 먼저 본다(안 주면 남길 것이 없다).
+  - 검사: `checks/sim-etag-store.js` · `checks/sim-api-client.js`(persist 절).
+
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
-- **책임**: 받은 GLB(base64)를 url 을 키로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url`)에 넣고 꺼낸다. 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.
-- **만드는 법**: `const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({});` — deps 없음(브라우저 `indexedDB`).
+- **책임**: 받은 GLB(base64)를 부르는 쪽이 준 열쇠(카탈로그는 내용 해시 `sha256:…`)로 IndexedDB `tw-glb-cache`(저장소 `glb`, keyPath `url` — 열쇠를 이 칸에 둔다)에 넣고 꺼낸다. 꺼낼 때 쓴 때(`ts`)를 하루에 한 번 새로 적고, 45일 넘게 안 쓴 것은 실행마다 한 번 치운다. 무슨 GLB 인지는 모른다.
+- **만드는 법**: `const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({});` — deps 없음(브라우저 `indexedDB` · `Date`).
 - **내보내는 것**
-  - `_glbIdbGet(url)` → `Promise<b64 | null>` · `_glbIdbPut(url, b64)` → `Promise<void>`(기다리지 않아도 된다) · `_glbIdbPrune()` — 한 실행에 한 번만 실제로 돈다.
+  - `_glbIdbGet(key)` → `Promise<b64 | null>` · `_glbIdbPut(key, b64)` → `Promise<void>`(기다리지 않아도 된다) · `_glbIdbPrune()` — 한 실행에 한 번만 실제로 돈다.
   ```js
   const hit = await glbIdbMod._glbIdbGet(url);
   if(!hit){ const b64 = await fetchIt(url); glbIdbMod._glbIdbPut(url, b64); }
@@ -57,8 +67,8 @@
 - **확장할 때 고칠 자리**: 이름 · 저장소 · 보관 기간은 머리의 `_GLB_IDB_NAME` · `_GLB_IDB_STORE` · `_GLB_IDB_TTL`. 저장소 모양을 바꾸면 `indexedDB.open` 판(지금 1)을 올리고 `onupgradeneeded` 를 고친다.
 - **함정**
   - 실패는 전부 삼킨다(없으면 null) — 캐시는 있으면 좋은 것이지 없으면 안 되는 것이 아니다. 여기서 던지게 바꾸면 카탈로그 받기가 같이 멈춘다.
-  - 키가 url 그대로라 따로 지우지 않아도 관리자가 다시 올리면 새 url 로 받는다.
-  - 검사: `checks/sim-glb-idb-cache.js`(4절 — 가짜 IndexedDB 로 없음 · 열기 실패 · 넣기/꺼내기 · 한 번만 열기 · 치우기 45일 경계 · 한 번만 치우기).
+  - 열쇠가 내용 해시라 관리자가 파일을 바꾸면 새 해시로 받고, 주소만 바뀌면(서버 endpoint ↔ Storage) 다시 받지 않는다. 옛 판의 주소 열쇠 줄은 catalog-glb.js 가 찾아 옮기고 남은 줄은 45일 뒤 치워진다.
+  - 검사: `checks/sim-glb-idb-cache.js`(4절 — 가짜 IndexedDB 로 없음 · 열기 실패 · 넣기/꺼내기 · 한 번만 열기 · 치우기 45일 경계 · 한 번만 치우기 · 쓴 때 새로 적기 하루 한 번).
 
 ## `light-tone.js` — 💡 재질 톤(조명 예산 · emissive) · 실행 화면 조명 한 벌
 
@@ -203,6 +213,27 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
+## `bgm-hush.js` — 🔇 듣던 유튜브 BGM 재우기 · 되살리기
+- **책임**: 자기 배경음악을 트는 창(스티커사진 · 크리스마스)이 열 때 듣던 유튜브 BGM(마이홈 · 플레이리스트)을 재우고, 닫을 때 재웠던 쪽만 되살린다.
+- **만드는 법**: `TwBgmHush.createBgmHush({ companion, plPlaying, setPlPlaying, plRender, homePlaying, setHomePlaying })` — 창마다 하나씩 만든다.
+- **내놓는 것**: `hush()` → 재운 쪽 `{ pl, home }` 또는 `null` · `unhush(h)`.
+- **함정**: 상태를 들지 않는다 — `hush()` 가 돌려준 것을 부르는 쪽이 들고 있다가 `unhush` 에 넘긴다. 유튜브 BGM 은 창 하나를 같이 쓰니 재우는 호출은 한 번이다. 그 사이 사용자가 다시 틀었으면 되살리지 않는다(두 소리가 겹친다).
+- 검사: `sim-bgm-hush.js`
+
+## `win-bgm.js` — 🎵 창 배경음악(스티커사진 창 · 크리스마스 창)
+- **책임**: 창이 열려 있는 동안만 배경음악을 튼다 — 곡 목록을 차례로 틀고 끝나면 처음 곡으로(한 곡이면 되풀이). 제목줄 «음악 끄기 / 음악 켜기» 는 이 PC 에 기억한다(받은 `muteKey`).
+- **만드는 법**: `TwWinBgm.createWinBgm({ Audio, tracks, dirs, volume, muteKey, tag, storage, save, officeMode, warn, others })` — 창마다 하나. `others` 는 `bgm-hush.js` 의 `{ hush, unhush }` 또는 `TwWinBgm.NO_OTHERS`.
+- **내놓는 것**: `start()` · `stop()` · `toggle()` · `duck(on)`(다른 소리가 나는 동안 물러남) · `refresh()`(회사원 모드가 바뀌었을 때 다시 맞춤) · `isMuted()` · `label()`.
+- **함정**: 창이 소리 자리를 쥘 때(열림 · 안 끔 · 안 물러남)만 `others.hush` 로 듣던 것을 재우고, 끄거나 닫으면 재웠던 쪽만 되살린다. `duck` 으로 물러난 것이면 재워 둔 것은 잊는다(재생 창이 그 소리로 넘어갔다). 회사원 모드에서는 소리를 내지 않고, 듣던 음악은 그때도 재워 둔다(창이 열려 있는 동안 둘 다 조용 · 꺼 두었으면 재우지 않는다) — 모드를 켜고 끄는 쪽이 `refresh()` 를 불러야 열려 있는 창이 따라온다. 자동재생 잠금은 삼키지 않고 경고로 남긴다.
+- 검사: `sim-win-bgm.js`
+
+## `device-toggle.js` — 이 PC 의 켜고 끄는 화면 설정 하나
+- **책임**: 설정 › 디스플레이의 켜짐 · 꺼짐 한 칸을 들고 저장한다(기본 켜짐 · `'0'` 이면 꺼짐). 지금 쓰는 곳: «남의 자리비움 그림»(`tw.awayPicOthers`).
+- **만드는 법**: app.js 가 설정 창보다 먼저 `TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.…' })` → 설정 창과 그 설정을 읽는 기능 모듈에 값으로 넘긴다.
+- **내놓는 것**: `on()` · `set(v)`(저장 + 알림) · `onChange(fn)`(바뀔 때만 · 돌려주는 함수로 뗀다).
+- **함정**: 설정 창이 기능 모듈의 값을 읽게 하면 «설정 창 → 기능 모듈» 순환이 된다(`sim-dep-cycles`) — 그래서 값은 여기 두고 둘 다 이것을 읽는다. 키는 `tw.` 로 시작해야 하고(아니면 만들 때 던진다) 기기 칸 목록(`account-store.js`)에도 넣는다.
+- 검사: `sim-device-toggle.js`
+
 ## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
 
 - **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.
@@ -367,11 +398,20 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `image-bytes.js` — 🖼 data: 그림 → 올릴 바이트
 
-- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 서버 올리기(`POST /v2/me/images?purpose=…`)가 받는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
+- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 Storage 바로 올리기(`own-image.js`)가 올리는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
 - **쓰는 법**: provider 가 `deps.imageBytes`(app.js 가 `TwImageBytes` 를 넘김)로 받아 `inspect(dataUrl, { types, maxBytes })` → `{ ok: true, type, bytes }` 또는 `{ ok: false, why: 'format' | 'empty' | 'large' }`. 종류 · 상한 값은 부르는 쪽(provider `LIMITS` · `IMAGE_TYPES`)이 정한다 — 여기엔 숫자를 두지 않는다.
 - **내놓는 것**: `parseDataUrl` · `inspect`. 순수 — 아무것도 부르지 않는다.
 - **함정**: 상한과 같은 크기는 통과(초과만 `large`). 서버 상한이 바뀌면 값은 각 provider `LIMITS` 한 곳씩.
 - 검사: `checks/sim-image-bytes.js`.
+
+## `own-image.js` — 🖼 내 그림을 Storage 내 폴더에 바로 올리기
+
+- **책임**: 마이홈(책장 책등 포함) · 디데이 카드 · 박수 · 말랑이 그림의 경로 이름(`users/{내 코드}/{mh|dday|clap|mallang}_{무작위 id}.{png|webp|jpg}`)과 올리기 한 번. 이름 머리 · 형식 · 상한은 서버 URL 검사 · Storage 규칙(이름마다 형식 · 상한)과 같다.
+- **deps**: `myCode()`(서버가 준 내 코드) · `newId()` · `put(path, bytes, contentType)` → `{ done: Promise<주소>, cancel() }`(firebase-init `putOwnFile`) · `later(fn, ms)` → 해제 함수 · `owner()` → 지금 로그인 uid(`firebaseAPI.authCurrentUid`).
+- **내놓는 것**: `window.TwOwnImage` — `KINDS` · `TIMEOUT_MS` · `pathOf` · `createOwnImage(deps).upload(kind, img, { expectOwner })`. 형식 · 크기 판정은 부르는 provider 가 `image-bytes.js` 로 먼저 한다.
+- **함정**: 읽은 토큰 주인(`expectOwner`)이 지금 로그인과 다르면 요청 없이 `OWNER_CHANGED`(경로의 코드가 지금 계정 것이라 규칙은 계정 바뀜을 못 막는다). 코드가 없으면 `NO_USER`, Storage 거절(주인 아님 · 상한) · 닿지 못함 · 10초 넘음(`cancel()`) · 빈 주소는 `IMAGE_UPLOAD` 로 던진다(원인은 `cause`). 0.13 앱이 쓰는 서버 endpoint(`POST /v2/me/images`)는 서버에 남아 있다.
+- **함정**: 주소 받기(`getDownloadURL`) 도중 10초를 넘기면 파일은 이미 올라가 Storage 에 남는다(아무 칸도 가리키지 않음) — 탈퇴 때 서버가 폴더째 지운다.
+- 검사: `checks/sim-own-image.js`.
 
 ## `request-id.js` — 🔁 요청 번호(requestId)
 
@@ -423,7 +463,8 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **만드는 법**: `TwUpdateFlow.createUpdateFlow({ readMin, getMin, onMinChange, getVersion, companion, ui: TwUpdateFlow.createUpdateDom(document), noticeOnce, showNotice })` — app.js 가 초대 게이트(`initInviteGate`) 앞에서 만든다. 오류 번호 없음(못 읽으면 막지 않고 넘어간다).
 - **내놓는 것**: `runBeforeLogin()`(→ `{ proceed, stage }` — 강제면 `proceed:false`) · `press(action)` · `whenStageDone(fn)`(런처 «재시작하면 업데이트» 띠를 단계가 끝난 뒤에 걸기) · `isForced()` · `current()` / 순수 함수 `parseVer` · `isBelow` · `stageOf(my, min, latest)` · `viewOf`.
 - **켜 둔 동안**: 원격 설정이 `minVersion` 이 바뀌었다고 알리면(`onMinChange` — 서버 신호) 바로 강제 창. 새 주기 요청은 없다. realtime 서버가 통신 판이 다르다고 닫으면(4003) `forceProtocol()` — 최소 버전 없이 «서버와 맞지 않아» 강제 창(`realtime/rt-status-ui.js` 가 부름). 계정이 더 새 판을 쓰는 기기가 있다고 서버가 답하면(`account/app-version-sync.js`) `forceAccount(highest)` — «다른 PC 에서 더 새 버전을 쓰고 있어요» 강제 창(이미 강제 창이면 그대로).
-- **함정**: 새 판 확인은 main 이 혼자 3초 뒤 하지 않고 이 모듈이 켤 때 `companion.checkUpdate()` 로 묻는다(구독을 건 뒤라 답을 놓치지 않음). 답이 `UPDATE_WAIT_MS` 안에 없으면 «없음». 실패 뒤 혼자 되풀이하지 않고 강제 창 [다시 시도] 를 누를 때만 다시 묻는다. 맥은 자동 설치가 없어 [업데이트] 가 릴리스 주소를 연다.
+- **켜 둔 동안 다시 확인 · 끌 때 설치(윈도우 · 맥 · main.js — 판단은 `apps/desktop/update-platform.js`)**: main 이 4시간 + 0~1시간(사람마다 늦춤을 달리 둬 모두가 같은 때 GitHub 에 묻지 않게)마다 `startUpdateCheck` 를 조용히 부른다(`apps/desktop/update-recheck.js` — 새 창 · 물음 없음 · 확인 · 받는 중이면 그 차례는 건너뜀(같은 상태로 2차례 넘게 멈춰 있으면 다시 묻는다) · 다 받으면 멈춤 · 이 확인의 실패는 오류 파일에 한 번만). 새 판이 있으면 백그라운드로 받고 다 받으면 위 런처 띠가 뜬다. 받아 둔 판은 사용자가 앱을 끌 때(제목줄 × · Alt+F4 · 내 정보 끄기 — 모두 `app.quit` → `_quitHold` 가 렌더러 저장을 끝낸 뒤 `quit`) electron-updater 가 조용히 설치한다(`autoInstallOnAppQuit` · 다시 켜지 않음). 쓰는 도중에는 설치하지 않는다. 윈도우 세션 종료(메인 창 `query-session-end` 에서 설치를 끄고 `session-end` 에서 `_exitNow` — Electron 은 이 신호를 창 이벤트로만 준다) · 중복 실행 정리(`_exitNow`) · 계정 재시작(`relaunchApp`)은 사용자가 끈 것이 아니라 설치를 건너뛰고 다음에 끌 때 설치한다. 모든 사용자(Program Files)로 설치한 PC 는 끌 때 설치를 켜지 않는다 — 설치 폴더에 쓸 수 없어 UAC 창이 뜨기 때문(켤 때 `installDirWritable` 이 실행 파일 옆에 시험 파일을 만들어 본다 · `fs.access` 는 윈도우에서 믿을 수 없다). 그 PC 는 예전처럼 띠의 [재시작] 으로만 설치한다. [재시작] 은 예전처럼 바로 설치. 맥(Squirrel.Mac)은 다 받는 즉시 설치 준비를 끝내 어떻게 꺼지든 설치되므로, Squirrel 이 설치 준비를 끝낸 판(electron `autoUpdater` 의 `update-downloaded`)이 있는 재시작은 relaunch 대신 «설치하고 다시 켜기» 로 간다(`_relaunchOrInstall`) · `.app` 이 든 폴더에 못 쓰면 끌 때 설치를 켜지 않는다(그 맥의 [재시작] 은 Squirrel 이 관리자 암호를 묻거나 실패할 수 있다) · 응용 프로그램 폴더 밖이면 처음 한 번 옮기기를 묻는다. 검사 `checks/sim-update-recheck.js` · `checks/sim-update-platform.js`.
+- **함정**: 켤 때 첫 확인은 main 이 혼자 하지 않고 이 모듈이 켤 때 `companion.checkUpdate()` 로 묻는다(구독을 건 뒤라 답을 놓치지 않음). 답이 `UPDATE_WAIT_MS` 안에 없으면 «없음». 실패 뒤 혼자 되풀이하지 않고 강제 창 [다시 시도] 를 누를 때만 다시 묻는다. 맥도 윈도우와 같은 길이다(0.14 부터 Developer ID 서명 · 공증 — 그 전 맥 앱은 다운로드 페이지 안내).
 - 검사: `checks/sim-update-flow.js`.
 
 ## `account-store.js` — 🗂️ 계정별 로컬 칸(`tw.u.<계정코드>.<이름>`)
@@ -612,3 +653,29 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 **책임** — 새것을 만드는 쓰기의 본문 `requestId` 를 만든다(`newId()`). 같은 일을 다시 보낼 땐 같은 번호(`createPending` — 이 판에서는 쓰는 곳 없음). 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`.
 **만드는 법** — classic script(`window.TwRequestId`)를 쓰는 provider · app.js 보다 먼저 싣는다. 아무것도 부르지 않는다.
 검사: `checks/sim-request-id.js`.
+## `theme-custom.js` — 👑 테마 «내 색» 규칙(두 색 → 색상 축 · 저장 모양)
+
+- **책임**: 프리미엄이 고른 제목줄 두 색(a · b)으로 그 테마의 `--acc-*` 아홉 값을 만든다 · 색(`#RRGGBB`) · 저장 모양(`{ default:{a,b}, bubble:{a,b} }`)을 씻는다. 순수 함수(DOM · localStorage · firebase 없음) — `window.TwThemeCustom`.
+- **쓰는 곳**: `theme.js`(칸 `cx` 를 걸 때 `<html>` 인라인 · 쓸 수 있나 판단 `customUsable`) · `theme-ui.js`(설정 칸 색 · 만들기 상자 미리보기).
+- **내놓는 것**: `normHex` · `normCustom` · `derive(theme, a, b)` · `chipCss` · `mix` · `lum` · `VAR_NAMES` · 밝기 경계 둘.
+- **함정**: 기본 테마는 제목줄 글자가 흰색이라 고른 색을 어둡게, 버블은 글자가 어두워서 밝은 파스텔로 맞춘다 — 경계를 바꾸면 어떤 색에서 글자가 안 읽힌다(검사가 여러 색으로 돌려 본다). 저장 모양은 서버 규칙 `users/$uid/themeCustom` 과 짝이라 칸을 늘리면 규칙도 같이. 검사 `sim-theme-custom.js`.
+
+## `font-choice.js` · `font-ui.js` — 🔤 창 글꼴 고르기
+
+- **책임**: 설정 › 모니터 › 글꼴 — 기본 · 돋움 · 나눔고딕(누구나) + 👑 내 PC 글꼴(프리미엄). 규칙(값 씻기 · PC 글꼴 이름 씻기 · 값 → 글꼴 목록)은 순수 `font-choice.js`(`window.TwFontChoice`), 걸기 · 칸 · PC 글꼴 상자는 `font-ui.js`(`window.TwFontUi` · app.js 가 테마 바로 뒤에서 `createFontUi`).
+- **deps**: `_premiumOn()` · `refreshChildren()`(열린 방명록 · 디자인 창에 토큰 다시 옮김 — `themeMod.applyTheme`).
+- **내놓는 것**: `apply` · `bind` · `refresh` · `premiumChanged`(프리미엄이 바뀌면 초대 게이트 `_refreshPremiumGatedUI` 가 부른다 — 화면 글꼴까지 다시 건다).
+- **함정**: 바꾸는 토큰은 창 글씨 둘(`--win-font` · `--tw-font-legacy`)뿐 — 머리 위 말풍선 · 이름표(`--tw-font-classic`)는 일부러 안 바꾼다. 저장은 이 PC(`tw.uiFont`) — PC 글꼴은 그 PC 에만 있다. 글꼴 이름은 CSS 글자 안에 들어가므로 늘 `cleanFamily` 를 거친다. PC 글꼴 목록(`queryLocalFonts`)은 누름 직후에만 부를 수 있다. 검사 `sim-font-choice.js`.
+
+## `room-focus-days.js` — 📅 집중 기록 날 키 규칙
+
+**책임** — 서버 칸 이름 `YYYYMMDD`(집중 하루)를 만들고 읽는 규칙 한 곳: `dayKeyOf`(집중 하루 문자열 → 키) · `isDayKey`(규칙 `$day` 와 같은 모양) · `addDays` · `weekStartKey`(월요일 시작). 올리기(`room-focus-sync.js` — app.js 가 `dayKey` 로 넘김)와 보여 주기(`chat/chat-focus.js`)가 같은 키를 쓴다.
+
+**함정** — 도메인(focus · chat) 둘이 같이 쓰는 순수 leaf 라 shared 에 둔다. 의존 없는 순수 classic script(`window.TwRoomFocusDays`) — 쓰는 모듈보다 먼저 싣는다. 모양을 바꾸면 규칙 `d/$day` · 이미 쌓인 칸도 같이 본다.
+
+## `server-features.js` — 서버가 아직 안 받는 0.14 기능 표
+- **책임**: 0.14 판에서 Firebase DB · Functions 에 직접 읽고 쓰게 만든 기능의 «서버가 받는가» 를 한 표(`FEATURES`)에 둔다. 0.13 은 Firebase DB 쓰기를 잠갔으므로 서버(API)가 받을 때까지 입구(버튼 · 탭 · 입력칸)만 닫는다 — 기능 코드는 지우지 않는다.
+- **내놓는 것**: `on(name)` → boolean(표에 없는 이름은 던진다) · `FEATURES`(바꿀 수 없는 표) · `noServer(name)`(서버 경로가 없는 provider 자리 — 어떤 메서드든 `SERVER_PATH_MISSING` 으로 거절) · `MISSING_CODE`.
+- **입구**: xmas — app.js 가 크리스마스 창을 만들지 않음(런처 버튼은 html 에서 hidden 으로 시작) · chatNotice · chatFocus — 각 모듈 `enabled` deps(탭 · 구독 없음) · 집중 올리기는 room-focus-sync `isSecretRoom` 에 같이 · playlistLike — playlist-like-ui `enabled`(줄 안 그림 · 안 읽음) · friendReqMsg — friend-req-btn `reasonOn`(사유 칸 없이 묻기) · themeCustomSave — theme-ui `serverOn`(이 PC 저장만)· 가입은 login-flow.js).
+- **서버가 받으면**: 표의 값을 true 로 바꾸고, 그 기능의 provider(지금은 `noServer(이름)`)를 서버 provider 로 갈아 끼운다. 서버 작업 요청은 GitHub 이슈 «서버 작업 요청: …(0.14.0)».
+- **함정**: 다른 기준(날짜 · 방 종류)과 섞지 말 것 — 이 표는 «서버 길이 있나» 하나만 본다. 검사 `checks/sim-server-features.js`.

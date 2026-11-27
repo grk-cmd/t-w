@@ -15,6 +15,10 @@ const NAV = Object.freeze({
   ACCOUNT_ENTERED: 'accountEntered',                // 🚀 계정 확인을 통과해 이 PC 를 서버 계정에 맞췄다(바뀐 계정 아님) — (me) · 거는 곳 launcher/app-boot.js
   ADMIN_EXIT: 'adminExit',                   // 🔐 관리자 모드 끄기 — 세션이 끝났을 때(조용히 · 토스트 없음) · 거는 곳 admin/admin-mode.js
   ROOM_LOBBY: 'roomLobby',                          // 🗂️ 방 목록 로비 다시 읽기 — 모달이 열린 채 방을 나와 로비가 다시 보일 때 · 거는 곳 room/room-lobby-ui.js
+  WARDROBE_ALBUM: 'wardrobeAlbum',                  // 📚 꾸미기 창을 «도감» 탭으로 열기 — 뽑기 창 [도감으로] · 거는 곳 character/wardrobe-panel.js
+  FRIEND_VISIT: 'friendVisit',                      // 🏠 «○○ 님이 있는 룸에 놀러 갈까요?» — (fid, invite) · 🔔 받은 초대 줄 · 거는 곳 room/friend-visit.js
+  MY_HOME_CLOSE: 'myHomeClose',                     // 🏠 마이홈 창 닫기 — (then) 쓰던 글 묻기를 거쳐 닫은 뒤 then() · 거는 곳 myhome-ui.js
+  XMAS: 'xmas',                                     // 🎄 크리스마스 창 열기(일회성) — ('letter' 면 편지 창까지) · 📩 편지 알림 · 거는 곳 xmas/xmas-window.js
 });
 /* 문서 이벤트 이름 한 곳 — 세션이 끝나 관리자 모드를 끌 때 admin-mode 가 보내고, 관리자 창을 여는 모듈이 듣고 자기 닫기로 닫는다.
    NAV 이름(on · go)과 달리 document 이벤트다. admin-mode 가 아닌 이 파일에 두는 까닭: 관리자 모듈이 admin-mode 를 읽으면 admin-mode ↔ app-boot ↔ catalog-sync 순환이 생긴다(sim-dep-cycles). */

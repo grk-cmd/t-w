@@ -128,9 +128,13 @@ function buildUi(env, src, o){
   const win = new Proxy(env.ctx, { get: (t, k) => (k in t ? t[k] : any), set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem(){}, removeItem(){} };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'module', 'TwMyHomeHooks', 'TwDragScroll',
-    src + '\nreturn window.TwMyHomeUi;')(win, doc, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, (fn) => { stats.raf++; fn(); return 0; }, undefined, any, any);
+    src + '\nreturn window.TwMyHomeUi;')(win, doc, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, (fn) => { stats.raf++; fn(); return 0; }, undefined, hooksNoDraft(any), any);
   api.createMyHomeUi(deps);
   return { open: () => win.openMyHome(), close: () => closeBtn._L.click.forEach(fn => fn({})), stats };
+}
+/* 마이홈 고리판 — 📝 버그제보 LEAVE_GUARD(bug-board-ui.js 가 건다)는 «쓰던 글 없음» = false 로 답한다(그래야 ✕ · 탭 옮기기가 바로 닫는다). 나머지 고리는 뭐든 받아 주는 가짜 */
+function hooksNoDraft(any){
+  return new Proxy({}, { get: (t, k) => (k === 'HOOK' ? new Proxy({}, { get: (_, n) => String(n) }) : k === 'call' ? ((name) => (name === 'LEAVE_GUARD' ? false : any)) : any) });
 }
 /* app-mode.js 의 backToLauncher 한 함수만 떼어, 그 안의 이름을 «뭐든 받아 주는 가짜» 위에서 돌린다 — 방명록 고리와 마이홈 창 깃발만 진짜 */
 function cutFn(src, name){
@@ -162,6 +166,7 @@ function buildVisit(env, src){
   /* 가짜 상태 주인 — 구경 받기 · 닫기만(진짜는 sim-myhome-store 가 본다) */
   deps.myhomeStore = { openView: async (code) => { env.viewing = code; return 'ok'; }, closeView: () => { env.viewing = null; }, mine: () => ({ load: 'ready' }), LOAD: { READY: 'ready' }, pullMine: () => Promise.resolve(true), setViewName: () => {} };
   deps.setMyHomeOpen = () => {};
+  deps.friendReqBtn = { refresh(){} };   // 0.14 남의 마이홈 [친구 신청] 버튼 — 구경 열기 · 닫기가 다시 그린다
   const win = new Proxy(env.ctx, { get: (t, k) => (k in t ? t[k] : any), set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem(){}, removeItem(){} };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwMyHomeHooks',

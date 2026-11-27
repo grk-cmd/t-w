@@ -82,7 +82,8 @@ function reset(code, overlay){
   const r = new Function('console', 'overlay', 'mode',
     "let curFace = 2, curEarL = 'e', curEarR = 'e', earAdjSide = 'R', _blinkTouched = true; const scl = { x: 2, y: 2, all: 2 }, earAdj = {};\n" +
     'const _earAdjNew = () => ({}), pFaceC = null, pBlinkC = null, pEar = {}, P_SZ = 1, model = null, _clearPaintHistory = () => {};\n' +
-    'const creatorMode = () => mode;\n' + MARK + '\n' + code + '\n_resetAnimalState(); return curFace;')(console, overlay, mode);
+    // creatorMode 는 판마다 모양이 다르다 — 읽는 함수(deps) 또는 app.js 의 공용 값. 원본이 쓰는 모양을 그대로 준다
+    (/creatorMode\(\)/.test(code) ? 'const creatorMode = () => mode;\n' : 'const creatorMode = mode;\n') + MARK + '\n' + code + '\n_resetAnimalState(); return curFace;')(console, overlay, mode);
   return { mode, warns, curFace: r };
 }
 if (!RESET || !MARK){ chk(false, 'animal.js 에 _resetAnimalState · markFaceBtns 가 없다'); }
@@ -97,6 +98,17 @@ else {
   const broken = RESET.replace('if(overlay) markFaceBtns();', 'markFaceBtns();');
   const b = reset(broken, null);
   chk(broken !== RESET && b.mode.edit === true && b.warns.length === 1, 'mutation test — 창이 없을 때도 단추를 고치면 던져서 표시가 남는다(위가 잡는 모양)');
+}
+
+say('── 잠금 안내 — 서버 레벨을 못 받았으면 «현재 Lv» 를 뺀다');
+const LOCK = cutFn(SRC, '_lockMsg');
+if (!LOCK){ chk(false, 'animal.js 에 _lockMsg 가 없다'); }
+else {
+  const msg = (src, s) => new Function(src + '\nreturn _lockMsg;')()(50, s);
+  chk(msg(LOCK, 206) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요 (현재 Lv.206)' && msg(LOCK, 0) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요 (현재 Lv.0)', '받았으면 «(현재 Lv.N)» 을 붙인다(0 도 숫자)');
+  chk(msg(LOCK, null) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요' && msg(LOCK, undefined) === '🔒 동물 캐릭터는 Lv.50 달성 보상이에요', '못 받았으면(null) «현재 Lv» 를 뺀다 — 레벨 1 을 그리지 않는다(B-1126-1)');
+  const brk = LOCK.replace("(shown != null ? ' (현재 Lv.'+shown+')' : '')", "' (현재 Lv.'+(shown||1)+')'");
+  chk(brk !== LOCK && msg(brk, null) !== '🔒 동물 캐릭터는 Lv.50 달성 보상이에요', 'mutation test — 못 받았을 때도 Lv 를 적으면 위가 빨강');
 }
 
 say(`\n${fail ? '✗' : '✓'} ${pass} 통과 · ${fail} 실패`);

@@ -9,6 +9,7 @@
 
 function createFramePace(deps){
 const _flyActive = deps._flyActive;   // 읽는 함수
+const _renderQuality = deps._renderQuality;   // 읽는 함수 — 저장된 실행 화면 화질(«최저» 면 fps 상한을 더 낮춘다 · FrameBudget.pickFps)
 const setRunLowered = deps.setRunLowered;   // 쓰는 함수
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const frame = deps.frame;   // 함수
@@ -76,6 +77,7 @@ function _frameCap(now){
     runMode: document.body.classList.contains('runmode'),
     busy: _appFocused && _fbIsBusy(now),
     idleMs: _frameBudget.idleMs(now),
+    quality: _renderQuality(),
   });
 }
 /* 이번 프레임을 건너뛸 것인가. 그린다고 답하면 다음 예정 시각이 잡힌다(admit). */

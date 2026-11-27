@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — myhome-visit.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["applyDesktopRunClass","getMyUserId","loadMyHomePage","renderMyHomePage","toast","_mhViewingDisplayName","fetchCards","refreshFriendProfile"];
-const VAL_DEPS = ["mallangMod","mhScheduler","myhomeStore"];
+const VAL_DEPS = ["mallangMod","mhScheduler","myhomeStore","friendReqBtn"];
 const GET_DEPS = ["_myHomeFriends","myHomeOpen","_mhViewingUserId","_mhViewingName"];
 const SET_DEPS = ["myHomeOpen"];
 const EXPORTS = ["_mhApplyVisitUI","closeFriendHomeView","openFriendHomeView"];
 const MOVED = ["_myHomeData","_mhHomeFromServer","_myHomeLoaded","_myHomeUid","_mhViewingUserId","_mhViewingName","_mhViewingDisplayName","_mhMyDataBackup","openFriendHomeView","closeFriendHomeView","_mhApplyVisitUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _myHomeFriends: ()=>_myHomeFriends,","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),","  mallangMod: mallangMod,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),","  toast: (...a)=>toast(...a),","  setMyHomeOpen: (v)=>{ myHomeOpen = v; },","  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),","  _mhViewingName: ()=>mhStateMod._mhViewingName(),","  _mhViewingDisplayName: (...a)=>mhStateMod._mhViewingDisplayName(...a),","  myhomeStore: myhomeStoreMod,","  fetchCards: (...a)=>socialNamesApi.fetchCards(...a),","  refreshFriendProfile: (...a)=>friendsSubMod.refreshProfile(...a),"];
+const GLUE = ["  _myHomeFriends: ()=>_myHomeFriends,","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),","  mallangMod: mallangMod,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),","  toast: (...a)=>toast(...a),","  setMyHomeOpen: (v)=>{ myHomeOpen = v; },","  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),","  _mhViewingName: ()=>mhStateMod._mhViewingName(),","  _mhViewingDisplayName: (...a)=>mhStateMod._mhViewingDisplayName(...a),","  myhomeStore: myhomeStoreMod,","  fetchCards: (...a)=>socialNamesApi.fetchCards(...a),","  refreshFriendProfile: (...a)=>friendsSubMod.refreshProfile(...a),","  friendReqBtn: friendReqBtnMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

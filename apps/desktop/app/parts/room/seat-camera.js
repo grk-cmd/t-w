@@ -26,7 +26,7 @@ const dotRenderMod = deps.dotRenderMod;   // 읽는 함수
 const focusCharScale = deps.focusCharScale;   // 읽는 함수
 const renderer = deps.renderer;
 const sizeFactor = deps.sizeFactor;   // 읽는 함수
-const renderQuality = deps.renderQuality;   // 읽는 함수 — 프로그램 설정 › 모니터의 화질
+const renderQuality = deps.renderQuality;   // 읽는 함수 — 설정 › 디스플레이의 화질
 const runLowered = deps.runLowered;   // 읽는 함수 — «자동» 이 이번 실행에서 낮췄는가
 /* 📐 카메라 · 캔버스 박힌 값 — 바꾸면 실행 화면 · 런처 미리보기의 캐릭터 크기 · 자리가 함께 움직인다 */
 const LOOK_Y = 0.5;                 // 카메라가 바라보는 높이(바닥이 화면 가운데쯤 오게 살짝 낮춤)

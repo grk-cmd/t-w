@@ -112,7 +112,7 @@ say('── 4. 동작 — 칩 팝업 닫기');
     return { close, ids };
   }
   let T = mk(null); T.close('myChatBox');
-  chk(T.ids.myStatusMenu.cls.has('hidden') && !T.ids.myStatusChipBtn.cls.has('on') && T.ids.myChipMore.cls.has('hidden') && T.ids.bellWin.cls.has('hidden') && T.ids.bellWin.style.display === 'none', '열려는 것 말고 모두 닫는다 · 버튼 on 끔 · 알림 창은 display none 까지');
+  chk(!T.ids.myStatusMenu && !T.ids.myStatusChipBtn.cls.has('on') && T.ids.myChipMore.cls.has('hidden') && T.ids.bellWin.cls.has('hidden') && T.ids.bellWin.style.display === 'none', '열려는 것 말고 모두 닫는다 · 버튼 on 끔 · 알림 창은 display none 까지 · ▾ 메뉴 안 상태 목록은 따로 안 건드린다(메뉴째 닫힌다)');
   chk(!T.ids.myChatBox || !T.ids.myChatBox.cls.has('hidden'), '  열려는 팝업(exceptId)은 건드리지 않는다');
   chk(!T.ids.myPlaylistBox && !T.ids.listenBox && !T.ids.myPlBtn, '  플레이리스트 · 🎧 같이 듣기 창(keep)은 force 가 아니면 안 닫는다');
   T = mk(null); T.close(null, true);
