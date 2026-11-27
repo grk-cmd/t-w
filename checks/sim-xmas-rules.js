@@ -111,7 +111,7 @@ chk(broken.changedImgSlots(o, { 1: 6 }).indexOf('1') < 0 && need.indexOf('1') >=
 
 say('── 7절 편지');
 chk(JSON.stringify(R.RETURN_REASONS) === JSON.stringify(SV.RETURN_REASONS), '반송 사유 표가 서버와 같다 — ' + Object.values(R.RETURN_REASONS).join(' · '));
-chk(R.LETTER_IDS.join() === 'l1,l2,l3,l4,l5' && R.LETTER_MAX === 5 && R.LETTER_TEXT_MAX === 500 && R.SONG_TITLE_MAX === 40, '편지 칸 l1~l5 · 500자 · 곡 제목 40자(규칙 xmasLetters 와 같음)');
+chk(R.LETTER_IDS.join() === 'l1,l2,l3,l4,l5' && R.LETTER_MAX === 1 && R.LETTER_TEXT_MAX === 500 && R.SONG_TITLE_MAX === 40, '편지 칸 l1~l5(서버 칸 — 읽기) · 앱에서 맡기는 수는 한 통 · 500자 · 곡 제목 40자');
 {
   const lettersSrv = { u1: { l1: { text: 'A' }, l9: { text: 'B' } }, u2: { l2: { text: 'C', song: { id: 'abcdefghijk', title: 'T' } } } };
   const sv = SV.lettersOf(lettersSrv);
@@ -122,7 +122,10 @@ const box = { l3: { text: '셋째', ts: 3 }, l1: { text: '첫째\n둘째 줄', t
 const ML = R.myLettersOf(box);
 chk(ML.map(l => l.lid).join() === 'l1,l3' && ML[0].song.title.length === 40, '내 편지함 — 칸 순서 · 빈 글 · 없는 칸 · 글 없는 칸은 뺀다 · 곡 제목 40자 (' + ML.map(l => l.lid).join() + ')');
 chk(R.myLettersOf(null).length === 0 && R.songOf({ id: 'short' }) === null && R.songOf({ id: 'abcdefghijk' }).title === '' && R.songOf('x') === null, '없음 · 틀린 곡 id · 제목 없는 곡');
-chk(R.freeLetterId(ML) === 'l2' && R.freeLetterId([]) === 'l1' && R.freeLetterId(R.LETTER_IDS.map(lid => ({ lid }))) === null, '빈 칸 — 앞에서부터 · 다섯 통이면 null');
+chk(R.freeLetterId([]) === 'l1' && R.freeLetterId(null) === 'l1' && R.freeLetterId([{ lid: 'l1' }]) === null && R.freeLetterId([{ lid: 'l3' }]) === null && R.freeLetterId(ML) === null, '★ 빈 칸 — 맡긴 편지가 없을 때만 l1 · 한 통이라도 있으면(어느 칸이든) null');
+{ const RS = fs.readFileSync(RP, 'utf8'); const cut = RS.replace("  if ((letters || []).length >= LETTER_MAX) return null;\n", '');
+  let free = null; try { const m = { exports: {} }; new Function('module', 'window', cut)(m, undefined); free = m.exports.freeLetterId([{ lid: 'l1' }]); } catch (_) { free = 'threw'; }
+  chk(cut !== RS && free === 'l2', 'mutation test — 상한 판정을 빼면 한 통을 맡긴 뒤에도 빈 칸(l2)을 내준다 → 위 판정이 빨강'); }
 const RT = R.returnedOf({ l2: { reason: 'etc', note: '번호가 있어요', text: '내 번호 010', ts: 5 }, l4: { reason: 'abuse', text: '나쁜 말' }, l5: { reason: '모름', text: 'x' }, l1: { reason: 'spam' } });
 chk(RT.map(r => r.lid).join() === 'l2,l4,l5' && RT[0].why === '기타 — 번호가 있어요' && RT[1].why === '욕설 · 비방' && RT[2].why === '기타', '반송 — 보여 줄 사유(기타는 적은 말까지) · 모르는 사유는 기타 · 글 없는 칸은 뺀다');
 chk(SV.returnBody('etc', '번호가 있어요').indexOf('사유: ' + RT[0].why) === 0, '  ↳ 알림함 본문(서버 returnBody)과 같은 사유 글');
