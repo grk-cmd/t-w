@@ -384,12 +384,12 @@
 | **sim-myhome-ui.js** | 133 | **a1b3376669be** |
 | **sim-tricks.js** | 120 | **4515e3edd7c8** |
 | **sim-ride-bench.js** | 358 | **199de6118464** |
-| **sim-part-paint.js** | 94 | **0cae749ad104** |
+| **sim-part-paint.js** | 94 | **1ecb09b09d58** |
 | **sim-focus-level.js** | 147 | **91bde8afa958** |
 | **sim-chat-ui.js** | 126 | **eca9c00f7396** |
 | **sim-license-gate.js** | 441 | **1f9c56f0d87f** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
-| **sim-wardrobe.js** | 399 | **ec19215a893c** |
+| **sim-wardrobe.js** | 441 | **c6da5c655ca4** |
 | **sim-settings-panel.js** | 205 | **aad58018e96e** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |
