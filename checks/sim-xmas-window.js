@@ -328,7 +328,7 @@ say('── 5-3절 창 끌기 · 앱 창 크기 — 창 전체가 화면 안(sha
       && /#xmasLwText,\.xm-text\{[^}]*font:13px\/24px/.test(H) && /\.xm-mplay,\.xm-mset\{[^}]*font:inherit;/.test(H) && /\.xm-env\{[^}]*font:inherit;/.test(H),
       '  뮤직바 · 편지 봉투 단추 · 편지 쓰기 칸(제 글꼴)은 이 규칙에 덮이지 않는다 — 선택자 ' + sels.join(' · ')); }
   chk(/body:has\(#xmasOverlay\.on\) #launcher \.lc-bar\{-webkit-app-region:no-drag;\}/.test(H), '숨긴 런처 제목줄이 트리 위에서 앱 창을 끌지 않는다');
-  chk(/\.xm-hint\{(?![^}]*background)[^}]*color:#111;text-shadow:(?:[^,;}]+ #fff,){7}[^,;}]+ #fff;/.test(H), '조작 안내는 검은 글자에 8방향 흰 외곽선(띠 없음)');
+  chk(/\.xm-hint\{(?![^}]*background)[^}]*color:#000;text-shadow:(?:[^,;}]+ #fff,){7}[^,;}]+ #fff;/.test(H), '조작 안내는 검은 글자에 8방향 흰 외곽선(띠 없음)');
   chk(/#xmasTitle \.xm-tbtn\{[^}]*padding:5px 6px;margin:-5px 0 -5px 2px;/.test(H), '음악 끄기 · 음악 출처 — 누르는 범위를 글자 둘레로 넓힌다(제목줄 높이는 그대로)');
 }
 
