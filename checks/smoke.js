@@ -511,6 +511,7 @@ PRELOAD.push('license-gate.js');
 PRELOAD.push('account.js');
 /* wardrobe.js — 🎨 꾸미기 창(앱 FSD 29번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobe 를 같이 굴린다. */
 PRELOAD.push('wardrobe-place.js');   // 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 가 TwWardrobePlace 를 읽는다
+PRELOAD.push('wardrobe-paging.js');   // 📄 꾸미기 창 파츠 칸 페이지 · 찾기 규칙(순수) — app.js 가 wardrobe.js 에 deps 로 넘긴다
 PRELOAD.push('wardrobe.js');
 /* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
 /* panel-fit.js — 📐 창을 화면 안으로(아래 기준 · 왼쪽 위 기준). settings-panel.js · status-chip.js · 크리스마스 창(deps)이 부른다. */
