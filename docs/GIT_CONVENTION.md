@@ -133,6 +133,12 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 - **앱 · API 서버 · realtime 중 둘 이상을 건드리거나 데이터가 사는 곳을 새로 두거나 옮기면** «설계 한 장» 칸을 채운다(기준 `.claude/agents/tw-confirmer.md`).
 - **서버(API 서버 · 웹소켓 서버)가 있어야 끝나는 일**인데 서버에 손댈 수 없으면(이 계정 밖 · 다른 PC) «서버 작업 필요» 칸에 적는다(4.2). 서버는 이 저장소 주인 PC 에서만 고친다.
 - **Claude 표기(`Co-Authored-By: Claude…`, `Generated with Claude Code`, 세션 링크)를 넣지 않는다.**
+  CI(`pr-title.yml` · 판정 `checks/sim-no-attribution.js`)가 PR 본문과 이 PR 이 새로 들이는 커밋(main · admin · release/* 에 이미 있는 것은 뺌)을 보고, 걸리면 빨강이다. 도구가 꼬리말을 붙이라고 안내해도 넣지 않는다. 빨강이면:
+  - **PR 본문** — 본문을 고친다(고치면 검사가 다시 돈다).
+  - **커밋 메시지** — force push 없이는 고칠 수 없다. 같은 트리를 새 브랜치에 깨끗한 메시지로 다시 만들어 새 PR 을 열고, 옛 PR 은 닫는다(#1165 → #1167).
+    예) `git commit-tree <옛 머리>^{tree} -p origin/<base> -F msg.txt` 로 커밋을 만들고 `git push origin <새 커밋>:refs/heads/<새 브랜치>`.
+  - **squash 머지** — 머지할 때 GitHub 가 채워 주는 squash 메시지에도 꼬리말이 없어야 한다(CI 는 머지 때 고친 글을 못 본다).
+  - **검사가 못 보는 것** — head 가 main · admin · release/* 인 PR(판 내기 · 합쳐 받기)은 그 커밋이 이미 보호 브랜치에 있어 새 커밋 0개로 센다. 그 커밋 · squash 메시지는 머지하는 사람이 본다.
 - 머지는 CI(`npm run check` · 웹 관리자 테스트)가 **초록인 것을 확인한 뒤** 한다.
 
 ### 3.1 본문 템플릿
