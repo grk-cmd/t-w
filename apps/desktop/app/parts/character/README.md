@@ -446,6 +446,20 @@
   - 화면이 좁아 둘이 다 안 들어가면 꾸미기 창을 먼저 화면 안으로 · 미리보기는 겹쳐도 화면 안으로만.
   - 검사: `checks/sim-wardrobe-place.js`.
 
+## wardrobe-paging.js — 📄 꾸미기 창 파츠 칸 페이지 · 이름 찾기
+
+- **책임**: 꾸미기 창 파츠 칸의 줄 · 페이지 · 찾기 규칙(순수 함수 · DOM · 저장 없음). 칸 한 줄은 «기본 캐릭터» 묶음([안 함] + 기본 파츠) 다음 «커미션 전용» 묶음 — 페이지는 이 한 줄을 `PAGE_SIZE`(16 = 4열 × 4줄)씩 자른다. 그리기 · 기억한 페이지(분류마다 · 이 화면에서만)는 `wardrobe.js`.
+- **deps**: 없음. **만드는 법**: classic script(`window.TwWardrobePaging` · `module.exports`) — html · `checks/smoke.js` PRELOAD 가 `wardrobe.js` · app.js 앞에 싣고, app.js 가 `createWardrobe({ paging: TwWardrobePaging })` 로 넘긴다.
+- **내놓는 것**: `PAGE_SIZE` · `PAGER_ALL_MAX`(7) · `normQuery(q)`(앞뒤 공백 떼고 소문자) · `matchName(name, q)` · `buildCells({ defaultList, commissionList, withDefault, query })` → `[{ section:'default'|'commission', kind:'none'|'part', rec }]` · `pageCount(n, size)` · `clampPage(page, n, size)` · `pageView(cells, page, size)` → `{ page, pages, groups:[{ section, cells }] }` · `pagerItems(page, pages)` → 번호(0 부터)와 `'…'`.
+- **함정**:
+  - 페이지 번호는 0 부터 — 화면에 쓸 때만 +1.
+  - 묶음 머리(«기본 캐릭터» · «커미션 전용»)는 그 페이지에 칸이 걸친 묶음에만 그린다(`groups`). 묶음마다 따로 페이지를 나누지 않는다 — 한 페이지 칸 수가 늘 16 이하라 창 높이가 정해진다.
+  - 찾는 중에는 [안 함] 을 뺀다(파츠가 아니다) · 이름이 없는 파츠는 안 걸린다(화면의 «파츠» 는 대신 쓰는 글이다).
+  - 기억한 페이지는 그릴 때마다 `clampPage` 로 맞춘다 — 목록이 줄어 그 페이지가 없으면 마지막 페이지.
+  - 열 수(4)는 html `.wd-grid` 와 같이 고친다.
+  - 화면 쪽(`wardrobe.js` renderWardrobe): 찾는 말은 분류를 바꾸면 비운다 · 찾는 중의 페이지는 보던 페이지와 따로 둔다(비우면 보던 페이지로). 입력칸은 다시 만들지 않고 칸 목록(`.wd-cat-body`)만 다시 그린다 — 입력칸을 다시 만들면 한글 조합이 끊긴다. 상세조정 중인 칸이 안 보이는 페이지로 가면 조정을 닫는다.
+  - 검사: `checks/sim-wardrobe-paging.js`(경계값 · 배선 · mutation test) · `checks/sim-wardrobe.js` 2-2절(실제 renderWardrobe 위에서 페이지 · 찾기).
+
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 
 - **책임**: 그래픽 리셋 등으로 캔버스가 비면 같은 캔버스에 다시 그린다. `repairBlankFaces` — 내 사람 칸(저장본 `LS_KEY` 로). `repairSeatTextures` — 남의 사람 좌석(방 동기화가 남긴 `faceUrl` · `blinkUrl`)과 동물 좌석(내 것 포함 · `animal.js` 가 텍스처에 남긴 `userData.twSrc` · `twFill`). `reportGlReset` — WebGL 이 돌아온 직후(`gl-recover.js` `afterRestore`) 빈 좌석 그림 수를 진단 기록에 한 줄 남기고 바로 고친다.
