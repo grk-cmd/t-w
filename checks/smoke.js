@@ -515,7 +515,7 @@ PRELOAD.push('wardrobe.js');
 /* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
 /* panel-fit.js — 📐 창을 화면 안으로(아래 기준 · 왼쪽 위 기준). settings-panel.js · status-chip.js · 크리스마스 창(deps)이 부른다. */
 PRELOAD.push('panel-fit.js');
-/* os-drag.js — 🪟 런처 화면에서 창을 앱 창째 끌기. 마이홈 창 · 크리스마스 창(deps)이 부른다. */
+/* os-drag.js — 🪟 런처 화면에서 창을 앱 창째 끌기. 크리스마스 창(deps)이 부른다. */
 PRELOAD.push('os-drag.js');
 PRELOAD.push('settings-panel.js');
 /* update-flow.js — 🔄 켤 때 업데이트 흐름. app.js 가 초대 게이트 앞에서 createUpdateFlow 를 만들고 desktop-run.js 가 whenStageDone 을 받으므로 먼저 싣는다. */

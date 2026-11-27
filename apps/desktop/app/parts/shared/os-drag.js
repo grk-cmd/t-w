@@ -3,7 +3,7 @@
      런처가 켜져 있으면 앱 창 자체를 끈다 — 자리는 main 이 마우스 자리로 계산한다(win-drag.js · 배율이 다른 모니터 사이에서도).
      실행 화면(전체 화면 오버레이)에서는 화면 전체가 앱 창이라 DOM 끌기 그대로.
    받는 것: { doc, companion: () => window.companion }. 내보냄: window.TwOsDrag = { createOsDrag }.
-   쓰는 모듈(myhome-ui.js · xmas-window.js — deps 로)보다 먼저 싣는 classic script. */
+   쓰는 모듈(지금은 xmas-window.js — app.js 가 deps 로 · 마이홈 두 곳은 같은 판단을 아직 제 코드에 갖고 있다)보다 먼저 싣는 classic script. */
 (function(){
 
 /**
