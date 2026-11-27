@@ -3,12 +3,12 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// 톱니 — 두 판 갈아 끼우기(D12)가 끝나는 날까지 «포트 밖 직접 호출» 과 «API 판이 없는 포트» 가 늘지 않게 센다.
+// ratchet — 두 판 갈아 끼우기(D12)가 끝나는 날까지 «포트 밖 직접 호출» 과 «API 판이 없는 포트» 가 늘지 않게 센다.
 // 줄이는 PR 은 기준선도 같이 낮춘다(늘리는 PR 은 빨강). 마지막 D12-*a 뒤 TOOTH_1 = 0 · 마지막 D12-*b 뒤 TOOTH_2 = 0.
 
-/** 톱니 1 기준선 — D12-8a 뒤(사용자를 포트 뒤로 옮김: 19 → 10). */
+/** ratchet 1 기준선 — D12-8a 뒤(사용자를 포트 뒤로 옮김: 19 → 10). */
 const TOOTH_1_BASELINE = 10;
-/** 톱니 2 기준선 — D12-4b 뒤 0(10 → 0). `notPorted` 는 지웠다 — 다시 적는 PR 은 빨강. */
+/** ratchet 2 기준선 — D12-4b 뒤 0(10 → 0). `notPorted` 는 지웠다 — 다시 적는 PR 은 빨강. */
 const TOOTH_2_BASELINE = 0;
 
 const SRC = join(process.cwd(), 'src');
@@ -23,7 +23,7 @@ function files(dir: string): string[] {
 const rel = (path: string) => relative(SRC, path).split(sep).join('/');
 const all = files(SRC).map((path) => ({ path: rel(path), text: readFileSync(path, 'utf8') }));
 
-/** 판 가르는 일이 허용된 곳 — 이 밖에서 Db · Files · Functions 를 직접 쓰면 톱니 1 이 센다. */
+/** 판 가르는 일이 허용된 곳 — 이 밖에서 Db · Files · Functions 를 직접 쓰면 ratchet 1 이 센다. */
 const isPortSide = (path: string) =>
   path.startsWith('shared/api/') || /\/api\/(firebase|index)\.ts$/.test(path);
 
@@ -32,8 +32,8 @@ const FIREBASE_ONLY: string[] = ['features/room/clean-ghost-rooms/', 'features/c
 
 const DIRECT = /\b(useDb|useFiles|useFunctions|viaApiOr|withAudit)\b/;
 
-describe('두 판 갈아 끼우기 톱니', () => {
-  it('톱니 1 — 포트 밖에서 Db · Files · Functions · viaApiOr · withAudit 를 부르는 파일 수가 기준선을 넘지 않는다', () => {
+describe('두 판 갈아 끼우기 ratchet', () => {
+  it('ratchet 1 — 포트 밖에서 Db · Files · Functions · viaApiOr · withAudit 를 부르는 파일 수가 기준선을 넘지 않는다', () => {
     const offenders = all
       .filter(({ path }) => !isPortSide(path) && !FIREBASE_ONLY.some((p) => path.startsWith(p)))
       .filter(({ text }) => DIRECT.test(text))
@@ -43,7 +43,7 @@ describe('두 판 갈아 끼우기 톱니', () => {
     );
   });
 
-  it('톱니 2 — API 판이 없는 포트(notPorted)가 기준선을 넘지 않는다', () => {
+  it('ratchet 2 — API 판이 없는 포트(notPorted)가 기준선을 넘지 않는다', () => {
     const ported = all.filter(
       ({ path, text }) => path !== 'shared/api/backend.ts' && /\bnotPorted\(/.test(text),
     );
