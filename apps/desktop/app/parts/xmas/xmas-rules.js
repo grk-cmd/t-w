@@ -69,7 +69,7 @@ function cleanWord(w){
 /** 트리 층(원뿔) — 3D 와 자리 계산이 같이 쓴다 */
 const TIERS = Object.freeze([ { y: 0.6, h: 1.9, r: 2.05 }, { y: 1.75, h: 1.6, r: 1.6 }, { y: 2.75, h: 1.35, r: 1.15 }, { y: 3.6, h: 1.05, r: 0.72 } ]);
 /**
- * 장식 자리 n 개 — 층 넓이만큼 나눠 원뿔 겉면(위층에 덮이지 않는 띠)에 황금각 나선으로(빈자리 자동 배치 · 자리 번호 = 서버 slot).
+ * 장식 자리 n 개 — 층 넓이만큼 나눠 원뿔 겉면(위층에 덮이지 않는 띠)에 황금각 나선으로 놓고 번호 차례를 섞는다(spread · 자리 번호 = 서버 slot).
  * 같은 n 이면 늘 같은 자리 → 모든 사람의 화면에서 같은 장식이 같은 곳에 걸린다.
  */
 const HY_LOW = 0.03;   // 층 밑단(치마 끝)에서 거의 바로 — 트리 맨 아래까지 장식이 내려온다
@@ -89,6 +89,20 @@ function slotPositions(n){
     }
     k += cnt;
   });
+  return spread(out);
+}
+/**
+ * 자리 번호 → 위 위치를 섞는다. 서버는 단 차례대로 번호(0 · 1 · 2 …)를 주고 위 위치는 맨 아래층 밑단부터 차례라,
+ * 그대로 두면 장식이 적을 때 전부 밑단에 몰린다. 황금비로 고른 차례(겹치면 다음 빈 위치)라 앞 번호 몇 개만으로도
+ * 트리 위아래 · 둘레에 고루 퍼진다 — 같은 n 이면 늘 같은 섞음.
+ */
+function spread(geo){
+  const n = geo.length, taken = new Array(n).fill(false), out = [];
+  for (let i = 0; i < n; i++){
+    let k = Math.floor((((i + 0.5) * 0.6180339887) % 1) * n);
+    while (taken[k]) k = (k + 1) % n;
+    taken[k] = true; out.push(geo[k]);
+  }
   return out;
 }
 
