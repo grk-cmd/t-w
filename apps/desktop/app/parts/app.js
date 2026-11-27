@@ -885,7 +885,7 @@ const xmasApiMod = TwXmasApi.createXmasApi({ authed: TwApi.authed, rules: TwXmas
   fetch: (...a)=>window.fetch(...a), warn: (...a)=>console.warn(...a) });   // 🌐 크리스마스 서버 endpoint
 const xmasWinMod = !TwServerFeatures.on('xmas') ? null : TwXmasWindow.createXmasWindow({ THREE, ps1Dither: TwPs1Dither, rules: TwXmasRules, treeMod: TwXmasTree, net: ()=>xmasApiMod, serverNow: ()=>TwRtHub.store.serverNow(),
   onClock: (fn)=>TwRtHub.store.onClock(fn), notifyError: (...a)=>TwErrorCodes.notify(...a), toast: (...a)=>toast(...a),
-  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(),
+  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a), onSizeChange: ()=>applyDesktopRunClass(), osDrag: TwOsDrag.createOsDrag({ doc: document, companion: ()=>window.companion }),
   idbGet: (k)=>glbIdbMod._glbIdbGet(k), idbPut: (k, v)=>glbIdbMod._glbIdbPut(k, v), songMod: TwXmasSong, letterMod: TwXmasLetter, companion: ()=>window.companion,
   ytVideoId: (u)=>plMod.ytVideoId(u), asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a), storage: localStorage,
   twNav: twNav,
