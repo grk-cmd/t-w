@@ -1,5 +1,5 @@
 /* xmas-letter.js — 🎄 마니또 편지 창(일회성 — 다음 업데이트에서 걷는다 · 이슈 #963) (검사 sim-xmas-letter.js)
-   책임: 트리 창 아래 [편지 쓰기 (n/5)] · [편지 열람] 단추 · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc) ·
+   책임: 트리 창 아래 [편지 쓰기 (n/1)] · [편지 열람] 단추 · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc) ·
      ✍️ 쓰기(12/24 23:59 까지 — 맡긴 편지 목록 · 고치기 · 거두기 · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 추천곡) ·
      📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음 표시) · 런처 [크리스마스] 빨간 점(안 읽은 받은 편지).
    서버는 net(xmas-api.js — 내 몫만 읽고 쓴다), 날짜 · 칸 규칙은 rules(TwXmasRules) · 날짜 한 벌은 schedule()(서버 값), 뮤직바는 song(TwXmasSong).
@@ -54,7 +54,7 @@ function createXmasLetter(deps){
     else btn.hidden = true;
     btn.classList.toggle('xm-dot', rules.lettersArrived(now, s) && rules.hasUnread(got, readSet()));
   }
-  /** 트리 창을 열 때 — 쓰는 기간이면 맡긴 수(n/5)를 위해 내 편지함을 한 번 읽는다 */
+  /** 트리 창을 열 때 — 쓰는 기간이면 맡긴 수(n/1)를 위해 내 편지함을 한 번 읽는다 */
   async function refresh(){
     if (rules.letterOpen(serverNow(), schedule())){
       const my = ++refSeq;
@@ -118,7 +118,7 @@ function createXmasLetter(deps){
       ['지우기', () => dismiss(r.lid)],
     ])));
     const list = $('xmasLwList'); list.textContent = '';
-    letters.forEach((l, i) => list.appendChild(item((i + 1) + '번째 편지 · ' + firstLine(l.text), '', [
+    letters.forEach((l, i) => list.appendChild(item((letters.length > 1 ? (i + 1) + '번째 편지' : '맡긴 편지') + ' · ' + firstLine(l.text), '', [
       ['고치기', () => edit({ lid: l.lid, retLid: null, text: l.text, song: l.song })],
       ['거두기', () => withdraw(l.lid)],
     ])));
