@@ -188,7 +188,7 @@ say('── 8. 🖼️ 자리비움 그림 = 화면 px 고정 (개정 76 · 150 
   chk(Math.abs(run(60, 10, 34, 2000) - w / 2) < 1e-9, '화면이 두 배 크면 절반 — 화면 px 고정');
   const fr = strip(grab(SRC, '_awayImgFrame'));
   chk(/const h = _awayWorldForPx\(_awayPxFor\(seat\), cx, fy, cz\);/.test(fr) && /sp\.scale\.set\(h, h, 1\);/.test(fr) && !/sp\.scale\.set\(bh/.test(fr), '크기는 경계상자가 아니라 화면 px 에서(인간·동물 같음)');
-  chk(/sp\.position\.set\(cx - _awayGW\.x, fy \+ h\/2 - _awayGW\.y, cz - _awayGW\.z\);/.test(fr), '자리는 예전처럼 가운데 · 발밑');
+  chk(/seat\.rig\.getWorldPosition\(_awayGW\);\s*let cx = _awayGW\.x, fy = _awayGW\.y, cz = _awayGW\.z;/.test(fr) && !/measureBodyBox\(seat\./.test(fr), '자리는 rig 원점(발밑) — 몸 상자로 재지 않는다');
 }
 
 say('── 9. 🗼 탑 위 자리비움 그림 — 바로 아래 캐릭터의 꼭대기에(A안)');
@@ -198,7 +198,7 @@ say('── 9. 🗼 탑 위 자리비움 그림 — 바로 아래 캐릭터의 �
   chk(/_awayHostBox\.setFromObject\(_host\.bodyWrap \|\| _host\.rig\);|measureBodyBox\(_host\.bodyWrap \|\| _host\.rig, null, _awayHostBox\);/.test(fr) && /fy = _awayHostBox\.max\.y;/.test(fr), '밑변 = 바로 아래 캐릭터의 꼭대기');
   chk(/cx = \(_awayHostBox\.min\.x \+ _awayHostBox\.max\.x\)\/2;/.test(fr) && /cz = \(_awayHostBox\.min\.z \+ _awayHostBox\.max\.z\)\/2;/.test(fr), '가로·앞뒤 = 그 캐릭터 가운데');
   chk(fr.indexOf('fy = _awayHostBox.max.y;') < fr.indexOf('const h = _awayWorldForPx(_awayPxFor(seat), cx, fy, cz);'), '크기는 바뀐 자리의 깊이로 잰다');
-  chk(/var _awayBox = null, _awayGW = null, _awayHostBox = null;/.test(CODE), '상자는 하나를 재사용한다(매 측정 new 없음)');
+  chk(/var _awayGW = null, _awayHostBox = null;/.test(CODE), '상자는 하나를 재사용한다(매 측정 new 없음)');
   /* 흉내: 팔 걸치기 자세 — 내 발밑(0.9)이 상대 꼭대기(1.4)보다 아래 → 그림 밑변은 1.4 */
   const place = (rider, host) => { let fy = rider.min; if(host) fy = host.max; return fy; };
   chk(place({ min:0.9 }, { max:1.4 }) === 1.4 && place({ min:0 }, null) === 0, '올라탄 그림은 상대 머리 위 · 땅에 선 그림은 예전처럼 발밑');
