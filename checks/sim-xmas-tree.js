@@ -97,7 +97,10 @@ chk(/function open\(canvas\)\{\s*if \(S\) return;/.test(SRC), '이미 열려 있
       const wz = -p.x * Math.sin(yaw) + p.z * Math.cos(yaw);
       if ((hide && wz > 0) || (!hide && z < X.BACK_HIDE)) wrong++; } }
   chk(wrong === 0 && hidden > 300 * 36 * 0.35 && hidden < 300 * 36 * 0.6, '★ 실제 자리 · 36방향 — 뒤편만 숨김(숨김 ' + (hidden / 36).toFixed(0) + '/300 · 틀림 ' + wrong + ')');
-  chk(/if \(s\.userData\.mine\)\{[^}]*continue; \}/.test(SRC) && /if \(s\.parent === S\.tree\) s\.visible = faceZ\(s\.position\.x, s\.position\.z, S\.yaw\) > BACK_HIDE;/.test(SRC), '그리기 — 내 장식은 늘 보이고 · 떨어진 장식은 그대로 · 나머지는 faceZ 로');
+  chk(/if \(s\.userData\.mine\)\{[^}]*continue; \}/.test(SRC) && /if \(s\.parent !== S\.tree\) continue;[^\n]*\n\s*s\.visible = faceZ\(s\.position\.x, s\.position\.z, S\.yaw\) > BACK_HIDE;/.test(SRC), '그리기 — 내 장식은 늘 보이고 · 떨어진 장식은 그대로 · 나머지는 faceZ 로');
+  chk(/if \(!s\.visible && s === S\.sel\) hideSay\(\);/.test(SRC), '★ 한마디를 띄운 장식이 뒤로 넘어가면 라벨도 닫는다');
+  { const d = SRC.slice(SRC.indexOf('function dropOne'), SRC.indexOf('S.scene.attach(o)'));
+    chk(/o\.visible = true;/.test(d), '★ 뒤편이라 숨겨 둔 장식도 떨어지면 보인다(장면에 붙이기 전에 되살림)'); }
   chk(/S\.tree\.children\.filter\(o => o\.isSprite && o\.visible\)/.test(SRC), '누르기 — 숨긴 장식은 누르지 않는다');
 }
 say('── 3절 그리기 약속');

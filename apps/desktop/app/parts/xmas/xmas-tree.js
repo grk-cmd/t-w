@@ -236,6 +236,7 @@ function createXmasTree(deps){
   /* 이스터에그 — 떨어지기(이 화면에서만) */
   function dropOne(o, wait, fling){
     if (o === S.sel) hideSay();
+    o.visible = true;   // 뒤편이라 숨겨 둔 장식도 떨어지면 보인다(장면에 붙으면 앞 · 뒤 판정을 안 한다)
     S.scene.attach(o);
     const out = new THREE.Vector3(o.position.x, 0, o.position.z).normalize();
     const v = out.clone().multiplyScalar(0.01 + Math.random() * 0.03);
@@ -302,7 +303,9 @@ function createXmasTree(deps){
     S.tree.rotation.y = S.yaw; S.top.rotation.y = -S.yaw * 2 + t * 0.001;
     for (const s of S.orns.values()){
       if (s.userData.mine){ s.material.opacity = rules.blinkOpacity(t - s.userData.blinkAt); continue; }   // 내 장식은 늘 앞(찾을 수 있게)
-      if (s.parent === S.tree) s.visible = faceZ(s.position.x, s.position.z, S.yaw) > BACK_HIDE;   // 떨어진 장식(장면에 붙음)은 그대로
+      if (s.parent !== S.tree) continue;   // 떨어진 장식(장면에 붙음)은 그대로
+      s.visible = faceZ(s.position.x, s.position.z, S.yaw) > BACK_HIDE;
+      if (!s.visible && s === S.sel) hideSay();   // 한마디를 띄운 장식이 뒤로 넘어가면 라벨도 닫는다
     }
     for (let i = 0; i < S.SN; i++){ S.sp[i * 3 + 1] -= 0.01; if (S.sp[i * 3 + 1] < 0) S.sp[i * 3 + 1] = 8; }
     S.snowGeo.attributes.position.needsUpdate = true;
