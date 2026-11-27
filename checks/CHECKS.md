@@ -595,7 +595,7 @@
 | **sim-chat-notice.js** | 349 | **a3e55a7ec8c1** |
 | **sim-room-focus.js** | 225 | **5aae10ce337f** |
 | **sim-chat-focus.js** | 198 | **15f464551678** |
-| **sim-theme-custom.js** | 226 | **78bfa8932185** |
+| **sim-theme-custom.js** | 233 | **e5e3b554ba7d** |
 | **sim-font-choice.js** | 127 | **4587e729e2e7** |
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
