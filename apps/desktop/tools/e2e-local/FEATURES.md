@@ -88,7 +88,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 자리비움 그림 | `room/away-pic`(프리미엄 아니면 등록 막힘 · 내 정보에서 PNG 등록 → 서버 주소 · 자리비움이면 남 화면에 그림 · [기본으로]) | `away-pic` `away-follow` `away-start` | e2e |
 | 방 접속 상태 · 활동 상태 · 상태칩 | `room/seat-status`(상태칩 «밥 먹는 중» · «온라인» 을 남이 받음 · 나가면 남 화면 좌석이 빠짐) | `presence` `user-status` `user-status-table` `seat-state` `status-chip` `chip-popups` `chip-chat-ui` `app-version` | e2e |
 | 같이 듣기 · DJ | `room/listen`(서버 플레이리스트 곡 · 같이 듣기 방 · 방장 DJ 판정 · 이름표 «🎧 DJ» · 첫 곡 music 이 남에게 · 같이 듣기 창 곡 제목 · DJ 가 나가면 새 방장이 DJ) — 소리는 조용히 켜기가 끈다 | `listen-model` `listen-provider` `listen-ui` | e2e |
-| 스티커사진(purikura) | `room/purikura`(정원 API · 둘이 같은 세션 · 방장만 [시작] · 시작하면 정원 하나 줄어듦 · 나가기). 촬영 · 꾸미기 · 저장은 시나리오 없음 | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `pk-bgm` `pk-fit` `ps1-dither` | 부분 |
+| 스티커사진(purikura) | `room/purikura`(정원 API · 둘이 같은 세션 · 방장만 [시작] · 시작하면 정원 하나 줄어듦 · 나가기). 촬영 · 꾸미기 · 저장은 시나리오 없음 | `purikura-ui` `purikura-net` `purikura-rt` `purikura-rules` `purikura-stage` `purikura-deco` `purikura-fish` `win-bgm` `bgm-hush` `pk-fit` `ps1-dither` | 부분 |
 
 ## 채팅
 
