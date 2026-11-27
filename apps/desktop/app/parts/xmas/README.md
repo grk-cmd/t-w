@@ -4,7 +4,7 @@
 기획 정본은 이슈 #963, 서버는 api `xmas` 컨텍스트(#1097 · 설계 tw-docs `docs/design/11-xmas.md`) — 옛 `firebase/functions/xmas.js` · 규칙 `xmas*`(#964 · #966)는 이벤트 뒤 걷는다.
 
 **걷기**: 이벤트가 끝나면 다음 업데이트에서 이 폴더 · html 의 `#xmasOverlay` · `#lcXmas` · CSS `#xmas*` · `.xm-*` · 스크립트 줄 여덟 · app.js 의 `TwXmasWindow.createXmasWindow` 줄 ·
-음악 파일 `xmas-bgm*.mp3` 여섯 · program-settings 의 `onOfficeModeChanged`(app.js deps 한 줄) · 글꼴 `vendor/galmuri`(`third-party-notices.js` VENDOR · `oss-notices.js` 다시 만들기) · 저장 키 `tw.xmasBgmMuted`(account-store 기기 칸) · firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
+음악 파일 `xmas-bgm*.mp3` 여섯 · html css `body:has(#xmasOverlay.on)` 세 줄(트리 창이 뜨면 런처 카드 · 스크롤 막대 숨김) · `shared/panel-fit.js` `fitTopLeft`(다른 곳이 안 쓰면 — sim-panel-fit 1-2절도) · program-settings 의 `onOfficeModeChanged`(app.js deps 한 줄) · 글꼴 `vendor/galmuri`(`third-party-notices.js` VENDOR · `oss-notices.js` 다시 만들기) · 저장 키 `tw.xmasBgmMuted`(account-store 기기 칸) · firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
 main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXmasSong`) · preload `openXmasSong` · nav.js `XMAS`(sim-nav OWNER) · 알림함 태그 `xmas`(inbox-sections `tagOf` · myhome-inbox 아이콘 · 이름 · 누르기) 를 걷는다.
 (`NAV.MY_HOME_CLOSE` 는 크리스마스 전용이 아니다 — 부르는 곳이 없어지면 sim-nav 가 알려 준다.)
 버튼은 받은 편지 열람 끝(2027-01-06 0시 · 서버 시각)부터 저절로 숨는다. 장식 · 신고는 이벤트 끝(1월 1일 0시)에 막힌다.
@@ -36,7 +36,7 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 
 ## xmas-tree.js — 3D 트리
 - **책임**: 트리 · 장식 그리기(세로 300 도트 · 색 31단계 · 디더 절반) · 끌어 돌리기 · 휠 확대(1~3배 · 마우스 자리 중심 · 처음보다 작게는 안 됨) · 한마디 라벨 자리(왼클릭만) · 이스터에그(10번 누르기 · 흔들기 — 이 화면에서만 · 저장 안 함) · 내 장식 반짝임 10번 · 우클릭 신고(남의 장식만 — 내 장식이 겹쳐도 뒤의 것).
-- **내놓는 것**: `createXmasTree({ THREE, rules, ps1Dither })` → `{ open(canvas), close(), setOrnaments(list), onSay(fn), onReport(fn) }` · `baseCanvas(kind, doc)`(기본 장식 16칸 그림 — 고르기 단추도 같은 그림).
+- **내놓는 것**: `createXmasTree({ THREE, rules, ps1Dither })` → `{ open(canvas), close(), setOrnaments(list), onSay(fn), onReport(fn) }` · `baseCanvas(kind, doc)`(기본 장식 16칸 그림 — 고르기 단추도 같은 그림 · 점 그림을 16칸 가운데로) · `dotsOffset(rows, size)`(그 가운데 맞춤 칸 수).
 - **함정**: 창마다 WebGL 컨텍스트를 하나 잡는다 — `close()` 에서 rAF 를 멈추고 텍스처 · 지오메트리 · 렌더러를 꼭 버린다. 장식은 `sizeAttenuation:false` · 내 장식은 `depthTest:false` + `renderOrder 999`(늘 앞).
 - 검사: `sim-xmas-tree.js`(WebGL 없이 볼 수 있는 것 — 실제 그림은 브라우저로 확인)
 

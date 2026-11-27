@@ -2,7 +2,7 @@
    [왜] ⚙ 설정창은 기준점이 창의 아래 가운데라, 내용이 긴 탭에서 창이 위로 자란다. 화면 안으로 묶지 않으면 제목줄이 화면 위로
      나가 끌 수도 닫을 수도 없다(앱 안 화면이라 ALT+SPACE 도 안 먹는다). 머리 위 자동 배치 · 끌어 옮기기 · 크기 바뀜이 같은 규칙을 쓴다.
    받는 것 없음(순수 함수 · DOM 없음). 내보냄: window.TwPanelFit = { fitBottomCenter, fitTopLeft(왼쪽 위 기준 창 — 크리스마스 창) }.
-   쓰는 모듈(status-chip.js · settings-panel.js)보다 먼저 싣는 classic script. */
+   쓰는 모듈(status-chip.js · settings-panel.js — fitBottomCenter · xmas-window.js — fitTopLeft 를 deps 로)보다 먼저 싣는 classic script. */
 (function(){
 
 /* (x, y) = 창의 아래 가운데. 창 크기 w×h · 화면 vw×vh · 가장자리 여유 edge 로 창 전체가 화면 안에 들도록 옮긴 기준점.

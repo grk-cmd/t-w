@@ -18,7 +18,6 @@ const BASE_DOTS = {
   cane: [['....wwrr........', '...rw..ww.......', '..ww....rr......', '..rr....ww......', '........rr......', '........ww......', '........rr......', '........ww......', '........rr......', '........ww......', '........rr......', '........ww......'], { w: '#eef3fb', r: '#d8434b' }],
   gift: [['.....y..y.......', '......yy........', '..bbbbybbbbb....', '..bbbbybbbbb....', '..yyyyyyyyyy....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....', '..bbbbybbbbb....'], { y: '#f2c14e', b: '#4e7bd8' }],
 };
-/** 기본 장식 그림 캔버스(16px) — 창 아래 고르기 단추도 같은 그림을 쓴다 */
 /** 점 그림(행 글자열 · '.' 은 빈칸)을 size 칸 가운데에 놓으려면 옮길 칸 수 — 남는 칸이 홀수면 왼쪽 · 위로 반 칸 */
 function dotsOffset(rows, size){
   let x0 = size, x1 = -1, y0 = size, y1 = -1;
@@ -26,6 +25,7 @@ function dotsOffset(rows, size){
   if (x1 < 0) return { x: 0, y: 0 };
   return { x: Math.floor((size - (x1 - x0 + 1)) / 2) - x0, y: Math.floor((size - (y1 - y0 + 1)) / 2) - y0 };
 }
+/** 기본 장식 그림 캔버스(16px) — 창 아래 고르기 단추도 같은 그림을 쓴다 */
 function baseCanvas(kind, doc){
   const rows = BASE_DOTS[kind];
   if (!rows) return null;
