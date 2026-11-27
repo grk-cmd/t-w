@@ -120,7 +120,7 @@ function createXmasLetter(deps){
     const list = $('xmasLwList'); list.textContent = '';
     letters.forEach((l, i) => list.appendChild(item((letters.length > 1 ? (i + 1) + '번째 편지' : '맡긴 편지') + ' · ' + firstLine(l.text), '', [
       ['수정', () => edit({ lid: l.lid, retLid: null, text: l.text, song: l.song })],
-      ['삭제', () => withdraw(l.lid)],
+      ['삭제', () => askDelete(l.lid)],
     ])));
     const full = letters.length >= rules.LETTER_MAX;
     if (!editing && !letters.length && !returned.length){
@@ -168,6 +168,12 @@ function createXmasLetter(deps){
     toast('편지를 맡겼어요. 25일 0시에 전달돼요.');
     await loadView();
   }
+  /* 삭제는 되돌릴 수 없다 — 확인창에서 [삭제] 를 눌러야 지운다(편지지의 [취소] 와 헷갈려 지우지 않게) */
+  let delLid = null;
+  function askDelete(lid){ delLid = lid; $('xmasLwDel').hidden = false; $('xmasLwDelNo').focus(); }
+  function hideDelete(){ delLid = null; $('xmasLwDel').hidden = true; }
+  $('xmasLwDelNo').onclick = hideDelete;
+  $('xmasLwDelYes').onclick = () => { const lid = delLid; hideDelete(); if (lid) return withdraw(lid); };
   async function withdraw(lid){
     if (busy) return;
     busy = true;
@@ -288,7 +294,7 @@ function createXmasLetter(deps){
     seq++; viewing = null;
     deps.song.stop();
     songW.set(null); songG.set(null);
-    $('xmasLwRep').hidden = true;
+    $('xmasLwRep').hidden = true; hideDelete();
     lw.classList.remove('on');
     paintBtn();
   }
