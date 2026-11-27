@@ -73,6 +73,15 @@ chk(/function open\(canvas\)\{\s*if \(S\) return;/.test(SRC), '이미 열려 있
   chk(px('sock', 0) === px('sock', 3) && px('star', 0) === px('star', 2), '색 번호 — 색표 없는 장식은 무시');
   chk(/map\.repeat\.x = -1; map\.offset\.x = 1;/.test(SRC) && /rotation: look\.rot/.test(SRC) && /baseCanvas\(o\.k, doc, look\.tint\)/.test(SRC), '트리 장식이 ornLook 을 쓴다(뒤집기 · 기울기 · 색)');
 }
+{ // 장식 크기 — 수가 많을 때만 작게
+  const M = 300, sc = (n) => X.ornScale(n, M);
+  chk(sc(0) === 1 && sc(1) === 1 && sc(60) === 1, '★ 60개까지는 그대로(1)');
+  chk(Math.abs(sc(M) - 0.7) < 1e-9 && sc(M + 50) === sc(M), '★ 꽉 차면(300) 0.7 · 넘어도 더 줄지 않는다');
+  let mono = true; for (let n = 1; n <= M; n++) if (sc(n) > sc(n - 1)) mono = false;
+  chk(mono && sc(180) < 1 && sc(180) > 0.7, '  ↳ 늘수록 조금씩 작아진다(커지지 않음)');
+  chk(X.ornScale(NaN, M) === 1 && X.ornScale(100, 60) === 0.7, '  ↳ 이상한 값 · 상한이 작을 때');
+  chk(/const size = ORN_SIZE \* ornScale\(all\.length, rules\.TREE_MAX\);/.test(SRC) && /s\.scale\.setScalar\(size\);/.test(SRC), '트리가 걸린 수로 크기를 정해 모든 장식에 같은 크기');
+}
 say('── 3절 그리기 약속');
 chk(/sizeAttenuation: false/.test(SRC), '장식은 화면에서 늘 같은 크기(sizeAttenuation:false)');
 chk(/depthTest: !o\.mine, depthWrite: !o\.mine/.test(SRC) && /s\.renderOrder = o\.mine \? 999 : 0/.test(SRC), '내 장식은 깊이를 안 보고 맨 나중에 — 늘 앞');

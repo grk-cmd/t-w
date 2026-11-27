@@ -71,6 +71,13 @@ function baseCanvas(kind, doc, tint){
 }
 
 const ORN_SIZE = 0.05;        // 화면 크기 고정(sizeAttenuation:false) 장식 크기
+/** 걸린 장식 수 → 크기 배율. 60개까지는 그대로, 꽉 찰수록(300) 0.7 까지 줄여 겹침을 줄인다 */
+const SHRINK_FROM = 60, SHRINK_MIN = 0.7;
+function ornScale(n, max){
+  if (!(n > SHRINK_FROM)) return 1;
+  const f = Math.min(1, (n - SHRINK_FROM) / Math.max(1, max - SHRINK_FROM));
+  return 1 - (1 - SHRINK_MIN) * f;
+}
 /* 스프라이트 셰이더 끝(gl_Position 뒤) — scale 은 이미 화면 고정 크기의 월드 길이(-z 곱한 값) */
 const ORN_DEPTH_GLSL = 'vec4 twPop = projectionMatrix * vec4(mvPosition.xy, mvPosition.z + 0.6 * max(scale.x, scale.y), 1.0); gl_Position.z = twPop.z / twPop.w * gl_Position.w;';
 /* 장식은 카메라를 보는 판이라 비스듬한 잎 면에 반쯤 박혀 가려진다 — 깊이만 판 반지름만큼 카메라 쪽으로 당긴다
@@ -178,7 +185,7 @@ function createXmasTree(deps){
     S.texes.push(t);
     return t;
   }
-  function addOrnament(o){
+  function addOrnament(o, size){
     const p = SLOTS[o.slot];
     if (!p) return;
     const look = o.img ? ornLook('', o.slot) : ornLook(o.k, o.slot);
@@ -189,7 +196,7 @@ function createXmasTree(deps){
       depthTest: !o.mine, depthWrite: !o.mine, fog: !o.mine });
     mat.onBeforeCompile = popOut;
     const s = new THREE.Sprite(mat);
-    s.position.set(p.x, p.y, p.z); s.scale.setScalar(ORN_SIZE);
+    s.position.set(p.x, p.y, p.z); s.scale.setScalar(size);
     s.renderOrder = o.mine ? 999 : 0;
     s.userData = { slot: o.slot, word: o.word || '', mine: !!o.mine, blinkAt: o.mine && o.blink ? performance.now() : -Infinity };
     S.tree.add(s); S.orns.set(o.slot, s);
@@ -321,7 +328,9 @@ function createXmasTree(deps){
   function setOrnaments(list){
     if (!S) return;
     clearOrnaments();
-    for (const o of list || []) addOrnament(o);
+    const all = list || [];
+    const size = ORN_SIZE * ornScale(all.length, rules.TREE_MAX);   // 수가 많을 때만 작게(모두 같은 목록이라 모든 화면에서 같다)
+    for (const o of all) addOrnament(o, size);
   }
 
   return {
@@ -332,7 +341,7 @@ function createXmasTree(deps){
   };
 }
 
-const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, ornLook, ORN_TINTS, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
+const api = Object.freeze({ createXmasTree, baseCanvas, dotsOffset, popOut, ornLook, ornScale, ORN_TINTS, BASE_KINDS: Object.freeze(Object.keys(BASE_DOTS)) });
 if (typeof window !== 'undefined') window.TwXmasTree = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
