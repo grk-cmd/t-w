@@ -120,9 +120,25 @@ console.log('\n[5] package.json 맥 빌드 설정');
   const targets = mac.target || [];
   ok(['dmg', 'zip'].every(t => targets.includes(t)), `mac.target 에 dmg · zip: ${JSON.stringify(targets)}`);
   ok(targets.every(t => typeof t === 'string'), 'target 에 arch 를 박지 않는다(박으면 --arm64 잡도 두 arch 를 다 만들어 yml 이 섞인다)');
-  const files = mac.files || [];
-  ok(files.some(f => /^!node_modules\/uiohook-napi\/prebuilds\/\{[^}]*linux[^}]*\}/.test(f) && /win32/.test(f)),
-    '맥 빌드는 uiohook-napi 의 linux · win32 프리빌드를 뺀다(서명 · 공증 대상에 남의 OS 바이너리가 끼지 않게)');
+  // electron-builder 24 는 build.files 를 묶음으로 바꾸고 mac.files 의 문자열은 따로 묶는다 — 묶음이 둘이 되면
+  // 앞 묶음이 «**/*» 로 앱 폴더 전부를 담고 뒤 묶음이 같은 파일을 또 담는다. 그래서 CI(하드 링크)에서 asarUnpack 파일이
+  // 두 번 link 되어 EEXIST 로 멈췄다(v0.14.0-beta.0). 플랫폼별 files 는 쓰지 않는다.
+  ok(!['mac', 'win', 'linux'].some(k => PKG.build && PKG.build[k] && PKG.build[k].files != null),
+    'mac · win · linux 에 files 가 없다(있으면 파일 묶음이 둘이 되어 같은 파일을 두 번 복사한다)');
+  const files = (PKG.build && PKG.build.files) || [];
+  const prebuild = files.find(f => typeof f === 'string' && f.startsWith('!node_modules/uiohook-napi/prebuilds/'));
+  // ${os} 는 빌드 대상(mac · win)이다 — ${platform} 은 빌드하는 PC 라 맥에서 만든 윈도우 빌드가 darwin 만 남긴다.
+  // path.matchesGlob 은 electron-builder 와 같은 minimatch 문법(extglob 포함)이다 — `!` 를 뗀 패턴에 맞으면 빠진다.
+  const kept = (os) => {
+    if (!prebuild) return [];
+    const glob = prebuild.slice(1).replace(/\$\{os\}/g, os).replace(/\$\{\/\*\}/g, '{,/**/*}');
+    return ['darwin-arm64', 'darwin-x64', 'linux-x64', 'win32-x64', 'win32-arm64']
+      .filter(d => !path.matchesGlob(`node_modules/uiohook-napi/prebuilds/${d}/uiohook-napi.node`, glob));
+  };
+  ok(JSON.stringify(kept('mac')) === '["darwin-arm64","darwin-x64"]',
+    `맥 빌드는 uiohook-napi 의 darwin 프리빌드만 남긴다(서명 · 공증 대상에 남의 OS 바이너리가 끼지 않게): ${kept('mac')}`);
+  ok(['win32-x64', 'win32-arm64'].every(d => kept('win').includes(d)) && !kept('win').includes('linux-x64'),
+    `윈도우 빌드는 win32 프리빌드를 남긴다: ${kept('win')}`);
   ok(PKG.build && PKG.build.mac && PKG.build.mac.hardenedRuntime === true, 'hardenedRuntime 이 켜져 있다(공증 조건)');
 }
 

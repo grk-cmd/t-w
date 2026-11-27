@@ -52,7 +52,8 @@
       "error-log.js",
       "home-mask.js",
       "oauth-config.js",
-      "app/**/*"
+      "app/**/*",
+      "!node_modules/uiohook-napi/prebuilds/!(darwin|${os}*)-*${/*}"
     ],
     "asarUnpack": [
       "node_modules/uiohook-napi/**/*",
@@ -82,9 +83,6 @@
       "target": [
         "dmg",
         "zip"
-      ],
-      "files": [
-        "!node_modules/uiohook-napi/prebuilds/{linux,win32,android}-*${/*}"
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
