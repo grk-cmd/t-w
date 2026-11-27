@@ -41,6 +41,13 @@ const eventOn = (now, s = SCHEDULE) => Number.isFinite(now) && now < s.eventEnd;
 const letterOpen = (now, s = SCHEDULE) => Number.isFinite(now) && now < s.letterDeadline;
 const lettersArrived = (now, s = SCHEDULE) => Number.isFinite(now) && now >= s.letterDeadline && now < s.lettersViewUntil;
 const buttonOn = (now, s = SCHEDULE) => Number.isFinite(now) && now < s.lettersViewUntil;
+/** 화면이 바뀌는 다음 때(ms · 서버 시각) — 마감(창 단추 [편지 쓰기] → [편지 열람] · 빨간 점) · 열람 끝(런처 버튼 숨김) 중 now 뒤 가장 이른 것. 없거나 now 를 모르면 null.
+    이벤트 끝(eventEnd)은 누를 때만 견주어(장식 걸기 · 신고) 그려 둔 화면이 바뀌지 않는다 */
+const nextChange = (now, s = SCHEDULE) => {
+  if (!Number.isFinite(now)) return null;
+  const t = [s.letterDeadline, s.lettersViewUntil].filter(x => x > now);
+  return t.length ? Math.min(...t) : null;
+};
 /** 짝 짓기 알림이 몰리는 때인가(마감부터 10분) */
 const inDeliveryWindow = (now, s = SCHEDULE) => Number.isFinite(now) && now >= s.letterDeadline && now < s.letterDeadline + DELIVERY_WINDOW_MS;
 /** 무작위 기다림 — r 은 0 이상 1 미만 수 */
@@ -197,7 +204,7 @@ const hasUnread = (got, set) => (got || []).some(g => !set.has(g.n));
 const api = Object.freeze({
   TREE_MAX, KINDS, WORD_MAX, IMG_PX, LETTER_DEADLINE_MS, EVENT_END_MS, LETTERS_VIEW_UNTIL_MS, DELIVERY_WINDOW_MS, READ_JITTER_MS, SCHEDULE, HANG_COOLDOWN_MS, BLINK_COUNT, BLINK_HALF_MS,
   TAPS_TO_DROP, TAP_GAP_MS, SHAKE_PX, SHAKE_GAP_MS, SHAKE_RESET_MS, TIERS,
-  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, inDeliveryWindow, nearDeadline, NEAR_DEADLINE_MS, jitterMs, mailDelayMs, letterMailIds, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
+  scheduleOf, eventOn, letterOpen, lettersArrived, buttonOn, nextChange, inDeliveryWindow, nearDeadline, NEAR_DEADLINE_MS, jitterMs, mailDelayMs, letterMailIds, cleanWord, slotPositions, countOf, changedImgSlots, cooldownLeft, blinkOpacity, createTaps, createShake,
   LETTER_MAX, LETTER_TEXT_MAX, SONG_TITLE_MAX, LETTER_IDS, RETURN_REASONS,
   songOf, cleanLetter, myLettersOf, returnedOf, freeLetterId, gotOf, ddayLeft, readSetOf, readSetStr, hasUnread,
 });

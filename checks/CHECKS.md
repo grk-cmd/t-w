@@ -542,7 +542,7 @@
 | **sim-gift-img-retry.js** | 209 | **3496e4f17f97** |
 | **sim-device-id.js** | 103 | **02388dab819d** |
 | **sim-account-store.js** | 626 | **ecd896625b4c** |
-| **sim-rt-hub.js** | 762 | **48c6aa4e597b** |
+| **sim-rt-hub.js** | 787 | **f11dbd931ff1** |
 | **sim-rt-status-ui.js** | 245 | **60536e178fbf** |
 | **sim-run-verdict.js** | 67 | **76851f0d5f8e** |
 | **sim-user-api.js** | 318 | **11debe0a3a96** |
@@ -598,10 +598,10 @@
 | **sim-font-choice.js** | 127 | **4587e729e2e7** |
 | **sim-mallang-sent.js** | 76 | **47c8eaaf32fa** |
 | **sim-xmas-server.js** | 332 | **1a7bb7d5b608** |
-| **sim-xmas-api.js** | 315 | **01986e4191a1** |
-| **sim-xmas-rules.js** | 148 | **d8e3edd595fc** |
+| **sim-xmas-api.js** | 322 | **fa9d0a462767** |
+| **sim-xmas-rules.js** | 152 | **a7c5ec02920f** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 423 | **a61d44ab7fcc** |
+| **sim-xmas-window.js** | 491 | **11c774b55618** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
 | **sim-xmas-bgm.js** | 107 | **f7bc057d8525** |
 | **sim-xmas-letter.js** | 328 | **b17bbc5050d3** |

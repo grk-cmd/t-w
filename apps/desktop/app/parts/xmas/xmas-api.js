@@ -7,6 +7,7 @@
    ★ 판(version)은 여기서 기억한다 — 마지막으로 읽은(또는 쓴) 내 장식 · 편지 칸의 판을 쓰기에 싣는다. 읽은 토큰의 주인과 묶어(expectOwner)
      로그인이 바뀌는 틈에 앞 계정의 판이 새 계정 토큰으로 나가지 않게 한다. 409 CONCURRENT_UPDATE 는 다시 보내지 않고 code 'conflict' — 부른 쪽이 다시 읽는다.
    ★ 날짜는 trees/current 를 읽을 때마다 schedule() 에 남긴다(rules.scheduleOf · 못 읽으면 앞 값) — 화면의 날짜 판정이 이 값을 쓴다.
+     값이 바뀌면 onSchedule 에 건 함수를 부른다(창이 런처 버튼 · 다음 바뀔 때를 다시 본다).
    ★ 던지지 않는다 — { ok:true, … } / { ok:false, code, msg, err }(화면이 실패와 «없음» 을 나눠 그린다).
    deps: authed — 로그인 API 통로(TwApi.authed) · rules — TwXmasRules(scheduleOf) · myCode() — 내 사람 코드 · storageBucket() — 이 앱의 Storage 버킷 ·
          fetch — 그림 받기(window.fetch) · warn(...a)
@@ -113,6 +114,8 @@ function createXmasApi(deps){
   const warn = deps.warn;
 
   let sched = null;   // 마지막으로 읽은 날짜 한 벌(rules.scheduleOf) — 아직 못 읽었으면 null
+  const schedFns = [];   // 날짜 한 벌이 바뀌면 — onSchedule(창이 런처 버튼 · 다음 바뀔 때를 다시 본다)
+  const sameSched = (a, b) => !!a && !!b && a.letterDeadline === b.letterDeadline && a.eventEnd === b.eventEnd && a.lettersViewUntil === b.lettersViewUntil;
   /* 판 기억 — 읽은 토큰의 주인 · 내 장식의 판(null = 아직 안 걺) · 편지 칸마다 판. 아직 안 읽었으면 null */
   let known = null;
   let gen = 0;   // 세션 reset 마다 올린다 — 앞 세션의 늦은 답이 판 기억 · 날짜를 다시 채우지 않게
@@ -125,7 +128,7 @@ function createXmasApi(deps){
     const c = currentOf(d);
     if (!c) throw shapeError();
     const s = rules.scheduleOf(d);
-    if (s) sched = s;
+    if (s && !sameSched(s, sched)){ sched = s; schedFns.slice().forEach(fn => fn()); }
     return c;
   }
   /** 내 몫 한 벌 — 가입 전(USER_CODE_NOT_BOUND)은 null. 판 기억을 새로 한다 */
@@ -269,6 +272,8 @@ function createXmasApi(deps){
 
   return { me: () => myCode(), where, tree, img, hang, reportOrnament, reportLetter, myLetters, saveLetter, removeLetter, clearReturned, got,
     refreshSchedule, reset,
+    /** 서버가 준 날짜 한 벌이 바뀌면 fn() — 돌려주는 것: 풀기 */
+    onSchedule: (fn) => { schedFns.push(fn); return () => { const i = schedFns.indexOf(fn); if (i >= 0) schedFns.splice(i, 1); }; },
     schedule: () => sched,
     scheduleNow: () => sched || rules.SCHEDULE };   // 날짜 판정에 쓸 한 벌 — 못 읽었으면 처음 값(창 · 알림함 기다림이 같이 쓴다)
 }

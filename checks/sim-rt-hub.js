@@ -156,6 +156,30 @@ async function judge(S){
     e.hub.stop();
     chk(e.hub.serverNow() === null, '★ 연결을 끝내면 다시 null(로그인마다 새로 — 앞 계정 값이 남지 않는다)');
   }
+  say('── 2-0-1. 서버 시계 알림(onClock) — 맞추는 순간 · 다시 붙을 때마다 · 놓을 때(화면이 첫 ready 를 1분씩 기다리지 않게)');
+  {
+    const e = mk(S);
+    const seen = [];
+    const off = e.hub.onClock(() => seen.push(e.hub.serverNow()));
+    e.hub.start();
+    await tick(); const ws = e.last(); ws.open(); await tick();
+    chk(seen.length === 0, 'ready 전에는 부르지 않는다');
+    ws.msg({ t: 'ready', pv: 4, now: e.clock.t + 5000, userCode: 'u1', graceMs: 20000 }); await tick();
+    chk(seen.length === 1 && seen[0] === e.clock.t + 5000, '★ ready.now 를 맞춘 그 자리에서 부른다 — 부른 쪽은 serverNow() 로 바로 서버 시각을 읽는다');
+    ws.kill(1006); await tick();
+    chk(seen.length === 1, '  ↳ 사고로 끊겨도(다시 붙는 중) 시계는 그대로 — 부르지 않는다');
+    await e.clock.advance(1000); await tick(); const ws2 = e.last(); ws2.open(); await tick();
+    ws2.msg({ t: 'ready', pv: 4, now: e.clock.t + 7000, userCode: 'u1', graceMs: 20000 }); await tick();
+    chk(seen.length === 2 && seen[1] === e.clock.t + 7000, '★ 다시 붙은 ready 마다 다시 맞추고 부른다');
+    e.hub.stop();
+    chk(seen.length === 3 && seen[2] === null, '★ 연결을 끝내 시계를 놓으면 한 번(serverNow 는 null)');
+    e.hub.stop();
+    chk(seen.length === 3, '  ↳ 이미 놓은 시계를 또 놓으면 부르지 않는다');
+    off();
+    e.hub.start(); await tick(); const ws3 = e.last(); ws3.open(); await tick();
+    ws3.msg({ t: 'ready', pv: 4, now: e.clock.t, userCode: 'u1', graceMs: 20000 }); await tick();
+    chk(seen.length === 3, '풀면(돌려준 함수) 더 부르지 않는다');
+  }
 
   say('── 3. 알림 표');
   {
@@ -670,9 +694,9 @@ await judge(SRC0);
 
 say('── 7. mutation test');
 const BREAKS = [
-  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong();\n    if(link) link.close();", 'stop 이 세션 id 를 안 비움(다음 로그인이 앞 id 를 씀)'],
-  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;\n    clearPong(); clearKeep();", "    started = false; lostAt = null; userCode = null; clockOff = null;\n    clearPong(); clearKeep();", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
-  ['HUB', "    started = false; sessionId = null; clockOff = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", "    started = false; clockOff = null;\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", 'quit 이 세션 id 를 안 비움'],
+  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; setClock(null);\n    clearPong();\n    if(link) link.close();", "    started = false; lostAt = null; userCode = null; setClock(null);\n    clearPong();\n    if(link) link.close();", 'stop 이 세션 id 를 안 비움(다음 로그인이 앞 id 를 씀)'],
+  ['HUB', "    started = false; lostAt = null; userCode = null; sessionId = null; setClock(null);\n    clearPong(); clearKeep();", "    started = false; lostAt = null; userCode = null; setClock(null);\n    clearPong(); clearKeep();", 'bye 가 세션 id 를 안 비움(로그아웃 뒤 같은 id)'],
+  ['HUB', "    started = false; sessionId = null; setClock(null);\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", "    started = false; setClock(null);\n    clearPong();\n    link.send({ t: 'bye', why: BYE_WHY.QUIT });", 'quit 이 세션 id 를 안 비움'],
   ['HUB', "    if(sessionId === null) sessionId = sessionIdOf(deps.newSession());", "    sessionId = sessionIdOf(deps.newSession());", '시작마다 새 id(다시 붙기 · 여기서 계속도 바뀜)'],
   ['HUB', "        if(phase === 'open' && claimNext) o.claim = true;", "        o.claim = true;", '다시 붙기 · 토큰 갱신에도 claim(밀려난 앱이 남을 밈)'],
   ['HUB', "    authFails = 0; claimNext = false;", "    authFails = 0;", '다시 붙을 때 또 차지'],
@@ -691,7 +715,8 @@ const BREAKS = [
   ['HUB', "  if(code === CLOSE_CODES.sessionLost && reason === CLOSE_REASONS.otherDevice) return ACTION.OTHER_DEVICE;\n", "", 'closeAction 이 otherDevice 를 안 봄'],
   ['HUB', "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED || s === STATE.OTHER_DEVICE;", "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED;", 'isDeviceOff 가 다른 PC 가 쓰는 중을 빠뜨림'],
   ['HUB', "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.DEVICE_REMOVED || s === STATE.OTHER_DEVICE;", "const isDeviceOff = (s) => s === STATE.SESSION_LOST || s === STATE.OTHER_DEVICE;", 'isDeviceOff 가 지워진 PC 를 빠뜨림'],
-  ['HUB', "  function stopWith(s){ started = false; clockOff = null; setState(s); }", "  function stopWith(s){ started = false; setState(s); }", '밀려 멈춰도 서버 시계를 들고 있음(밀린 PC 가 폰 시간을 쌓음)'],
+  ['HUB', "  function stopWith(s){ started = false; setClock(null); setState(s); }", "  function stopWith(s){ started = false; setState(s); }", '밀려 멈춰도 서버 시계를 들고 있음(밀린 PC 가 폰 시간을 쌓음)'],
+  ['HUB', "    clockOff = off;\n    for(const fn of clockFns.slice())", "    clockOff = off;\n    if(off === null) for(const fn of clockFns.slice())", 'ready 가 서버 시계를 맞춰도 알리지 않음(크리스마스 버튼이 1분 늦게 보임)'],
   ['HUB', "    session();   // 끝낸 연결 뒤 첫 start", "    sessionId = sessionIdOf(deps.newSession());   // 끝낸 연결 뒤 첫 start", 'start 가 등록한 세션 id 를 버리고 새로 뽑음'],
   ['HUB', "[CLOSE_CODES.protocol]: ACTION.UPDATE,", "  [CLOSE_CODES.protocol]: ACTION.RECONNECT,", '판이 달라도 계속 붙음'],
   ['HUB', "[CLOSE_CODES.maintenance]: ACTION.MAINTENANCE,", "  [CLOSE_CODES.maintenance]: ACTION.RECONNECT,", '점검인데 끝없이 다시 붙음'],
