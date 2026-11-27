@@ -24,6 +24,7 @@
    [알림] on(종류, fn) — 묶음마다 자기 종류를 건다(KINDS 밖 이름은 던짐 — 오타가 조용히 안 오지 않게). 모르는 종류가 오면 버린다.
      fn({ kind, subject, section, resync:false }). **서버 유예(ready.graceMs)보다 오래 끊겼다 붙으면** 건 함수마다 한 번씩
      fn({ kind, resync:true }) — 끊긴 동안 놓친 알림을 메운다(서버가 ready 를 흩어 보내니 앱이 더 몰아 부르지 않는다).
+   [서버 시계] serverNow() — ready.now 로 맞춘 서버 시각(모르면 null · PC 시계로 대신하지 않음). onClock(fn) — 맞출 때(ready 마다) · 놓을 때 부른다(서버 시각으로 화면을 가르는 쪽이 첫 ready 를 기다리지 않게).
    [그 밖의 메시지] onMessage(t, fn) — presence · announce · roomInvited · mobileFocus 와 방(ROOM_TYPES — C 묶음 방 포트 자리)의 메시지.
      send(msg) · request(msg)(rid 답 짝짓기 — presenceGet · random · peek). 방 포트는 이 둘 위에 만든다(방 규칙은 여기 없음).
    classic script — device-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저 싣는다(window.TwRtHub). 연결 공통부(realtime-link.js · ES 모듈)와
@@ -113,6 +114,7 @@ function createRtHub(deps){
   const kindFns = new Map(KINDS.map((k) => [k, []]));
   const msgFns = new Map(MESSAGE_TYPES.map((t) => [t, []]));
   const stateFns = [];
+  const clockFns = [];   // 서버 시계를 맞추거나 놓을 때마다 — onClock
   let link = null;
   let started = false, claimNext = false, authFails = 0, lostAt = null, sawSessionLost = false;
   let unavailFails = 0, readyAt = null;   // 서버 바쁨으로 다시 붙은 횟수 · 이 연결이 ready 된 때
@@ -133,6 +135,13 @@ function createRtHub(deps){
     state = s;
     if(s !== STATE.READY) clearKeep();
     for(const fn of stateFns.slice()){ try{ fn(s); }catch(e){ warn('상태 알림 실패', e); } }
+  }
+  /* 서버 시계 맞추기 · 놓기 — 바뀔 때마다 onClock 에 건 함수를 부른다(ready.now 는 같은 값이어도 매번 — 다시 붙은 뒤 · 주소가 바뀌어 ready 가 또 온 때도).
+     상태 알림(onState)으로 대신하지 않는 까닭: 상태가 ready 인 채 ready 가 한 번 더 오면 상태 알림은 없다 */
+  function setClock(off){
+    if(off === null && clockOff === null) return;
+    clockOff = off;
+    for(const fn of clockFns.slice()){ try{ fn(); }catch(e){ warn('서버 시계 알림 실패', e); } }
   }
   function emitKind(kind, payload){
     for(const fn of kindFns.get(kind).slice()){ try{ fn(payload); }catch(e){ warn('알림 처리 실패', kind, e); } }
@@ -166,7 +175,7 @@ function createRtHub(deps){
   function onReady(m){
     authFails = 0; claimNext = false;
     userCode = (m && typeof m.userCode === 'string') ? m.userCode : null;
-    if(m && typeof m.now === 'number' && isFinite(m.now)) clockOff = m.now - now();   // 연결이 ready 될 때마다(다시 붙은 뒤 포함) 다시 맞춘다
+    if(m && typeof m.now === 'number' && isFinite(m.now)) setClock(m.now - now());   // 연결이 ready 될 때마다(다시 붙은 뒤 포함) 다시 맞춘다
     const gap = (lostAt == null) ? null : now() - lostAt;
     lostAt = null;
     lastInAt = now();
@@ -194,7 +203,7 @@ function createRtHub(deps){
     tClear(b.timer); b.res();
   }
   /* 멈춤 — 서버 시계도 놓는다(밀려난 PC 가 «연결된 PC» 처럼 서버 시각을 계속 내놓아 폰 집중 시간을 쌓지 않게). 다시 붙으면 ready 가 다시 맞춘다 */
-  function stopWith(s){ started = false; clockOff = null; setState(s); }
+  function stopWith(s){ started = false; setClock(null); setState(s); }
   function onClosed(wasReady, fatal, closeCode, closeReason){
     clearPong();
     lastClose = (typeof closeCode === 'number') ? closeCode : null;
@@ -257,7 +266,7 @@ function createRtHub(deps){
   }
   /* 끄기 — 로그아웃 · 계정을 놓을 때. 다시 켜면 처음부터(놓친 알림 메우기 없음 — 그때는 화면을 새로 받는다). */
   function stop(){
-    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;
+    started = false; lostAt = null; userCode = null; sessionId = null; setClock(null);
     clearPong();
     if(link) link.close();
     setState(STATE.OFF);
@@ -266,7 +275,7 @@ function createRtHub(deps){
      ready 가 아니면(인증 전 · 끊긴 중) 보낼 곳이 없으니 바로 끈다. 돌려주는 것: 끝나면 풀리는 Promise(던지지 않는다). */
   function bye(why){
     if(!started || !link){ stop(); return Promise.resolve(); }
-    started = false; lostAt = null; userCode = null; sessionId = null; clockOff = null;
+    started = false; lostAt = null; userCode = null; sessionId = null; setClock(null);
     clearPong(); clearKeep();   // 서버 닫힘을 기다리는 동안 상태는 아직 ready — 조용함 확인은 여기서 푼다
     if(!link.send({ t: 'bye', why })){ link.close(); setState(STATE.OFF); return Promise.resolve(); }
     return new Promise((res) => {
@@ -276,7 +285,7 @@ function createRtHub(deps){
   /* 앱 끄기(beforeunload) — bye{quit} 를 보내고 기다리지 않고 닫는다(못 가면 서버는 1006 → 유예). */
   function quit(){
     if(!started || !link) return;
-    started = false; sessionId = null; clockOff = null;
+    started = false; sessionId = null; setClock(null);
     clearPong();
     link.send({ t: 'bye', why: BYE_WHY.QUIT });
     link.close();
@@ -309,9 +318,14 @@ function createRtHub(deps){
     stateFns.push(fn);
     return () => { const i = stateFns.indexOf(fn); if(i >= 0) stateFns.splice(i, 1); };
   }
+  /* 서버 시계가 맞춰지거나(ready.now — 다시 붙을 때마다) 놓일 때(stop · bye · quit · 멈춤) — fn() 인자 없음 · 지금 값은 serverNow() 로. 돌려주는 것: 풀기 */
+  function onClock(fn){
+    clockFns.push(fn);
+    return () => { const i = clockFns.indexOf(fn); if(i >= 0) clockFns.splice(i, 1); };
+  }
 
   return {
-    start, stop, bye, quit, checkAlive, on, onMessage, onState, session,
+    start, stop, bye, quit, checkAlive, on, onMessage, onState, onClock, session,
     send: (msg) => (link ? link.send(msg) : false),
     request: (msg) => (link ? link.request(msg, (m) => m) : Promise.resolve(null)),
     state: () => state,
