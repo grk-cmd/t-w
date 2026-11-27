@@ -75,7 +75,7 @@ say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수�
   const COPY_RE = /licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/;
   chk(COPY_RE.test('if(rec.licenseOnly && !isPremium() && !isAdmin()){') && COPY_RE.test('if(on && x && !isPremium && !isAdmin){') && !COPY_RE.test('if(licenseAssetBlocked(rec)){'), '  ↳ mutation test: 옛 조건을 다시 쓰면 위 검사가 빨강이 된다');
   const T = Object.fromEntries(FILES);
-  chk(/!seat\.remote && licenseAssetBlocked\(rec\)/.test(strip2(T['character/desk-visual.js'] || '')), '책상 그리기 — 내 좌석(!remote)만 · 판단 함수');
+  { const dv = strip2(T['character/desk-visual.js'] || ''); chk(/deskBodyPlan\(def, !seat\.remote\)/.test(dv) && /if\(gated && licenseAssetBlocked\(rec\)\) return \{ kind:'builtin', blocked:rec \};/.test(dv), '책상 그리기 — 내 좌석(!remote)만 게이트 · 판단 함수'); }
   chk(/licenseAssetBlocked\(rec\)/.test(strip2(T['creator/desk-setup.js'] || '')) && /if\(licenseAssetBlocked\(rec\)\)\{/.test(strip2(T['creator/desk-setup.js'] || '')), '생성기 — 책상 카드 · 아이템 카드');
   chk(/licenseAssetBlocked\(\{ locked: premiumMod\._licenseLockedDeskId/.test(strip2(T['creator/desk-preset.js'] || '')), '프리셋 — 전용 책상');
   chk(/function _licenseLockedDeskId\(id\)\{[\s\S]*?return !!\(rec && rec\.locked === true\);/.test(strip2(T['character/premium-assets.js'] || '')) && !/function pruneUnownedLicenseAssets\(\)\{[\s\S]{0,60}licenseAssetBlocked\(\{ licenseOnly/.test(strip2(T['character/premium-assets.js'] || '')), '전용 자산 접기 — 레코드의 서버 locked 만 본다(입구에 «전용이면» 가드가 없다)');

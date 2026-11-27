@@ -22,7 +22,7 @@ const FN_DEPS = ["_applyItemMatTone","_setDeskMatColor","b64ToBuf","setDeskScale
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","NO_DESK_ID","_idleItemPivots","activeItemMixers","assetCodeMod","commissionMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColor","applyDeskColorToCustom","deskColorMats","hideDeskBody","swapDeskVisual"];
+const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColor","applyDeskColorToCustom","deskBodyPlan","deskColorMats","drawDeskGlb","hideDeskBody","swapDeskVisual"];
 const MOVED = ["applyDeskCatalogRefToSeat","normalizeDeskObj","swapDeskVisual","applyDeskColorToCustom"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  NO_DESK_ID: NO_DESK_ID,","  _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),","  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),","  setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
 
@@ -234,7 +234,7 @@ say('── 4. 동작 — 책상 모양');
       let caught = false;
       if(broken !== MOD){ ({ st } = await noDeskCase(broken)); caught = st.desk.userData.noDesk !== true; }
       chk(caught, '  mutation test — noDesk 표시를 빼면 위 판정이 잡는다');
-      const broken2 = MOD.replace("if(def.deskCatalogId===NO_DESK_ID){", "if(false){");
+      const broken2 = MOD.replace("if(def.deskCatalogId===NO_DESK_ID) return { kind:'none' };", "");
       caught = false;
       if(broken2 !== MOD){ ({ st } = await noDeskCase(broken2)); caught = st.desk.userData.noDesk !== true; }
       chk(caught, '  mutation test — 책상 없음 갈래를 빼면(옛 동작: 모르는 책상 → 기본 책상) 잡는다');
@@ -264,7 +264,7 @@ say('── 4. 동작 — 책상 모양');
       chk(m.parsed !== 'buf:G-U' && m.s2.desk.userData.noDesk === true, '★ 받는 중에 «책상 없음» 을 고르면 늦게 온 앞 책상을 그리지 않는다');
       m = await midCase(MOD, { deskCatalogId: 'B' });
       chk(m.parsed === 'buf:BG', '  받는 중에 다른 책상을 고르면 그 책상이 남는다(늦게 온 앞 책상이 덮지 않음)');
-      const noCmp = MOD.replace("    if(seat.desk.userData.deskReq !== req) return;\n    if(!rec.glb){", "    if(!rec.glb){");
+      const noCmp = MOD.replace("  if(!alive()) return null;\n  if(!rec.glb){", "  if(!rec.glb){");
       m = await midCase(noCmp, { deskCatalogId: '__no_desk__' });
       chk(noCmp !== MOD && m.parsed === 'buf:G-U', '  mutation test — 받은 뒤 표를 안 견주면 «책상 없음» 뒤에 앞 책상이 다시 그려진다(빨강)');
       const lateReq = MOD.replace("  const req = seat.desk.userData.deskReq = {};   // 이 부름의 표", "  let req = null;   // 이 부름의 표").replace("  try{\n    seat.desk.userData.__seat = seat;", "  try{\n    req = seat.desk.userData.deskReq = {};\n    seat.desk.userData.__seat = seat;");

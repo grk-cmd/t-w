@@ -203,7 +203,7 @@
 | **sim-pl-loop.js** | 511 | **4e8851ba45ea** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 131 | **162e04b30203** |
+| **sim-premium-desk.js** | 131 | **67db976beb4d** |
 | **sim-presence.js** | 264 | **bdc6c8978cf6** |
 | **sim-light-tone.js** | 281 | **a0ce1466453e** |
 | **sim-paint-geom.js** | 107 | **3ec63690087d** |
@@ -486,7 +486,7 @@
 | **sim-desk-items.js** | 166 | **84aeeb87dc04** |
 | **sim-bgm-diag.js** | 300 | **825e0d2cb561** |
 | **sim-blink-timing.js** | 112 | **f6dba2d5b8f2** |
-| **sim-desk-visual.js** | 281 | **a940d370dc83** |
+| **sim-desk-visual.js** | 281 | **d3cfeb9833e4** |
 | **sim-desk-place.js** | 187 | **c9043f4d7b0d** |
 | **sim-toast.js** | 197 | **75e6ff6d2029** |
 | **sim-dot-render.js** | 235 | **4723acae1837** |
