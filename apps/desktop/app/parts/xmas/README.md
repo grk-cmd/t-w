@@ -3,8 +3,8 @@
 런처 [🎄 크리스마스] → 크리스마스 창. 함께 꾸미는 3D 트리(장식 1개 · 한마디 · 300개씩 채널) · 마니또 편지(한 사람 한 통 · 25일에 쓴 사람끼리 · 추천곡).
 기획 정본은 이슈 #963, 서버는 api `xmas` 컨텍스트(#1097 · 설계 tw-docs `docs/design/11-xmas.md`) — 옛 `firebase/functions/xmas.js` · 규칙 `xmas*`(#964 · #966)는 이벤트 뒤 걷는다.
 
-**걷기**: 이벤트가 끝나면 다음 업데이트에서 이 폴더 · html 의 `#xmasOverlay` · `#lcXmas` · CSS `#xmas*` · `.xm-*` · 스크립트 줄 여섯 · app.js 의 `TwXmasWindow.createXmasWindow` 줄 ·
-firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
+**걷기**: 이벤트가 끝나면 다음 업데이트에서 이 폴더 · html 의 `#xmasOverlay` · `#lcXmas` · CSS `#xmas*` · `.xm-*` · 스크립트 줄 여덟 · app.js 의 `TwXmasWindow.createXmasWindow` 줄 ·
+음악 파일 `xmas-bgm*.mp3` 여섯 · program-settings 의 `onOfficeModeChanged`(app.js deps 한 줄) · 글꼴 `vendor/galmuri`(`third-party-notices.js` VENDOR · `oss-notices.js` 다시 만들기) · 저장 키 `tw.xmasBgmMuted`(account-store 기기 칸) · firebase-init 의 `xmas:` · `applyDesktopRunClass` 의 `xmasOv` 줄 · `UI_HIT_SEL` · `OPEN_MODAL_SEL` 의 `#xmasOverlay` · 오류 코드 `E-XMAS-*`(→ `RETIRED`) · 검사 `sim-xmas-*` ·
 main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXmasSong`) · preload `openXmasSong` · nav.js `XMAS`(sim-nav OWNER) · 알림함 태그 `xmas`(inbox-sections `tagOf` · myhome-inbox 아이콘 · 이름 · 누르기) 를 걷는다.
 (`NAV.MY_HOME_CLOSE` 는 크리스마스 전용이 아니다 — 부르는 곳이 없어지면 sim-nav 가 알려 준다.)
 버튼은 받은 편지 열람 끝(2027-01-06 0시 · 서버 시각)부터 저절로 숨는다. 장식 · 신고는 이벤트 끝(1월 1일 0시)에 막힌다.
@@ -42,9 +42,21 @@ main.js 배경음악 창의 주인 `'xmas'`(`bgmPanelMode` · `companion:openXma
 
 ## xmas-song.js — 편지 추천곡 뮤직바
 - **책임**: 마이홈 BGM 위젯과 같은 모양 · 같은 동작의 바 — [▶ / ▐▐][긴 제목 흐름][((o 링크 · 제목 넣기(쓰기 칸만)]. 바가 여럿이어도 재생은 한 곡(컨트롤러 하나).
-- **만드는 법**: xmas-window 가 `TwXmasSong.createXmasSong({ doc, win, companion, ytVideoId, asyncPrompt, toast, songTitleMax })` → `{ bar(el, { editable, onChange }), stop(), playing() }`.
+- **만드는 법**: xmas-window 가 `TwXmasSong.createXmasSong({ doc, win, companion, ytVideoId, asyncPrompt, toast, songTitleMax })` → `{ bar(el, { editable, onChange }), stop(), playing(), onPlay(fn) }`(`onPlay` — 추천곡 소리가 나기 시작 · 멈출 때 알림 · 배경음악이 물러난다).
 - **함정**: 소리는 공용 배경음악 창 하나 — 주인 `'xmas'`(main.js `bgmOpen` · 패널 뒤에 숨고 · 신호 없이 되풀이)로 연다. 나중에 튼 쪽이 이긴다: `onBgmMode`(다른 주인) · `onBgmClosed` 면 ▶ 로. `stop()` 은 내가 주인일 때만 창을 닫는다(남의 곡을 끊지 않게). 재생 창 알림은 처음 틀 때 건다(앱 밖엔 companion 이 없다). 곡 제목은 남이 쓴 값 — `textContent` 로만.
 - 검사: `sim-xmas-song.js`(main.js · preload 의 `'xmas'` 주인까지)
+
+## xmas-bgm.js — 배경음악 곡 목록 · 출처 글
+- **책임**: 크리스마스 창 배경음악의 값 — 곡 목록 `TRACKS`(여섯 · `xmas-bgm.mp3` «투게더트리» · 음악 제작 HADA / `xmas-bgm-wish` · `-silent` · `-wish2` 캐롤 셋 · 공유마당(한국저작권위원회) / `-jingle3`(Jingle Punks) · `-wish3`(E's Jammy Jams) · 유튜브 오디오 라이브러리) · 폴더 `DIRS` · 음량 · 저장 키 `tw.xmasBgmMuted` · 출처 글 `CREDIT`.
+- **재생**: `shared/win-bgm.js`(스티커사진 창과 같이 쓴다) — xmas-window 가 이 값들과 `others`(듣던 유튜브 BGM 재우기 · `shared/bgm-hush.js` — app.js 가 만들어 넘긴다)로 만든다. 창을 열면 첫 곡부터 차례로, 끝나면 처음으로.
+- **함정**: 편지 추천곡이 나는 동안은 물러난다(xmas-song 의 `onPlay` → `duck`). 다른 음악(플레이리스트 · 마이홈)이 재생 창을 가져가서 추천곡이 멈춘 것이면(`taken`) 돌아오지 않는다 — 사용자가 튼 음악을 다시 재우지 않게. 닫을 때는 편지 창보다 먼저 멈춘다. 창을 연 채 회사원 모드를 켜고 끄면 program-settings 가 `onOfficeModeChanged` → `syncBgm()` 으로 알린다.
+- 검사: `sim-xmas-bgm.js`(값 · 출처 · 배선) · `sim-win-bgm.js`(재생 규칙)
+
+## xmas-credit.js — 음악 출처 올라가기
+- **책임**: 제목줄 [음악 출처] 를 누르면 출처 글이 트리 화면 아래에서 위로 한 번 올라가고 사라진다. 올라가는 중에 다시 누르면 바로 걷는다.
+- **만드는 법**: xmas-window 가 `TwXmasCredit.createXmasCredit({ doc, box: #xmasCredit, lines: TwXmasBgm.CREDIT })` → `{ toggle, stop, showing }`.
+- **함정**: 움직임 · 모양은 CSS(`.xm-roll.go` · `@keyframes xmCredit` · 도트 글꼴 Galmuri11 — `vendor/galmuri` · OFL-1.1 · 오픈소스 라이선스 창에 실린다). 글 상자는 `pointer-events:none` 이라 올라가는 동안에도 트리를 누를 수 있다. 글은 `textContent` 로만.
+- 검사: `sim-xmas-bgm.js` 4절
 
 ## xmas-letter.js — 마니또 편지 창
 - **책임**: 트리 창 아래 [편지 쓰기 (n/1)] · [편지 열람] · 그 위에 겹쳐 뜨는 편지 창(✕ · Esc). ✍️ 쓰기(12/24 23:59 까지 — 맡긴 목록 · 고치기 · 거두기 · 새 편지 · 반송된 편지의 사유 · 다시 쓰기 · 지우기 · 운영자 확인 안내 한 줄) · 📬 열람(12/25 부터 — 봉투 · 열기 · 추천곡 · 신고 · 읽음) · 빨간 점(런처 [크리스마스] · [편지 열람]).

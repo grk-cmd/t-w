@@ -21,15 +21,23 @@ function createXmasSong(deps){
   const toast = deps.toast;
   const bars = new Set();
   let playingId = null, paused = false, bound = false;
+  const playFns = [];
+  let sounding = false;
 
-  const repaint = () => bars.forEach(b => b.paint());
-  function lose(){ playingId = null; paused = false; repaint(); }
+  /* 바를 다시 그리고, «지금 소리가 나는가» 가 바뀌었으면 알린다(크리스마스 창 배경음악이 그동안 물러난다) */
+  const repaint = (taken) => {
+    bars.forEach(b => b.paint());
+    const on = !!playingId && !paused;
+    if (on !== sounding){ sounding = on; playFns.slice().forEach(fn => fn(on, !!taken)); }
+  };
+  /* taken — 다른 주인(마이홈 · 플레이리스트 · 같이 듣기)이 재생 창을 가져가서 멈춘 것 */
+  function lose(taken){ playingId = null; paused = false; repaint(taken === true); }
   /* 재생 창 알림은 처음 틀 때 건다 — 앱이 아닌 곳(웹 미리보기 · smoke)엔 companion 이 없다 */
   function bindPlayer(c){
     if (bound) return;
     bound = true;
-    c.onBgmMode((mode) => { if (mode !== 'xmas') lose(); });
-    c.onBgmClosed(lose);
+    c.onBgmMode((mode) => { if (mode !== 'xmas') lose(true); });
+    c.onBgmClosed(() => lose());
   }
 
   /** 지금 나는 곡을 멈추고 창을 닫는다(편지 창을 닫을 때) — 내가 주인일 때만 */
@@ -127,7 +135,10 @@ function createXmasSong(deps){
     return api;
   }
 
-  return { bar, stop, playing: () => playingId };
+  /** 추천곡 소리가 나기 시작하면 fn(true) · 멈추면 fn(false, taken) — taken: 다른 주인이 재생 창을 가져가서 멈췄다 */
+  function onPlay(fn){ playFns.push(fn); }
+
+  return { bar, stop, playing: () => playingId, onPlay };
 }
 
 const api = Object.freeze({ createXmasSong });

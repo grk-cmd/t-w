@@ -35,6 +35,7 @@ const tricksMod = deps.tricksMod;
 const setFigureMode = deps.setFigureMode;   // 쓰는 함수
 const setFocusGateSleep = deps.setFocusGateSleep;   // 쓰는 함수
 const setOfficeMode = deps.setOfficeMode;   // 쓰는 함수
+const onOfficeModeChanged = deps.onOfficeModeChanged;   // 회사원 모드를 켜고 끈 뒤 부른다 — 열려 있는 크리스마스 창이 배경음악을 멈추거나 되살린다
 const renderQuality = deps.renderQuality;   // 읽는 함수 — 실행 화면 화질(FrameBudget.QUALITY)
 const setRenderQuality = deps.setRenderQuality;   // 쓰는 함수
 const renderAntialias = deps.renderAntialias;   // 값 — 이번 실행의 렌더러가 테두리 다듬기를 켜고 만들어졌는가
@@ -133,6 +134,7 @@ function refreshOfficeModeUI(){
 if(document.getElementById('progOfficeModeToggle')){
   document.getElementById('progOfficeModeToggle').onclick = ()=>{
     setOfficeMode(!officeMode());
+    onOfficeModeChanged();
     try{ _focusShowPush(true); }catch(_){}   // 📊 회사원 모드면 오늘 기록 전시를 즉시 거둔다(켜면 다시 보냄)
     let _offNote = '';   // 뒤에 한 줄로 합쳐 알린다 — toast 는 마지막 것만 남는다(덮어쓴다)
     /* 🏢 모드를 켜는 순간 떠 있던 조준을 정리한다 — 안 그러면 십자/🪄 커서가 남고,

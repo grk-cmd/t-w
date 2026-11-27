@@ -20,7 +20,9 @@ const FETCH_PAR = 6;
  *           notifyError:(code:string, err?:any)=>void, toast:(msg:string)=>void, escRegisterWindow:Function,
  *           onSizeChange:()=>void, onReady:(fn:()=>void)=>void, idbGet:(k:string)=>Promise<string|null>, idbPut:(k:string, v:string)=>any,
  *           songMod:any, letterMod:any, companion:()=>any, ytVideoId:(url:string)=>string|null, asyncPrompt:Function,
- *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function }, random:()=>number }} deps
+ *           storage:()=>Storage|null, twNav:{ NAV:any, on:Function }, random:()=>number,
+ *           bgmMod:any, winBgmMod:any, creditMod:any, Audio:(Function|null), save:(k:string, v:string)=>any, officeMode:()=>boolean, warn:Function,
+ *           bgmHush:{ hush:()=>any, unhush:(h:any)=>void } }} deps
  */
 function createXmasWindow(deps){
   const doc = deps.doc || document;
@@ -44,6 +46,19 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   /** 날짜 한 벌 — 서버 값을 읽었으면 그것, 아니면 처음 값 */
   const sch = () => net().scheduleNow();
   const song = deps.songMod.createXmasSong({ doc, win, companion: deps.companion, ytVideoId: deps.ytVideoId, asyncPrompt: deps.asyncPrompt, toast, songTitleMax: rules.SONG_TITLE_MAX });
+  /* 🎵 배경음악 · 음악 출처 — 제목줄 [음악 끄기] [음악 출처]. 추천곡이 나는 동안 배경음악은 물러난다 */
+  const B = deps.bgmMod;
+  const bgm = deps.winBgmMod.createWinBgm({ Audio: deps.Audio, tracks: B.TRACKS, dirs: B.DIRS, volume: B.VOLUME, muteKey: B.MUTE_KEY, tag: B.TAG,
+    storage: deps.storage, save: deps.save, officeMode: deps.officeMode, warn: deps.warn, others: deps.bgmHush });
+  const credit = deps.creditMod.createXmasCredit({ doc, box: $('xmasCredit'), lines: B.CREDIT });
+  const bgmBtn = $('xmasBgmBtn');
+  const paintBgmBtn = () => { bgmBtn.textContent = bgm.label(); bgmBtn.classList.toggle('off', bgm.isMuted()); };
+  bgmBtn.onclick = () => { bgm.toggle(); paintBgmBtn(); };
+  $('xmasCreditBtn').onclick = () => credit.toggle();
+  /* 추천곡이 나는 동안 물러난다. 다른 음악(플레이리스트 · 마이홈)이 재생 창을 가져가서 추천곡이 멈춘 것이면 돌아오지 않는다 —
+     사용자가 방금 튼 음악을 배경음악이 다시 재우지 않게(다음에 창을 열면 다시 난다) */
+  song.onPlay((on, taken) => { if (!on && taken) return; bgm.duck(on); });
+  paintBgmBtn();
   const letter = deps.letterMod.createXmasLetter({ doc, win, rules, net, song, serverNow, schedule: () => sch(), toast, notifyError, escRegisterWindow: deps.escRegisterWindow,
     storage: deps.storage, onDot: (on) => btn.classList.toggle('xm-dot', on) });
 
@@ -248,10 +263,12 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     tree.open($('xmasCanvas'));
     load(false);
     letter.refresh();
+    bgm.start(); paintBgmBtn();
   }
   function close(){
     if (!ov.classList.contains('on')) return;
     seq++;
+    bgm.stop(); credit.stop();   // 편지 창보다 먼저 — 추천곡이 멈추며 오는 알림(duck)에 배경음악이 다시 켜지지 않게
     letter.close();
     tree.close();
     ['xmasFull', 'xmasRep'].forEach(id => { $(id).hidden = true; });
@@ -315,7 +332,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
   btn.hidden = true;
   deps.onReady(() => { refreshButton(); win.setInterval(refreshButton, 60000); });   // 열람 끝을 지나면 켜 둔 채로도 숨는다
 
-  return { open, close, refreshButton, onMail, reset, letter };
+  return { open, close, refreshButton, onMail, reset, letter, syncBgm: () => bgm.refresh() };
 }
 
 /**

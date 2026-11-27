@@ -77,7 +77,7 @@
 | **sim-leave-flush.js** | 373 | **8fd3174b9f8d** |
 | **sim-session.js** | 221 | **2c15ae27f8ba** |
 | **sim-session-baseline.js** | 190 | **74b2c6d83b60** |
-| **smoke.js** | 895 | **788a911ef824** |
+| **smoke.js** | 897 | **8573a0311d4f** |
 | **sim-account-switch.js** | 291 | **2da40257ef5d** |
 | **sim-admin-rules.js** | 408 | **cae4fc4cb38a** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-core-load.js** | 89 | **d14b110c4f57** |
@@ -209,7 +209,7 @@
 | **sim-seat-friend-req.js** | 164 | **c536e038f4d4** |
 | **sim-seat-menu.js** | 167 | **d530397a99e8** |
 | **sim-publish-fields.js** | 91 | **20498c9b954b** |
-| **sim-purikura-deco.js** | 953 | **c78874eefb61** |
+| **sim-purikura-deco.js** | 947 | **2869854d23f6** |
 | sim-purikura-net.js | 104 | 6affb64778b2 |
 | **sim-purikura-rules.js** | 241 | **38c6e66b3a3d** |
 | **sim-purikura-stage.js** | 270 | **6c68a3c0510f** |
@@ -305,11 +305,12 @@
 | **sim-scheduler.js** | 1030 | **c09f8d9b3f91** |
 | **sim-schedule-api.js** | 435 | **c3fd907a4236** |
 | **sim-weekly-challenge.js** | 300 | **1642e2dbedc0** |
-| **sim-purikura-ui.js** | 339 | **6e7d7efb9424** |
+| **sim-purikura-ui.js** | 340 | **f4a21d2ddabf** |
 | **sim-image-bytes.js** | 113 | **bc4d5d43843a** |
 | **sim-own-image.js** | 140 | **b9e27eebfcc3** |
 | **sim-request-id.js** | 94 | **dc515c933667** |
-| **sim-pk-bgm.js** | 103 | **3a6f07ec7cb7** |
+| **sim-bgm-hush.js** | 88 | **4afe050ca806** |
+| **sim-win-bgm.js** | 170 | **f071a1092935** |
 | **sim-guestbook.js** | 500 | **8164c19639d8** |
 | **sim-friend-manage-module.js** | 274 | **ef635b529a03** |
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |
@@ -395,7 +396,7 @@
 | **sim-premium-assets.js** | 157 | **3cba1cff97a4** |
 | **sim-char-code.js** | 126 | **a1385fe8ea20** |
 | **sim-dice-games.js** | 95 | **752d783dd369** |
-| **sim-program-settings.js** | 197 | **afa41b6017b6** |
+| **sim-program-settings.js** | 197 | **a6b72c7a68c9** |
 | **sim-chat-prefs.js** | 95 | **829c0ed9a0af** |
 | **sim-chat-read-on-send.js** | 270 | **ed4d5a7d721a** |
 | **sim-chat-badge-layer.js** | 80 | **91d8fecac230** |
@@ -519,7 +520,7 @@
 | **sim-e2e-cutover-guard.js** | 151 | **fbe748d17b73** |
 | **sim-mobile-link-trim.js** | 133 | **ac4e21e917c7** |
 | **sim-label-measure.js** | 261 | **76dba82b7769** |
-| **sim-safe-html.js** | 734 | **994d2efa8070** |
+| **sim-safe-html.js** | 735 | **ddc5b9352ea8** |
 | **sim-label-anim-paint.js** | 232 | **c43b4d62a1c5** |
 | **sim-seat-sync-diff.js** | 201 | **a1aff501daa4** |
 | **sim-release-notes.js** | 75 | **b3a2421d5c74** |
@@ -597,8 +598,9 @@
 | **sim-xmas-api.js** | 315 | **01986e4191a1** |
 | **sim-xmas-rules.js** | 148 | **d8e3edd595fc** |
 | **sim-xmas-tree.js** | 51 | **0d4a04e1115d** |
-| **sim-xmas-window.js** | 376 | **ffb4ac02d5ac** |
+| **sim-xmas-window.js** | 423 | **a61d44ab7fcc** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
+| **sim-xmas-bgm.js** | 107 | **f7bc057d8525** |
 | **sim-xmas-letter.js** | 328 | **b17bbc5050d3** |
 | **sim-wardrobe-place.js** | 54 | **8c81ab2ff24e** |
 | **sim-etag-store.js** | 82 | **197e7e039a8b** |

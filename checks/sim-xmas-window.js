@@ -43,7 +43,7 @@ function el(tag, id){
   return e;
 }
 const IDS = ['xmasOverlay', 'lcXmas', 'xmasSay', 'xmasRep', 'xmasRepNo', 'xmasRepYes', 'xmasPick', 'xmasUpLab', 'xmasUp', 'xmasCount', 'xmasState',
-  'xmasWord', 'xmasHang', 'xmasFull', 'xmasFullOk', 'xmasCloseBtn', 'xmasCanvas', 'xmasWin', 'xmasTitle'];
+  'xmasWord', 'xmasHang', 'xmasFull', 'xmasFullOk', 'xmasCloseBtn', 'xmasCanvas', 'xmasWin', 'xmasTitle', 'xmasBgmBtn', 'xmasCreditBtn', 'xmasCredit'];
 function world(opts){
   const o = opts || {};
   const els = {}; IDS.forEach(i => { els[i] = el(i === 'xmasHang' || /Btn|Yes|No|Ok/.test(i) ? 'button' : 'div', i); });
@@ -71,14 +71,25 @@ function world(opts){
   const Lt = { calls: [], deps: null };
   const letterMod = { createXmasLetter: (d) => { Lt.deps = d; d.escRegisterWindow({ key: 'xmasLetter' }); const c = (n) => () => { Lt.calls.push(n); };
     return { open: c('open'), close: c('close'), refresh: c('refresh'), checkGot: () => { Lt.calls.push('checkGot'); return Promise.resolve(Lt.gotOk !== false); }, paintBtn: c('paintBtn'), reset: c('reset'), isOpen: () => false }; } };
-  const songMod = { createXmasSong: (d) => { Lt.songDeps = d; return { bar: () => ({}), stop: () => {} }; } };
+  const songMod = { createXmasSong: (d) => { Lt.songDeps = d; return { bar: () => ({}), stop: () => {}, onPlay: (fn) => { Lt.onPlay = fn; } }; } };
+  /* 🎵 배경음악 · 출처 — 부른 것은 Bg.calls 에(편지 모듈 Lt.calls 와 따로). 멈출 때 편지 창이 이미 닫혔는지도 적는다 */
+  const Bg = { muted: !!o.muted, deps: null, calls: [], letterClosedAtStop: null };
+  const bgmMod = { CREDIT: ['머리', '곡'], TRACKS: ['a.mp3'], DIRS: ['x/'], VOLUME: 0.3, MUTE_KEY: 'tw.xmasBgmMuted', TAG: '크리스마스' };
+  const winBgmMod = { createWinBgm: (d) => { Bg.deps = d; return {
+    refresh: () => Bg.calls.push('bgm.refresh'),
+    start: () => Bg.calls.push('bgm.start'), stop: () => { Bg.calls.push('bgm.stop'); Bg.letterClosedAtStop = Lt.calls.includes('close'); }, toggle: () => { Bg.muted = !Bg.muted; Bg.calls.push('bgm.toggle'); },
+    duck: (on) => Bg.calls.push('bgm.duck:' + on), isMuted: () => Bg.muted, label: () => (Bg.muted ? '음악 켜기' : '음악 끄기') }; } };
+  const creditMod = { createXmasCredit: (d) => { Bg.creditDeps = d; return { toggle: () => Bg.calls.push('credit.toggle'), stop: () => Bg.calls.push('credit.stop'), showing: () => false }; } };
   const nav = { NAV: { XMAS: 'xmas' }, fns: {}, on(n, f){ this.fns[n] = f; } };
   const api = (o.mod || W).createXmasWindow({ doc, win, THREE: {}, ps1Dither: {}, rules: R, treeMod, net: () => net, serverNow: () => S.now, idbGet, idbPut,
     notifyError: (c) => S.errs.push(c), toast: (m) => S.toasts.push(m), escRegisterWindow: (x) => S.escs.push(x),
     onSizeChange: () => { S.size++; }, onReady: (fn) => { S.ready = fn; },
-    songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav, random: () => (o.random == null ? 0.5 : o.random) });
-  return { api, els, T, S, N, store, timers, timeouts, cleared, Lt, nav };
+    songMod, letterMod, companion: () => null, ytVideoId: () => null, asyncPrompt: async () => null, storage: null, twNav: nav, random: () => (o.random == null ? 0.5 : o.random),
+    bgmMod, winBgmMod, creditMod, Audio: null, save: () => true, officeMode: () => false, warn: () => {}, bgmHush: { hush: () => null, unhush: () => {} } });
+  Bg.data = bgmMod;
+  return { api, els, T, S, N, store, timers, timeouts, cleared, Lt, nav, Bg };
 }
+const bgmDataOf = (w) => w.Bg.data;
 const tick = () => new Promise(r => setTimeout(r, 0));
 const settle = async () => { for (let i = 0; i < 6; i++) await tick(); };
 const PNG = (n) => 'data:image/png;base64,iVBOR' + n;
@@ -232,6 +243,42 @@ say('── 5절 실패 · 닫기');
   chk(!w3.T.opened && /끝났어요/.test(w3.S.toasts.pop()), '이벤트가 끝났으면 열지 않는다');
 }
 
+say('── 5-1b절 배경음악 · 음악 출처(제목줄 단추 둘)');
+{
+  const w = world(); w.S.ready();
+  chk(w.els.xmasBgmBtn.textContent === '음악 끄기' && !w.els.xmasBgmBtn.classList.contains('off'), '만들 때 [음악 끄기] 글을 맞춘다');
+  chk(w.Bg.creditDeps.box === w.els.xmasCredit && w.Bg.creditDeps.lines.join() === '머리,곡', '출처 글은 배경음악 모듈의 CREDIT · 글 상자는 #xmasCredit');
+  w.api.open(); await settle();
+  chk(w.Bg.calls.includes('bgm.start'), '★ 창을 열면 배경음악을 건다(bgm.start)');
+  w.els.xmasBgmBtn.onclick();
+  chk(w.Bg.calls.includes('bgm.toggle') && w.els.xmasBgmBtn.textContent === '음악 켜기' && w.els.xmasBgmBtn.classList.contains('off'), '[음악 끄기] — toggle · 글이 «음악 켜기» · 노란 글(.off)');
+  w.els.xmasBgmBtn.onclick();
+  chk(w.els.xmasBgmBtn.textContent === '음악 끄기' && !w.els.xmasBgmBtn.classList.contains('off'), '  ↳ 다시 누르면 되돌아온다');
+  w.els.xmasCreditBtn.onclick();
+  chk(w.Bg.calls.includes('credit.toggle'), '[음악 출처] — credit.toggle');
+  w.Lt.onPlay(true); w.Lt.onPlay(false, false);
+  chk(w.Bg.calls.includes('bgm.duck:true') && w.Bg.calls.includes('bgm.duck:false'), '★ 편지 추천곡이 나면 배경음악이 물러나고(duck) · 멈추면 돌아온다');
+  w.Bg.calls.length = 0; w.Lt.onPlay(true); w.Lt.onPlay(false, true);
+  chk(w.Bg.calls.join() === 'bgm.duck:true', '★ 다른 음악이 재생 창을 가져가서 추천곡이 멈춘 것이면 돌아오지 않는다(사용자가 튼 음악을 다시 재우지 않게)');
+  w.api.syncBgm();
+  chk(w.Bg.calls.includes('bgm.refresh'), '회사원 모드가 바뀌면 부르는 syncBgm — 배경음악을 지금 상태에 다시 맞춘다');
+  chk(w.Bg.deps.tracks === bgmDataOf(w).TRACKS && w.Bg.deps.muteKey === 'tw.xmasBgmMuted' && w.Bg.deps.tag === '크리스마스' && w.Bg.deps.volume === 0.3 && w.Bg.deps.dirs[0] === 'x/' && typeof w.Bg.deps.others.hush === 'function',
+    '창 배경음악 모듈(win-bgm)에 곡 목록 · 폴더 · 음량 · 저장 키 · 재우기 규칙을 넘긴다');
+  w.Lt.calls.length = 0; w.api.close();
+  chk(w.Bg.calls.includes('bgm.stop') && w.Bg.calls.includes('credit.stop') && w.Bg.letterClosedAtStop === false && w.Lt.calls.includes('close'),
+    '★ 닫으면 배경음악 · 출처를 멈춘다 — 편지 창 닫기보다 먼저(추천곡이 멈추는 알림에 다시 켜지지 않게)');
+  const wm = world({ muted: true });
+  chk(wm.els.xmasBgmBtn.textContent === '음악 켜기' && wm.els.xmasBgmBtn.classList.contains('off'), '꺼 둔 PC 는 처음부터 «음악 켜기»');
+  const swap = SRC.replace("    bgm.stop(); credit.stop();   // 편지 창보다 먼저 — 추천곡이 멈추며 오는 알림(duck)에 배경음악이 다시 켜지지 않게\n    letter.close();\n", "    letter.close();\n    bgm.stop(); credit.stop();\n");
+  let bad = false;
+  if (swap !== SRC){ const m = { exports: {} }; new Function('module', 'window', 'TwSafeHtml', swap)(m, undefined, global.TwSafeHtml); const x = world({ mod: m.exports }); x.S.ready(); x.api.open(); await settle(); x.Lt.calls.length = 0; x.api.close(); bad = x.Bg.letterClosedAtStop === true; }
+  chk(swap !== SRC && bad, 'mutation test — 닫는 순서를 바꾸면(편지 창 먼저) 위 판정이 빨강');
+  const noTaken = SRC.replace('song.onPlay((on, taken) => { if (!on && taken) return; bgm.duck(on); });', 'song.onPlay((on) => bgm.duck(on));');
+  let bad2 = false;
+  if (noTaken !== SRC){ const m = { exports: {} }; new Function('module', 'window', 'TwSafeHtml', noTaken)(m, undefined, global.TwSafeHtml); const x = world({ mod: m.exports }); x.S.ready(); x.Lt.onPlay(true); x.Lt.onPlay(false, true); bad2 = x.Bg.calls.includes('bgm.duck:false'); }
+  chk(noTaken !== SRC && bad2, 'mutation test — 가져간 것을 안 가리면 배경음악이 사용자의 음악을 다시 재운다 → 빨강');
+}
+
 say('── 5-2절 창 마크업이 없으면 던진다(조용히 넘어가지 않음)');
 {
   let threw = false;
@@ -261,7 +308,7 @@ say('── 7절 편지 창 잇기');
   w.Lt.calls.length = 0; w.timers[0][0]();
   chk(w.Lt.calls.join() === 'paintBtn', '  ↳ 1분마다 단추만 다시(25일 0시가 지나면 [편지 열람])');
   w.Lt.calls.length = 0; w.api.open(); await settle();
-  chk(w.Lt.calls.join() === 'refresh', '창을 열면 맡긴 수(n/5)를 위해 편지함을 한 번');
+  chk(w.Lt.calls.join() === 'refresh', '창을 열면 맡긴 수(n/1)를 위해 편지함을 한 번');
   w.Lt.calls.length = 0; w.api.close();
   chk(w.Lt.calls.join() === 'close', '창을 닫으면 편지 창도 닫는다(추천곡 멈춤은 편지 모듈)');
   w.Lt.deps.onDot(true); chk(w.els.lcXmas.classList.contains('xm-dot'), '안 읽은 받은 편지 — 런처 [크리스마스] 빨간 점');

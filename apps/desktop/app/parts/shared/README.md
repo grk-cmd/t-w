@@ -213,6 +213,20 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
+## `bgm-hush.js` — 🔇 듣던 유튜브 BGM 재우기 · 되살리기
+- **책임**: 자기 배경음악을 트는 창(스티커사진 · 크리스마스)이 열 때 듣던 유튜브 BGM(마이홈 · 플레이리스트)을 재우고, 닫을 때 재웠던 쪽만 되살린다.
+- **만드는 법**: `TwBgmHush.createBgmHush({ companion, plPlaying, setPlPlaying, plRender, homePlaying, setHomePlaying })` — 창마다 하나씩 만든다.
+- **내놓는 것**: `hush()` → 재운 쪽 `{ pl, home }` 또는 `null` · `unhush(h)`.
+- **함정**: 상태를 들지 않는다 — `hush()` 가 돌려준 것을 부르는 쪽이 들고 있다가 `unhush` 에 넘긴다. 유튜브 BGM 은 창 하나를 같이 쓰니 재우는 호출은 한 번이다. 그 사이 사용자가 다시 틀었으면 되살리지 않는다(두 소리가 겹친다).
+- 검사: `sim-bgm-hush.js`
+
+## `win-bgm.js` — 🎵 창 배경음악(스티커사진 창 · 크리스마스 창)
+- **책임**: 창이 열려 있는 동안만 배경음악을 튼다 — 곡 목록을 차례로 틀고 끝나면 처음 곡으로(한 곡이면 되풀이). 제목줄 «음악 끄기 / 음악 켜기» 는 이 PC 에 기억한다(받은 `muteKey`).
+- **만드는 법**: `TwWinBgm.createWinBgm({ Audio, tracks, dirs, volume, muteKey, tag, storage, save, officeMode, warn, others })` — 창마다 하나. `others` 는 `bgm-hush.js` 의 `{ hush, unhush }` 또는 `TwWinBgm.NO_OTHERS`.
+- **내놓는 것**: `start()` · `stop()` · `toggle()` · `duck(on)`(다른 소리가 나는 동안 물러남) · `refresh()`(회사원 모드가 바뀌었을 때 다시 맞춤) · `isMuted()` · `label()`.
+- **함정**: 소리를 낼 때만 `others.hush` 로 듣던 것을 재우고, 끄거나 닫으면 재웠던 쪽만 되살린다. `duck` 으로 물러난 것이면 재워 둔 것은 잊는다(재생 창이 그 소리로 넘어갔다). 회사원 모드에서는 소리를 내지 않는다 — 모드를 켜고 끄는 쪽이 `refresh()` 를 불러야 열려 있는 창이 따라온다. 자동재생 잠금은 삼키지 않고 경고로 남긴다.
+- 검사: `sim-win-bgm.js`
+
 ## `device-toggle.js` — 이 PC 의 켜고 끄는 화면 설정 하나
 - **책임**: 설정 › 디스플레이의 켜짐 · 꺼짐 한 칸을 들고 저장한다(기본 켜짐 · `'0'` 이면 꺼짐). 지금 쓰는 곳: «남의 자리비움 그림»(`tw.awayPicOthers`).
 - **만드는 법**: app.js 가 설정 창보다 먼저 `TwDeviceToggle.createDeviceToggle({ storage: localStorage, key: 'tw.…' })` → 설정 창과 그 설정을 읽는 기능 모듈에 값으로 넘긴다.

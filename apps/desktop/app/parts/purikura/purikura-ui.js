@@ -121,18 +121,19 @@ const PK_JUMP_V0  = 10.47;    // 점프 초속(월드단위/초) — 높이 1.40
    ⚠️ 이 값은 «모델의 기본 각»에 딸린 값이다. 캐릭터 리그의 기본 각을 바꾸면 여기도 같이 봐야 한다.
      맞지 않는 캐릭터가 있으면 Q·E 로 돌려 쓰면 된다 — 그래서 손잡이를 함께 붙였다. */
 const PK_BODY_YAW = 0.28;     // 정면을 보게 되돌리는 기준 각(라디안)
-/* 🎵 촬영 창 BGM — 재생 · 멈춤 · 끄기 기억은 pk-bgm.js. 경로는 «있는 곳 먼저»(때리기 · 클릭 소리와 같은 관례). */
-const PK_BGM_SRC = ['parts/purikura-bgm.mp3', 'purikura-bgm.mp3'];
+/* 🎵 촬영 창 BGM — 재생 · 멈춤 · 끄기 기억은 shared/win-bgm.js. 폴더는 «있는 곳 먼저»(때리기 · 클릭 소리와 같은 관례). */
+const PK_BGM_TRACKS = ['purikura-bgm.mp3'];
+const PK_BGM_DIRS = ['parts/', ''];
+const PK_BGM_MUTE_KEY = 'tw.pkBgmMuted';
 const PK_BGM_VOL = 0.32;      // 유튜브 BGM 보다 조금 낮게 — 셔터 카운트다운을 덮으면 안 된다
 const PK_TURN_SPD = 2.0;      // Q·E 로 도는 속도(라디안/초) — 한 바퀴에 약 3.1초
 
 /* 🎵 BGM — 창이 열려 있는 동안만.
-   ★ 유튜브 BGM(마이홈·플레이리스트)은 **창 하나를 공유**한다(bgmMode). 그래서 재우는 것은
-     `companion.pauseBgm()` **한 번**이면 되고, 대신 «누가 나고 있었는지»를 기억해 뒀다가 닫을 때 그쪽만 되살린다.
-   ⚠️ 되살릴 때 «그 사이에 사용자가 직접 다시 튼 경우»를 확인한다. 그때 또 resume 을 부르면 두 소리가 겹친다. */
-const pkBgm = TwPkBgm.createPkBgm({
+   듣던 유튜브 BGM(마이홈 · 플레이리스트)은 열 때 재우고 닫을 때 재웠던 쪽만 되살린다(shared/bgm-hush.js). */
+const pkBgm = TwWinBgm.createWinBgm({
   Audio: (typeof Audio === 'undefined') ? null : Audio,
-  srcs: PK_BGM_SRC, volume: PK_BGM_VOL,
+  tracks: PK_BGM_TRACKS, dirs: PK_BGM_DIRS, volume: PK_BGM_VOL, muteKey: PK_BGM_MUTE_KEY, tag: '스티커사진',
+  others: TwWinBgm.NO_OTHERS,   // 듣던 BGM 은 꺼 둔 PC 에서도 재운다 — 아래 _pkHushOthers 가 여닫을 때 따로
   storage: localStorage,
   save: (k, v)=>_lsSet(k, v),
   officeMode: ()=>officeMode(),
@@ -144,30 +145,15 @@ function _pkBgmBtnSync(){
   b.textContent = pkBgm.label();
   b.classList.toggle('off', pkBgm.isMuted());
 }
-/* 남의 BGM 재우기 / 깨우기 */
-function _pkHushOthers(){
-  PK.hushed = null;
-  if(!(window.companion && companion.pauseBgm)) return;
-  const pl   = !!_plPlaying();
-  const home = !!mhHooks.call(mhHooks.HOOK.BGM_PLAYING);
-  if(!pl && !home) return;
-  try{ companion.pauseBgm(); }catch(_){}
-  /* 각자의 «지금 나는 중» 표시도 내려 준다 — 안 내리면 ▶ 버튼이 재생 중인 척한다. */
-  if(pl){ _setPlPlaying(false); _plRender(); }
-  if(home) mhHooks.call(mhHooks.HOOK.BGM_SET_PLAYING, false);
-  PK.hushed = { pl:pl, home:home };
-}
-function _pkUnhushOthers(){
-  const h = PK.hushed; PK.hushed = null;
-  if(!h || !(window.companion && companion.resumeBgm)) return;
-  /* 그 사이에 사용자가 직접 다시 틀었으면 건드리지 않는다 — 또 resume 하면 겹친다. */
-  const plNow   = !!_plPlaying();
-  const homeNow = !!mhHooks.call(mhHooks.HOOK.BGM_PLAYING);
-  if(plNow || homeNow) return;
-  try{ companion.resumeBgm(); }catch(_){}
-  if(h.pl){ _setPlPlaying(true); _plRender(); }
-  if(h.home) mhHooks.call(mhHooks.HOOK.BGM_SET_PLAYING, true);
-}
+/* 남의 BGM 재우기 / 깨우기 — 규칙은 shared/bgm-hush.js 한 곳(크리스마스 창도 같이 쓴다). 재운 쪽은 PK.hushed 에 든다 */
+const pkBgmHush = TwBgmHush.createBgmHush({
+  companion: ()=>window.companion,
+  plPlaying: ()=>_plPlaying(), setPlPlaying: v=>_setPlPlaying(v), plRender: ()=>_plRender(),
+  homePlaying: ()=>!!mhHooks.call(mhHooks.HOOK.BGM_PLAYING),
+  setHomePlaying: v=>{ mhHooks.call(mhHooks.HOOK.BGM_SET_PLAYING, v); },
+});
+function _pkHushOthers(){ PK.hushed = pkBgmHush.hush(); }
+function _pkUnhushOthers(){ const h = PK.hushed; PK.hushed = null; pkBgmHush.unhush(h); }
 const PK_GRAVITY  = 39.2;     // 중력(월드단위/초²) — 9.8 의 4배. ⚠️ PK_JUMP_V0 와 한 세트다
 /* 컷 수의 상한. Purikura.cutsFor 가 주는 값이 세로 [1,4] · 가로 [1,2,4] 라 4 가 끝이다.
    ⚠️ 「지금 고른 컷 수(PK.cuts)」와 헷갈리지 말 것. 이건 «있을 수 있는 최대»이고,
