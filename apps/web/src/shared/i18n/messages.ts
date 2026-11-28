@@ -141,8 +141,6 @@ export interface Messages {
   specOsValue: string;
   specJoin: string;
   specJoinValue: string;
-  talkWinTitle: string;
-  talkLead: string;
   footerPrivacy: string;
   footerHelp: string;
 }
@@ -327,8 +325,6 @@ export const ko: Messages = {
   specOsValue: 'Windows 10 이상 · macOS',
   specJoin: '가입',
   specJoinValue: '초대 코드 필요 · 지금은 새 초대장 발급을 잠시 멈췄어요',
-  talkWinTitle: '💬 같이 이야기해요',
-  talkLead: '쓰는 법 · 자주 묻는 질문은 도움말에서.',
   footerPrivacy: '개인정보 처리방침',
   footerHelp: '도움말',
 };
@@ -517,8 +513,6 @@ export const en: Messages = {
   specOsValue: 'Windows 10 or later · macOS',
   specJoin: 'Sign-up',
   specJoinValue: 'Invite code required · new invites are paused for now',
-  talkWinTitle: '💬 Talk with us',
-  talkLead: 'How-tos and FAQs are in Help.',
   footerPrivacy: 'Privacy policy',
   footerHelp: 'Help',
 };
@@ -703,8 +697,6 @@ export const ja: Messages = {
   specOsValue: 'Windows 10 以降・macOS',
   specJoin: '登録',
   specJoinValue: '招待コードが必要・現在、新しい招待状の発行を一時停止中',
-  talkWinTitle: '💬 いっしょに話そう',
-  talkLead: '使い方・よくある質問はヘルプで。',
   footerPrivacy: 'プライバシーポリシー',
   footerHelp: 'ヘルプ',
 };
