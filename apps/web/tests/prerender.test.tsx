@@ -41,6 +41,10 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(`<h2 id="dl-title">${m.dlTitle}</h2></div>`);
       expect(html).toContain(m.newsTitle); // 📰 소식 창 자리 — 글은 아직 빈 안내
       expect(html).toContain(m.newsEmpty);
+      // 소식 창 아래 개발자 도트 그림 — 파일 크기 그대로(두 배는 CSS) · 언어별 대체 글
+      expect(html).toContain(
+        `<img class="crew" src="/crew/dev.png" width="96" height="81" alt="${m.crewDevAlt}"/>`,
+      );
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
       expect(html).not.toMatch(/%TW_LANG%|<!--tw-head-->|<!--tw-body-->/);
     }

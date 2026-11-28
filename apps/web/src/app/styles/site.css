@@ -296,6 +296,20 @@ h3 {
   color: var(--on-desk);
   max-width: 560px;
 }
+/* 오른쪽: 소식 창 · 그 아래 사람들 도트 그림 */
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/* 96px 도트 그림을 두 배로 — 픽셀이 뭉개지지 않게 */
+.crew {
+  align-self: flex-end;
+  width: 192px;
+  height: auto;
+  image-rendering: pixelated;
+}
 .news .body {
   padding: 6px;
 }

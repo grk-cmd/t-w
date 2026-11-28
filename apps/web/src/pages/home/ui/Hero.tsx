@@ -25,7 +25,10 @@ export function Hero() {
           </p>
           <p className="ver">{m.heroNote}</p>
         </div>
-        <NewsSlot />
+        <div className="hero-side">
+          <NewsSlot />
+          <img className="crew" src="/crew/dev.png" width={96} height={81} alt={m.crewDevAlt} />
+        </div>
       </div>
     </section>
   );
