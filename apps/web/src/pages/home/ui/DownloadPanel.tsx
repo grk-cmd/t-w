@@ -1,5 +1,4 @@
 import { downloadReady, useSite, type SiteState } from '@/entities/site';
-import { HELP_URL } from '@/shared/config';
 import { useI18n } from '@/shared/i18n';
 import { DownloadIcon, Win } from '@/shared/ui';
 
@@ -77,14 +76,6 @@ export function DownloadView({ state, retry }: { state: SiteState; retry: () => 
             <dt>{m.specJoin}</dt>
             <dd>{m.specJoinValue}</dd>
           </dl>
-        </Win>
-        <Win title={m.talkWinTitle}>
-          <p className="hint">{m.talkLead}</p>
-          <div className="row">
-            <a className="btn" href={HELP_URL} target="_blank" rel="noopener noreferrer">
-              {m.navHelp}
-            </a>
-          </div>
         </Win>
       </div>
     </section>
