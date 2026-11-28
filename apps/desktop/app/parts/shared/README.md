@@ -731,3 +731,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **쓰는 곳**: `character/wardrobe-paging.js`(꾸미기 창 파츠 칸) · `character/gacha-album.js`(도감) — 둘 다 실릴 때 `const paging = TwPaging;` 로 받고 `pageCount` · `clampPage` 를 그대로 다시 내놓는다(부르는 곳 `wardrobe.js` · `gacha.js` 는 그대로).
 - **만드는 법**: html · `checks/smoke.js` PRELOAD 가 두 모듈보다 먼저 싣는다. 검사가 두 모듈을 `new Function` 으로 실을 때는 이 모듈 값을 `TwPaging` 인자로 넘긴다.
 - **함정**: 쪽 번호는 0 부터(화면에 쓸 때만 +1). 합치기 전 두 벌(꾸미기 창 · 도감)과 실제로 들어오는 입력에서 같은 값을 내야 한다 — 숫자 글(`'2'`)은 두 벌이 달랐지만 들어오는 곳이 없다. 쪽 규칙을 다른 모듈에 다시 쓰지 않는다. 검사 `checks/sim-paging.js`(실제 호출 · 옛 두 벌과 같은 값 · 배선 · mutation test).
+
+## `slot-thumb.js` — 🖼️ 캐릭터 칸 섬네일 고르기
+- **책임**: 캐릭터 칸 섬네일로 무엇을 보일지 정하는 한 규칙(순수 함수). 이 PC 에서 찍은 그림(`thumb`) → 서버 섬네일(`thumbUrl`) → (`withFace` 만) 얼굴 그림.
+- **내놓는 것**: `window.TwSlotThumb = { FIELDS, FACE_FIELDS, snapshot(def, safeUrl), withFace(def, safeUrl) }` — `safeUrl` 은 `TwSafeHtml.safeUrl`. deps 없음.
+- **쓰는 곳**: 설정 › 캐릭터 탭(`launcher/settings-panel.js` `makeCharThumbEl` — 없거나 못 받으면 합성 아이콘) · 내 정보(`account/my-info.js` `_miSlotThumb`). 전역 이름으로 바로 쓴다(safe-html.js 와 같다).
+- **함정**: 서버에서 받아 앉힌 칸은 `thumb` 이 비고 `thumbUrl` 만 있다(`character/slot-codec.js` `_slotFromServerObj`). `thumb` 만 보면 껐다 켠 뒤 섬네일이 사라진다(B-1128-4). 새 화면도 이 함수를 부른다 — 순서를 다시 쓰지 않는다.
+- 검사: `sim-slot-thumb.js`

@@ -14,8 +14,8 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const find = (n) => [__dirname, process.cwd()].flatMap(d => [n, 'parts/account/' + n, 'parts/shared/' + n, 'app/parts/account/' + n, 'app/parts/shared/' + n, 'apps/desktop/app/parts/account/' + n, 'apps/desktop/app/parts/shared/' + n].map(p => path.join(d, p))).find(p => fs.existsSync(p));
-const F = find('my-info.js'), FS = find('safe-html.js'), FN = find('net-ready.js');
-if(!F || !FS || !FN){ say('  ? 원본 못 찾음 — my-info.js · safe-html.js · net-ready.js'); process.exit(2); }
+const F = find('my-info.js'), FS = find('safe-html.js'), FN = find('net-ready.js'), FT = find('slot-thumb.js');
+if(!F || !FS || !FN || !FT){ say('  ? 원본 못 찾음 — my-info.js · safe-html.js · net-ready.js · slot-thumb.js'); process.exit(2); }
 const SRC = fs.readFileSync(F, 'utf8');
 const flush = () => new Promise(r => setImmediate(r));
 
@@ -63,6 +63,8 @@ function mkWorld(src, opt){
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(FS, 'utf8'), ctx);
   ctx.TwSafeHtml = ctx.window.TwSafeHtml;
+  vm.runInContext(fs.readFileSync(FT, 'utf8'), ctx);   // 🖼️ 섬네일 고르기 규칙(shared/slot-thumb.js) — html 이 my-info.js 보다 먼저 싣는다
+  ctx.TwSlotThumb = ctx.window.TwSlotThumb;
   vm.runInContext(fs.readFileSync(FN, 'utf8') + '\nvar TwNetReady = window.TwNetReady;\n', ctx);
   const any = new Proxy(function(){}, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : any, apply: () => any, construct: () => any, set: () => true, has: () => true });
   vm.runInContext(src, ctx);

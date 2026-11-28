@@ -837,17 +837,19 @@ function applyExtraSeatForMode(){
 }
 
 // 설정 패널 "캐릭터" 탭의 슬롯 UI 렌더링 — 패널 열릴 때 / 탭 전환 시 / 교체·자리추가 후 호출
-// 슬롯 아이콘 엘리먼트 생성 — def.thumb(런처 미리보기를 찍은 것 · _lcThumbTake — 런처에서 아직 안 본 슬롯은 생성기 캡처)이 있으면 그걸 그대로 쓰고,
-// 없으면(예전에 저장돼서 스냅샷이 없는 캐릭터) 기존 2D 합성 아이콘(drawFaceThumb)으로 대신 보여줌.
-function makeCharThumbEl(d){
-  const thumb = TwSafeHtml.safeUrl(d.thumb, 'image');
-  if(thumb){
-    const img=document.createElement('img');
-    img.src=thumb;
-    return img;
-  }
+// 슬롯 아이콘 엘리먼트 생성 — 고르는 순서는 shared/slot-thumb.js 한 규칙(이 PC 에서 찍은 그림 → 서버 섬네일).
+// 둘 다 없거나 그림을 못 받으면 2D 합성 아이콘(drawFaceThumb)으로 그린다.
+function faceThumbCanvas(d){
   const cv=document.createElement('canvas'); cv.width=cv.height=80; drawFaceThumb(cv,d);   // drawFaceThumb은 80x80 기준 좌표라 이 크기로 그려야 안 잘림(CSS로 박스 크기에 맞게 축소 표시)
   return cv;
+}
+function makeCharThumbEl(d){
+  const thumb = TwSlotThumb.snapshot(d, TwSafeHtml.safeUrl);
+  if(!thumb) return faceThumbCanvas(d);
+  const img=document.createElement('img');
+  img.onerror=()=>{ img.onerror=null; img.replaceWith(faceThumbCanvas(d)); };   // 서버 섬네일을 못 받으면(오프라인 · 지워진 파일) 깨진 그림 대신 합성 아이콘
+  img.src=thumb;
+  return img;
 }
 function renderCharSlots(){
   const mainWrap=document.getElementById('fsCharSlots');

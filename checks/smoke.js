@@ -469,6 +469,8 @@ PRELOAD.push('report-api.js', 'report.js', 'admin-report.js');
 PRELOAD.push('my-info.js');
 /* slot-codec.js · closet-api.js · closet.js — 🧬 옷장(서버 원본). 같은 까닭 — 만들 때 하는 일(없음)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
 PRELOAD.push('slot-codec.js', 'closet-api.js', 'closet.js');
+/* slot-thumb.js — 🖼️ 캐릭터 칸 섬네일 고르기 한 규칙(순수). 설정 패널 · 내 정보가 전역 이름으로 쓴다 */
+PRELOAD.push('slot-thumb.js');
 /* away-pic.js — 🫧 자리비움 그림(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAwayPic 를 같이 굴린다. */
 PRELOAD.push('away-pic.js');
 /* myhome-ui.js — 🏠 마이홈 창 버튼 연결(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeUi 를 같이 굴린다. */
