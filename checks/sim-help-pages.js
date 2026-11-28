@@ -8,7 +8,8 @@
    ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절)
    ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 · 사라진 옛 편(OLD_SLUGS)은 빠짐없이 넘긴다
    ・2절 끝: 폰 연결 안내 — 모든 페이지(처방 · 폰 연결 · FAQ 포함)에 예전(0.12) 단계(방법 PUT · 요청 본문 파일 · 텍스트 동작)가 «예전 …» 문장 밖에 없고,
-          5-7 편 · /link 가 X-Mobile-Key 헤더를 안내한다(5-7 이 /link 와 따로 놀아 예전 단계로 만든 자동화가 401 을 받던 일) */
+          5-7 편 · /link 의 iOS · 안드로이드 묶음이 각각 X-Mobile-Key 헤더를 안내하고, 두 페이지의 OS 별 단계(<ol>)가 태그 · 괄호 안 화면 이름 · 빈칸을 빼면 같다
+          (5-7 이 /link 와 따로 놀아 예전 단계로 만든 자동화가 401 을 받던 일) */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -99,7 +100,15 @@ chk(errs.length === 0, '도움말 페이지 ' + Object.keys(real.pages).length +
 say('── 2-1. 폰 연결 안내 — 예전(PUT) 단계가 «예전 …» 문장 밖에 없다 · X-Mobile-Key 를 안내한다');
 // 0.12 단계(PUT 으로 Firebase 에 쓰던 때)의 글 — 지금 서버는 POST · X-Mobile-Key 헤더 · JSON 만 받는다
 const OLD_LINK_STEPS = ['방법 <b>PUT</b>', '요청 본문 <b>파일</b>', '«텍스트» · «URL 콘텐츠 가져오기»'];
-const NEED_KEY_HEADER = ['5-7.html', 'link.html'];
+/* OS 묶음 — 5-7 은 소제목 문단으로, /link 는 data-os 블록으로 나뉜다. [시작, 끝] 글자 */
+const OS_BLOCKS = {
+  '5-7.html': { ios: ['<p><b>iPhone · iPad (단축어)</b></p>', '<p><b>안드로이드 (MacroDroid)</b></p>'], and: ['<p><b>안드로이드 (MacroDroid)</b></p>', '<h2 id="s4">'] },
+  'link.html': { ios: ['<div data-os="ios">', '<div data-os="and" class="hide">'], and: ['<div data-os="and" class="hide">', '<h2><i>3</i>'] },
+};
+const noComment = (s) => s.replace(/<!--[\s\S]*?-->/g, '');
+function osBlock(s, [a, b]){ const i = s.indexOf(a); const j = i < 0 ? -1 : s.indexOf(b, i + a.length); return i < 0 || j < 0 ? null : s.slice(i, j); }
+/* 단계 글 — 첫 <ol> 의 <li> 하나씩, 태그 · 괄호 안(화면 이름) · 빈칸을 뺀 글 */
+const stepsOf = (block) => { const ol = (block.match(/<ol>([\s\S]*?)<\/ol>/) || [])[1]; return ol == null ? null : ol.split(/<li>/).slice(1).map(li => li.replace(/<[^>]+>/g, '').replace(/\([^()]*\)/g, '').replace(/\s+/g, '')); };
 /* 찾은 자리가 든 문장(앞의 «요.» · «다.» · 태그 시작 뒤부터)에 «예전» 이 있으면 «예전 방식이면 바꿔요» 안내라서 둔다 */
 function linkDrift(all){
   const errs = [];
@@ -113,22 +122,41 @@ function linkDrift(all){
       }
     }
   }
-  for (const f of NEED_KEY_HEADER) if (!/X-Mobile-Key/.test((all[f] || '').replace(/<!--[\s\S]*?-->/g, ''))) errs.push(f + ' — X-Mobile-Key 헤더 안내가 없다');
+  const steps = {};
+  for (const [f, osMap] of Object.entries(OS_BLOCKS)){
+    for (const [os, cut] of Object.entries(osMap)){
+      const b = osBlock(noComment(all[f] || ''), cut);
+      if (b == null){ errs.push(f + ' — ' + os + ' 묶음을 못 찾았다'); continue; }
+      if (!/X-Mobile-Key/.test(b)) errs.push(f + ' — ' + os + ' 묶음에 X-Mobile-Key 헤더 안내가 없다');
+      steps[f + ' ' + os] = stepsOf(b);
+    }
+  }
+  for (const os of ['ios', 'and']){
+    const a = steps['5-7.html ' + os], b = steps['link.html ' + os];
+    if (!a || !b) { if (a !== undefined && b !== undefined) errs.push(os + ' 단계(<ol>)를 못 찾았다'); continue; }
+    if (a.join('|') !== b.join('|')) errs.push('5-7 · /link 의 ' + os + ' 단계가 다르다 — 5-7: ' + a.find((x, i) => x !== b[i]) + ' / link: ' + b.find((x, i) => x !== a[i]));
+  }
   return errs;
 }
 const allPages = {};
 for (const f of fs.readdirSync(DIR)) if (f.endsWith('.html')) allPages[f] = fs.readFileSync(path.join(DIR, f), 'utf8');
 const drift = linkDrift(allPages);
-chk(drift.length === 0, '모든 페이지 ' + Object.keys(allPages).length + '개 — 예전 단계 없음 · 5-7 · /link 에 X-Mobile-Key' + (drift.length ? '\n      ' + drift.slice(0, 8).join('\n      ') : ''));
+chk(drift.length === 0, '모든 페이지 ' + Object.keys(allPages).length + '개 — 예전 단계 없음 · 5-7 · /link 의 iOS · 안드로이드 묶음마다 X-Mobile-Key · 두 페이지 OS 별 단계가 같다' + (drift.length ? '\n      ' + drift.slice(0, 8).join('\n      ') : ''));
 const driftBreaks = [
   ['5-7 에 방법 PUT 이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('방법 <b>POST</b></li>', '방법 <b>PUT</b></li>'); }],
   ['5-7 에 요청 본문 파일이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('</ol>', '<li>요청 본문 <b>파일</b> → 위 «텍스트»</li></ol>'); }],
   ['FAQ 에 «텍스트» · «URL 콘텐츠 가져오기» 두 개가 되살아남', (a) => { a['faq.html'] += '<p>동작이 «텍스트» · «URL 콘텐츠 가져오기» 두 개뿐인지 봐 주세요.</p>'; }],
   ['/link 에서 X-Mobile-Key 가 빠짐', (a) => { a['link.html'] = a['link.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
   ['5-7 에서 X-Mobile-Key 가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
+  ['5-7 안드로이드 헤더 단계를 지움', (a) => { a['5-7.html'] = a['5-7.html'].replace(/\s*<li><b>헤더<\/b>에 이름[^\n]*<\/li>/, ''); }],
+  ['/link 안드로이드에서만 X-Mobile-Key 가 빠짐(iOS 에는 남음)', (a) => { const s = a['link.html'], i = s.indexOf('<div data-os="and" class="hide">'); a['link.html'] = s.slice(0, i) + s.slice(i).replace(/X-Mobile-Key/g, 'X-Key'); }],
+  ['5-7 iOS 에 태그 없는 «방법 PUT»', (a) => { a['5-7.html'] = a['5-7.html'].replace('· 방법 <b>POST</b></li>', '· 방법 PUT</li>'); }],
+  ['5-7 iOS 에 «텍스트» 동작이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('<li><b>새로운 빈 자동화</b>', '<li>동작 «텍스트» 추가 → [열림 본문 복사] 한 것</li>\n  <li><b>새로운 빈 자동화</b>'); }],
+  ['5-7 iOS 에서 불리언 안내가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace('종류 <b>불리언</b> · 키 <b>on</b>', '키 <b>on</b>'); }],
 ];
 for (const [name, f] of driftBreaks){ const a = Object.assign({}, allPages); f(a); chk(linkDrift(a).length > 0, '  mutation test — ' + name); }
-chk(linkDrift({ 'x.html': '<p>예전 방식(방법 <b>PUT</b>)이면 POST 로 바꿔요.</p>', '5-7.html': 'X-Mobile-Key', 'link.html': 'X-Mobile-Key' }).length === 0, '  «예전 …» 문장 안의 PUT 은 둔다(바꾸라는 안내)');
+chk(linkDrift(Object.assign({}, allPages, { 'x.html': '<p>예전 방식(방법 <b>PUT</b>)이면 POST 로 바꿔요.</p>' })).length === 0, '  «예전 …» 문장 안의 PUT 은 둔다(바꾸라는 안내)');
+chk(linkDrift(Object.assign({}, allPages, { 'link.html': allPages['link.html'].replace('(«설정» 탭 › 요청 종류)', '') })).length === 0, '  괄호 안 화면 이름만 다른 것은 같다고 본다(/link 만 괄호를 단다)');
 
 say('── 3. theme.js');
 const THEME = fs.readFileSync(path.join(DIR, 'theme.js'), 'utf8');
