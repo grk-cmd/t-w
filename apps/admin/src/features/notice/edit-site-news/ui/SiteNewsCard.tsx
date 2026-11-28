@@ -8,18 +8,20 @@ import {
   SITE_LANG_LABEL,
   SITE_LANGS,
   SITE_TITLE_MAX,
+  isSiteConflict,
   siteErrorMessage,
   useSiteNews,
   type SiteNews,
   type SiteNewsDraft,
 } from '@/entities/homepage/site';
-import { useEnv, withProdMark } from '@/shared/api';
+import { isPortError, useEnv, withProdMark } from '@/shared/api';
 import { formatDate } from '@/shared/lib';
-import { isSiteNewsConflict, useSiteNewsEdit } from '../model/useSiteNewsEdit';
+import { useSiteNewsEdit } from '../model/useSiteNewsEdit';
 import styles from './SiteNewsCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
-const CONFLICT = '다른 곳에서 먼저 고쳤어요 — 목록을 다시 불러왔으니 확인하고 다시 해 주세요';
+const CONFLICT =
+  '다른 곳에서 먼저 고쳤거나 내렸어요 — 목록을 다시 불러왔어요. 글을 다시 [고치기] 로 열어 주세요';
 
 /** 🌐 홈페이지(together-working.com) 📰 소식 창 글 — 언어마다 따로 쓴다. 그 언어 제목이 있는 글만 그 언어 페이지에 보인다 */
 export function SiteNewsCard() {
@@ -36,8 +38,12 @@ export function SiteNewsCard() {
     setEditing(null);
     setDraft(emptyNewsDraft());
   };
-  const fail = (err: unknown, fallback: string) =>
-    setMessage({ text: isSiteNewsConflict(err) ? CONFLICT : siteErrorMessage(err, fallback), error: true });
+  /** 409 · 404 면 들고 있던 글(옛 판)로는 다시 저장할 수 없다 — 고치기를 끝내고 새로 열게 한다 */
+  const fail = (err: unknown, fallback: string) => {
+    const stale = isSiteConflict(err) || isPortError(err, 'notFound');
+    if (stale) reset();
+    setMessage({ text: stale ? CONFLICT : siteErrorMessage(err, fallback), error: true });
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();

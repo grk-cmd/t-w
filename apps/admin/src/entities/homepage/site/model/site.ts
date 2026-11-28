@@ -41,61 +41,6 @@ export interface SiteDownload {
   rev: number;
 }
 
-const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const msOf = (v: unknown) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? Date.parse(v) : 0);
-const strOrNull = (v: unknown) => (typeof v === 'string' && v ? v : null);
-
-function textOf(v: unknown): SiteText | null {
-  if (!isObj(v)) return null;
-  const out: SiteText = { ko: '', en: '', ja: '' };
-  for (const l of SITE_LANGS) {
-    const s = v[l];
-    if (s === undefined || s === null) continue;
-    if (typeof s !== 'string') return null;
-    out[l] = s;
-  }
-  return out;
-}
-
-function newsItemOf(v: unknown): SiteNews | null {
-  if (!isObj(v) || typeof v.id !== 'string' || !v.id || typeof v.version !== 'number') return null;
-  const title = textOf(v.title);
-  const body = textOf(v.body);
-  if (!title || !body) return null;
-  return {
-    id: v.id,
-    pinned: v.pinned === true,
-    title,
-    body,
-    publishedAt: msOf(v.publishedAt),
-    version: v.version,
-  };
-}
-
-/** 관리자 목록(GET …/news 의 items) → 글. 모양이 틀린 글은 뺀다 · 고정 먼저 · 최신 순 */
-export function siteNewsOf(items: unknown): SiteNews[] {
-  if (!Array.isArray(items)) return [];
-  return items
-    .map(newsItemOf)
-    .filter((n): n is SiteNews => n !== null)
-    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.publishedAt - a.publishedAt);
-}
-
-/** 한 건(POST · PATCH 답) — 모양이 틀리면 null */
-export const siteNewsItemOf = newsItemOf;
-
-/** GET · PUT …/download 답 → 모양. 열림 칸 · rev 가 없으면 모름(null) — 모르는 채로 저장하지 않게 */
-export function siteDownloadOf(v: unknown): SiteDownload | null {
-  if (!isObj(v) || typeof v.open !== 'boolean' || typeof v.rev !== 'number') return null;
-  const f = isObj(v.files) ? v.files : {};
-  return {
-    open: v.open,
-    version: strOrNull(v.version),
-    files: { win: strOrNull(f.win), macArm64: strOrNull(f.macArm64), macX64: strOrNull(f.macX64) },
-    rev: v.rev,
-  };
-}
-
 export const emptyNewsDraft = (): SiteNewsDraft => ({
   pinned: false,
   title: { ko: '', en: '', ja: '' },

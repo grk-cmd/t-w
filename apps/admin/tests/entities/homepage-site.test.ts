@@ -6,18 +6,22 @@ import {
   deleteSiteNews,
   emptyNewsDraft,
   getSiteDownload,
+  isSiteConflict,
   listSiteNews,
   newsToDraft,
-  NoSiteApiError,
   putSiteDownload,
   sameNews,
   SITE_BODY_MAX,
+  SITE_LANGS,
   SITE_TITLE_MAX,
-  siteDownloadOf,
-  siteNewsOf,
+  siteDownloadFromWire,
+  siteErrorMessage,
+  siteNewsFromWire,
+  siteNewsListFromWire,
   updateSiteNews,
   type SiteDownload,
 } from '@/entities/homepage/site';
+import { ApiError, isPortError, NO_API_TEXT, PortError } from '@/shared/api';
 import { fakeApiOf } from '../shared/fakeApi';
 
 const t = (ko: string, en = '', ja = '') => ({ ko, en, ja });
@@ -31,41 +35,69 @@ const item = (o: Record<string, unknown> = {}) => ({
   updatedAt: '2026-11-21T03:00:00Z',
   ...o,
 });
-const saved: SiteDownload = {
-  open: false,
-  version: null,
-  files: { win: null, macArm64: null, macX64: null },
-  rev: 7,
-};
+const NO_FILES = { win: null, macArm64: null, macX64: null };
+const saved: SiteDownload = { open: false, version: null, files: NO_FILES, rev: 7 };
+const isShape = (e: unknown) => isPortError(e, 'invalid') && e.code === 'RESPONSE_SHAPE';
 
-describe('홈페이지 소식 — 서버 모양 맞추기', () => {
-  it('목록: 모양이 틀린 글은 빼고 · 고정 먼저 · 최신 순', () => {
-    const list = siteNewsOf([
-      item({ id: 'old', publishedAt: '2026-01-01T00:00:00Z' }),
-      item({ id: 'pin', pinned: true, publishedAt: '2025-01-01T00:00:00Z' }),
-      item({ id: 'new', publishedAt: '2026-06-01T00:00:00Z' }),
-      item({ id: '' }),
-      item({ id: 'noVer', version: undefined }),
-      item({ id: 'badTitle', title: { ko: 1 } }),
-    ]);
+describe('홈페이지 소식 — 서버 응답을 엄격하게 읽는다', () => {
+  it('목록: 고정 먼저 · 최신 순 · 날짜는 ms', () => {
+    const list = siteNewsListFromWire({
+      items: [
+        item({ id: 'old', publishedAt: '2026-01-01T00:00:00Z' }),
+        item({ id: 'pin', pinned: true, publishedAt: '2025-01-01T00:00:00Z' }),
+        item({ id: 'new', publishedAt: '2026-06-01T00:00:00Z' }),
+      ],
+    });
     expect(list.map((n) => n.id)).toEqual(['pin', 'new', 'old']);
-    expect(list[0]?.title).toEqual(t('업데이트', 'Update'));
-    expect(siteNewsOf(null)).toEqual([]);
+    expect(list[1]?.publishedAt).toBe(Date.parse('2026-06-01T00:00:00Z'));
+    expect(siteNewsListFromWire({ items: [] })).toEqual([]); // 정말 없으면 빈 목록
   });
 
-  it('쓰기 칸 확인: 한국어 제목 꼭 · 상한 · 본문만 있는 언어 안 됨 · 앞뒤 빈칸 뗌', () => {
+  it('목록 모양이 틀리면 빈 목록이 아니라 던진다 — «못 불러옴» 이 «없음» 으로 보이지 않게', () => {
+    for (const bad of [null, undefined, {}, { items: null }, { items: {} }]) {
+      let thrown: unknown;
+      try {
+        siteNewsListFromWire(bad);
+      } catch (e) {
+        thrown = e;
+      }
+      expect(isShape(thrown), JSON.stringify(bad)).toBe(true);
+    }
+  });
+
+  it('글 하나라도 모양이 틀리면 던진다 — 몰래 빼거나 1970년 · 빈 값으로 채우지 않는다', () => {
+    for (const bad of [
+      item({ id: 1 }),
+      item({ pinned: 'yes' }),
+      item({ version: '3' }),
+      item({ publishedAt: 'not-a-date' }),
+      item({ publishedAt: undefined }),
+      item({ title: { ko: '한국어만' } }), // 안 쓴 언어도 '' 로 와야 한다(계약)
+      item({ body: null }),
+    ])
+      expect(() => siteNewsListFromWire({ items: [item(), bad] }), JSON.stringify(bad)).toThrow(PortError);
+  });
+
+  it('쓰기 칸 확인: 한국어 제목 꼭 · 언어마다 제목 60 · 본문 400 경계 · 본문만 있는 언어 안 됨 · 앞뒤 빈칸 뗌', () => {
     const d = (o: Partial<ReturnType<typeof emptyNewsDraft>>) => ({ ...emptyNewsDraft(), ...o });
+    const full = (n: number) => ({ ko: 'k'.repeat(n), en: 'e'.repeat(n), ja: 'j'.repeat(n) });
     expect(checkNewsDraft(d({ title: t('  ') })).ok).toBe(false);
-    expect(checkNewsDraft(d({ title: t('가'.repeat(SITE_TITLE_MAX + 1)) })).ok).toBe(false);
-    expect(checkNewsDraft(d({ title: t('가'.repeat(SITE_TITLE_MAX)) })).ok).toBe(true);
-    expect(checkNewsDraft(d({ title: t('가'), body: t('나'.repeat(SITE_BODY_MAX + 1)) })).ok).toBe(false);
+    expect(checkNewsDraft(d({ title: full(SITE_TITLE_MAX), body: full(SITE_BODY_MAX) })).ok).toBe(true);
+    for (const l of SITE_LANGS) {
+      const title = { ...full(1), [l]: 'x'.repeat(SITE_TITLE_MAX + 1) };
+      expect(checkNewsDraft(d({ title })).ok, `${l} 제목`).toBe(false);
+      const body = { ...t(''), [l]: 'x'.repeat(SITE_BODY_MAX + 1) };
+      expect(checkNewsDraft(d({ title: full(1), body })).ok, `${l} 본문`).toBe(false);
+    }
     expect(checkNewsDraft(d({ title: t('가'), body: t('', 'only body') })).ok).toBe(false);
-    const r = checkNewsDraft(d({ pinned: true, title: t(' 가 ', ' A '), body: t(' 나 \n') }));
-    expect(r).toEqual({ ok: true, next: { pinned: true, title: t('가', 'A'), body: t('나') } });
+    expect(checkNewsDraft(d({ pinned: true, title: t(' 가 ', ' A '), body: t(' 나 \n') }))).toEqual({
+      ok: true,
+      next: { pinned: true, title: t('가', 'A'), body: t('나') },
+    });
   });
 
   it('고치기에서 바뀐 게 없으면 같은 글', () => {
-    const n = siteNewsOf([item()])[0]!;
+    const n = siteNewsFromWire(item());
     expect(sameNews(newsToDraft(n), newsToDraft(n))).toBe(true);
     expect(sameNews(newsToDraft(n), { ...newsToDraft(n), pinned: true })).toBe(false);
     expect(sameNews(newsToDraft(n), { ...newsToDraft(n), body: t('고쳤어요', 'Fixed', '直した') })).toBe(
@@ -75,20 +107,26 @@ describe('홈페이지 소식 — 서버 모양 맞추기', () => {
 });
 
 describe('홈페이지 내려받기 — 모양 · 저장 확인', () => {
-  it('열림 칸 · rev 가 없으면 모름(null)', () => {
-    expect(siteDownloadOf({ open: true })).toBeNull();
-    expect(siteDownloadOf({ rev: 1 })).toBeNull();
+  it('모양이 틀리면 던진다(files 세 칸 · rev · open)', () => {
     expect(
-      siteDownloadOf({ open: true, version: '0.14.0', rev: 2, files: { win: 'https://x/a.exe' } }),
+      siteDownloadFromWire({ open: true, version: '0.14.0', rev: 2, files: { ...NO_FILES, win: 'w' } }),
     ).toEqual({
       open: true,
       version: '0.14.0',
-      files: { win: 'https://x/a.exe', macArm64: null, macX64: null },
+      files: { ...NO_FILES, win: 'w' },
       rev: 2,
     });
+    for (const bad of [
+      { open: true, version: null, files: NO_FILES },
+      { open: 'yes', version: null, files: NO_FILES, rev: 1 },
+      { open: false, version: null, files: {}, rev: 1 },
+      { open: false, version: null, rev: 1 },
+      { open: false, version: 14, files: NO_FILES, rev: 1 },
+    ])
+      expect(() => siteDownloadFromWire(bad), JSON.stringify(bad)).toThrow(PortError);
   });
 
-  it('열려면 판이 있어야 · 판은 정식 릴리스 목록 안에서만 · 같은 값은 저장 안 함 · rev 를 실어 보낸다', () => {
+  it('열려면 판 · 새로 여는 판은 정식 릴리스 목록 안 · 같은 값은 저장 안 함 · rev 를 실음', () => {
     const vs = ['0.14.0', '0.13.1'];
     expect(checkDownload(saved, { open: true, version: null }, vs).ok).toBe(false);
     expect(checkDownload(saved, { open: true, version: '0.99.0' }, vs).ok).toBe(false);
@@ -97,22 +135,16 @@ describe('홈페이지 내려받기 — 모양 · 저장 확인', () => {
       ok: true,
       next: { open: true, version: '0.14.0', rev: 7 },
     });
-    // 목록을 못 받았으면(null) 판 이름은 서버가 다시 확인한다
-    expect(checkDownload(saved, { open: true, version: '0.14.0' }, null).ok).toBe(true);
-    // 닫기는 판이 없어도 된다
-    expect(
-      checkDownload({ ...saved, open: true, version: '0.14.0' }, { open: false, version: '0.14.0' }, vs),
-    ).toEqual({
-      ok: true,
-      next: { open: false, version: '0.14.0', rev: 7 },
-    });
+    expect(checkDownload(saved, { open: true, version: '0.14.0' }, null).ok).toBe(true); // 목록을 못 받았으면 서버가 다시 본다
   });
 });
 
 describe('홈페이지 소식 · 내려받기 — 서버 길', () => {
-  it('API 가 없는 환경이면 NoSiteApiError', async () => {
-    await expect(listSiteNews(null)).rejects.toBeInstanceOf(NoSiteApiError);
-    await expect(getSiteDownload(null)).rejects.toBeInstanceOf(NoSiteApiError);
+  it('API 가 없는 환경이면 «주소 없음» 포트 실패 · 화면 글은 그 까닭', async () => {
+    const e = await listSiteNews(null).catch((x: unknown) => x);
+    expect(isPortError(e, 'unreachable')).toBe(true);
+    expect(siteErrorMessage(e, '실패')).toBe(NO_API_TEXT);
+    await expect(getSiteDownload(null)).rejects.toBeInstanceOf(PortError);
   });
 
   it('소식 목록 · 쓰기 · 고치기(version 을 실음) · 지우기(query.version)', async () => {
@@ -135,13 +167,22 @@ describe('홈페이지 소식 · 내려받기 — 서버 길', () => {
     ]);
   });
 
-  it('id 는 주소에 넣을 때 감싼다 · 서버 답 모양이 틀리면 던진다(화면을 믿지 않게)', async () => {
-    const { api, calls } = fakeApiOf({
-      'PATCH /v2/admin/site/news/a%2Fb': () => ({ nope: true }),
-    });
-    const from = siteNewsOf([item({ id: 'a/b' })])[0]!;
-    await expect(updateSiteNews(api, from, newsToDraft(from))).rejects.toThrow('모양');
+  it('id 는 주소에 넣을 때 감싼다 · 서버 한 건 답 모양이 틀리면 던진다', async () => {
+    const { api, calls } = fakeApiOf({ 'PATCH /v2/admin/site/news/a%2Fb': () => ({ nope: true }) });
+    const from = siteNewsFromWire(item({ id: 'a/b' }));
+    const e = await updateSiteNews(api, from, newsToDraft(from)).catch((x: unknown) => x);
+    expect(isShape(e)).toBe(true);
     expect(calls[0]?.path).toBe('/v2/admin/site/news/a%2Fb');
+  });
+
+  it('409 는 conflict 포트 실패로 — 화면이 덮지 않고 다시 받게', async () => {
+    const { api } = fakeApiOf({
+      'PUT /v2/admin/site/download': () => {
+        throw new ApiError('request', 409, 'CONCURRENT_UPDATE', '먼저 고침');
+      },
+    });
+    const e = await putSiteDownload(api, { open: true, version: '0.14.0', rev: 7 }).catch((x: unknown) => x);
+    expect(isSiteConflict(e)).toBe(true);
   });
 
   it('내려받기 읽기 · 저장(rev 를 실음) · 답 모양이 틀리면 던진다', async () => {
@@ -154,6 +195,6 @@ describe('홈페이지 소식 · 내려받기 — 서버 길', () => {
     expect((await putSiteDownload(api, next)).rev).toBe(8);
     expect(calls[1]?.body).toEqual(next);
     const bad = fakeApiOf({ 'GET /v2/admin/site/download': () => ({ open: 'yes' }) });
-    await expect(getSiteDownload(bad.api)).rejects.toThrow('모양');
+    expect(isShape(await getSiteDownload(bad.api).catch((x: unknown) => x))).toBe(true);
   });
 });

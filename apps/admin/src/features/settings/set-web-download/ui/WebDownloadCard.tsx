@@ -6,7 +6,7 @@ import {
   siteErrorMessage,
   useSiteDownload,
 } from '@/entities/homepage/site';
-import { isApiConflict, useEnv, withProdMark } from '@/shared/api';
+import { useEnv, withProdMark } from '@/shared/api';
 import { useSaveWebDownload } from '../model/useSaveWebDownload';
 import styles from './WebDownloadCard.module.css';
 
@@ -40,7 +40,7 @@ export function WebDownloadCard() {
       onError: (err) => {
         setDraft(null);
         setMessage({
-          text: isApiConflict(err)
+          text: isSiteConflict(err)
             ? '다른 곳에서 먼저 고쳤어요 — 지금 값을 다시 불러왔어요'
             : siteErrorMessage(err, '저장 실패'),
           error: true,
