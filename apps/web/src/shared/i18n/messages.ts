@@ -112,7 +112,15 @@ export interface Messages {
   landSound: string;
   landOk: string;
   newsTitle: string;
+  /** 소식 창 아래 사람 그림 — 이름표의 역할 · 한 번 누를 때 말풍선 대사(차례대로) */
+  crew: Record<'admin' | 'dev', { role: string; lines: readonly string[] }>;
   newsEmpty: string;
+  /** 소식 · 내려받기를 서버에서 받는 중 · 못 받음 · 다시 시도 단추 */
+  newsLoading: string;
+  newsFailed: string;
+  retry: string;
+  /** 📌 고정 글 표시(화면 낭독기용) */
+  newsPinned: string;
   creator: CreatorMessages;
   aboutTitle: string;
   aboutWinTitle: string;
@@ -123,6 +131,12 @@ export interface Messages {
   dlWindows: string;
   dlMac: string;
   dlSoon: string;
+  /** 관리자가 내려받기를 연 때 — Mac 은 칩마다 파일이 다르다 · 판 번호 줄 */
+  dlMacArm: string;
+  dlMacIntel: string;
+  dlVersion: (v: string) => string;
+  dlChecking: string;
+  dlFailed: string;
   specOs: string;
   specOsValue: string;
   specJoin: string;
@@ -156,7 +170,22 @@ export const ko: Messages = {
   landSound: '어딘가에서 새로운 땅을 짓는 소리가 들려요…',
   landOk: '확인',
   newsTitle: '📰 소식 · 업데이트',
+  crew: {
+    admin: {
+      role: '관리자',
+      lines: [
+        '투게더워킹에 오신 것을 환영합니다!',
+        '이상하다 분명 취미였는데...',
+        '개발자님은 정말 최고입니다.',
+      ],
+    },
+    dev: { role: '개발자', lines: ['문제가 생기면 맡겨주세요!', '이게 왜이러지', '으아아아'] },
+  },
   newsEmpty: '소식을 준비하고 있어요.',
+  newsLoading: '소식을 불러오는 중이에요…',
+  newsFailed: '소식을 불러오지 못했어요.',
+  retry: '다시 시도',
+  newsPinned: '고정',
   creator: {
     loading: '캐릭터를 불러오는 중…',
     loadFailed: '캐릭터를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.',
@@ -289,6 +318,11 @@ export const ko: Messages = {
   dlWindows: 'Windows 내려받기',
   dlMac: 'macOS 내려받기',
   dlSoon: '웹에서 내려받기는 준비 중이에요. 초대받은 분께는 설치 안내를 따로 드려요.',
+  dlMacArm: 'macOS (Apple 실리콘)',
+  dlMacIntel: 'macOS (Intel)',
+  dlVersion: (v) => `버전 ${v}`,
+  dlChecking: '내려받기를 확인하는 중이에요…',
+  dlFailed: '내려받기 정보를 불러오지 못했어요.',
   specOs: '운영체제',
   specOsValue: 'Windows 10 이상 · macOS',
   specJoin: '가입',
@@ -322,7 +356,25 @@ export const en: Messages = {
   landSound: 'You can hear something new being built somewhere…',
   landOk: 'OK',
   newsTitle: '📰 News · Updates',
+  crew: {
+    admin: {
+      role: 'Admin',
+      lines: [
+        'Welcome to Together Working!',
+        'Weird… this was supposed to be a hobby…',
+        'Our developer is simply the best.',
+      ],
+    },
+    dev: {
+      role: 'Developer',
+      lines: ['Leave any problems to me!', 'Why is this doing that…', 'Aaaaaagh'],
+    },
+  },
   newsEmpty: 'News is on its way.',
+  newsLoading: 'Loading news…',
+  newsFailed: "Couldn't load the news.",
+  retry: 'Try again',
+  newsPinned: 'Pinned',
   creator: {
     loading: 'Loading the character…',
     loadFailed: "Couldn't load the character. Please try again in a moment.",
@@ -456,6 +508,11 @@ export const en: Messages = {
   dlWindows: 'Download for Windows',
   dlMac: 'Download for macOS',
   dlSoon: 'Downloading from the web is coming soon. Invited users receive install instructions separately.',
+  dlMacArm: 'macOS (Apple silicon)',
+  dlMacIntel: 'macOS (Intel)',
+  dlVersion: (v) => `Version ${v}`,
+  dlChecking: 'Checking downloads…',
+  dlFailed: "Couldn't load the download info.",
   specOs: 'OS',
   specOsValue: 'Windows 10 or later · macOS',
   specJoin: 'Sign-up',
@@ -489,7 +546,22 @@ export const ja: Messages = {
   landSound: 'どこかで新しい土地をつくる音が聞こえる…',
   landOk: 'OK',
   newsTitle: '📰 お知らせ・アップデート',
+  crew: {
+    admin: {
+      role: '管理者',
+      lines: [
+        'トゥゲザーワーキングへようこそ！',
+        'おかしいな、趣味のはずだったのに…',
+        '開発者さんは本当に最高です。',
+      ],
+    },
+    dev: { role: '開発者', lines: ['困ったときはお任せください！', 'なんでこうなるの', 'うわあああ'] },
+  },
   newsEmpty: 'お知らせを準備しています。',
+  newsLoading: 'お知らせを読み込んでいます…',
+  newsFailed: 'お知らせを読み込めませんでした。',
+  retry: 'もう一度',
+  newsPinned: '固定',
   creator: {
     loading: 'キャラクターを読み込み中…',
     loadFailed: 'キャラクターを読み込めませんでした。少ししてからもう一度お試しください。',
@@ -622,6 +694,11 @@ export const ja: Messages = {
   dlWindows: 'Windows 版をダウンロード',
   dlMac: 'macOS 版をダウンロード',
   dlSoon: 'ウェブからのダウンロードは準備中です。招待された方にはインストール方法を別にお送りします。',
+  dlMacArm: 'macOS(Apple シリコン)',
+  dlMacIntel: 'macOS(Intel)',
+  dlVersion: (v) => `バージョン ${v}`,
+  dlChecking: 'ダウンロードを確認しています…',
+  dlFailed: 'ダウンロード情報を読み込めませんでした。',
   specOs: '対応OS',
   specOsValue: 'Windows 10 以降・macOS',
   specJoin: '登録',

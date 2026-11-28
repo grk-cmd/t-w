@@ -35,6 +35,7 @@ const refreshLicenseUI = deps.refreshLicenseUI;
 const paintLicenseLabel = deps.paintLicenseLabel;   // 런처 [라이선스] 단추 글(license-ui.js) — 모르면 «확인 중»
 const refreshLauncherPreview = deps.refreshLauncherPreview;   // 런처가 열려 있으면 미리보기(전용 책상 · 아이템)를 다시 그린다
 const renderCrItems = deps.renderCrItems;
+const renderWardrobe = deps.renderWardrobe;   // 👕 꾸미기 창 다시 그리기 — 프리미엄을 확인하면 «라이선스 확인 중» 탭을 지금 값으로
 const seats = deps.seats;
 const toast = deps.toast;
 const onPremiumChanged = deps.onPremiumChanged;
@@ -472,6 +473,7 @@ function _refreshPremiumGatedUI(){
   try{ refreshLauncherPreview(); }catch(e){ console.warn('[라이선스] 런처 미리보기 다시 그리기 실패', e); }   // 확인이 오기 전에 그려진 미리보기도 지금 값으로
   // 생성기가 열려 있으면 책상 카드의 🔒 도 지금 값으로 다시 그린다
   try{ if(typeof creatorOpen()!=='undefined' && creatorOpen()) renderCrItems(); }catch(_){}
+  try{ renderWardrobe(); }catch(e){ console.warn('[라이선스] 꾸미기 창 다시 그리기 실패', e); }   // 👕 «라이선스 확인 중» 탭 → 지금 값(파츠 칸 · 잠금 안내 — wardrobe.js wdLicenseState)
   try{ refreshTheme(); }catch(_){}   // 부팅 중 테마 모듈이 아직 없으면 건너뛴다 — 그 뒤 첫 applyTheme 가 지금 값으로 건다
   try{ refreshFont(); }catch(_){}    // 같은 까닭 — 글꼴 모듈도 테마 뒤에서 만든다
 }

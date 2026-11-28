@@ -54,6 +54,7 @@ const groupOfCat = deps.groupOfCat;
 const hueShiftHex = deps.hueShiftHex;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수 — 라이선스(«도감» 말고 다른 탭은 라이선스가 있어야 쓴다)
+const premiumKnown = deps.premiumKnown;   // () => 서버가 프리미엄을 확인해 줬나 — 아니면 isPremium=false 는 «아님» 이 아니라 «모름»(account-state.js)
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 라이선스 안내의 [라이선스 등록하러 가기]
 const isDeskPartCat = deps.isDeskPartCat;
 const isHueTintMesh = deps.isHueTintMesh;
@@ -1079,12 +1080,13 @@ function refreshWdPreviewColorSection(){
   const _colId = partEntryId(entry);
   const _colRec = _colId ? savedParts().find(p=>p.id===_colId) : null;
   if(gachaMod().isGachaPart(_colRec) && !gachaMod().isGachaColorUnlocked(_colId)){
-    const have = gachaMod().gachaCount(_colId);
+    const have = gachaMod().ownedKnown() ? gachaMod().gachaCount(_colId) : null;   // 받기 전 · 못 받음이면 «모름» — 0 개로 적지 않는다
     container.style.display='flex';
     const gh = document.createElement('div'); gh.className='wd-preview-color-head';
     gh.textContent = '🔒 ' + (_colRec.name || '이 파츠') + ' 색상';
     container.appendChild(gh);
     const gp = document.createElement('div'); gp.className='wd-color-locked';
+    if(have == null){ gp.textContent = gachaMod().ownedUnknownText(); container.appendChild(gp); _finish(); return; }
     gp.textContent = '●'.repeat(have) + '○'.repeat(Math.max(0, gachaMod().DUPES_FOR_COLOR-have))
       + '  ' + have + '/' + gachaMod().DUPES_FOR_COLOR + ' — '
       + (gachaMod().DUPES_FOR_COLOR - have) + '개 더 모으면 색상 변경이 열려요';
@@ -1699,8 +1701,14 @@ let _wdFind = { cat:null, q:'', page:0 };
 /* 📚 «도감» — PART_CATS 에 없는 가상 탭(책상 · 귀와 같은 방식). 칸은 gacha.js 가 #gachaInvHost 에 그린다. */
 const WD_ALBUM_TAB = 'album';
 const WD_ALBUM_GROUP = { group:'album', icon:'📚', label:'도감' };
-/* 라이선스가 없으면 «도감» 만 쓴다 — 다른 탭은 잠금 안내를 그린다(관리자는 다 연다). */
-function wdLicensed(){ return !!(isPremium() || isAdmin()); }
+/* 라이선스가 없으면 «도감» 만 쓴다 — 다른 탭은 잠금 안내를 그린다(관리자는 다 연다).
+   'ok' | 'no' | 'unknown' — 서버가 아직 확인하지 않았으면(premiumKnown) «없음» 으로 치지 않는다: 잠금 안내 · [라이선스 등록하러 가기] 대신 «확인 중» 을 그리고,
+   «도감» 으로 옮기지도 않는다. 확인이 오면 license-gate.js _refreshPremiumGatedUI 가 renderWardrobe 를 다시 부른다(onPremiumChanged). CLAUDE.md «모르는 값». */
+function wdLicenseState(){
+  if(isPremium() || isAdmin()) return 'ok';
+  return premiumKnown() ? 'no' : 'unknown';
+}
+function wdLicensed(){ return wdLicenseState() === 'ok'; }
 
 /* 탭 고르기 — 꾸미기 창을 열 때(F2 · [도감으로]) 와 «도감» 탭 버튼이 부른다. tab 을 안 주면 마지막에 본 탭.
    처음 여는데 라이선스가 없으면 «도감» 으로 연다(잠긴 탭부터 보이지 않게).
@@ -1709,7 +1717,7 @@ function wdLicensed(){ return !!(isPremium() || isAdmin()); }
 let _wdOpened = false;
 function selectWdTab(tab, opts){
   if(tab && tab !== currentWdTab){ currentWdTab = tab; activeWdAdj = null; _clearMultiPanelRef(); }   // 다른 탭의 상세조정 패널이 남지 않게
-  else if(!tab && !_wdOpened && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;
+  else if(!tab && !_wdOpened && wdLicenseState() === 'no') currentWdTab = WD_ALBUM_TAB;   // 모르면 옮기지 않는다 — 확인 뒤 «없음» 이면 그 탭이 잠금 안내를 그린다
   _wdOpened = true;
   if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);
 }
@@ -1723,6 +1731,12 @@ function renderWdLocked(wrap){
   go.textContent='라이선스 등록하러 가기';
   go.onclick=()=>twNav.go(twNav.NAV.PROGRAM_SETTINGS, 'license');
   box.appendChild(go);
+  wrap.appendChild(box);
+}
+/* ⏳ 라이선스를 아직 모르는 탭 — 잠금도 등록 안내도 아니다(서버 확인이 오면 다시 그린다) */
+function renderWdLicenseUnknown(wrap){
+  const box=document.createElement('div'); box.className='wd-empty wd-license-unknown';
+  box.innerHTML='<span class="ic">⏳</span>라이선스를 확인하는 중이에요…';
   wrap.appendChild(box);
 }
 
@@ -1816,7 +1830,7 @@ function renderWardrobe(){
   if(!wdLicensed()){
     if(currentWdTab === wdEar.TAB) currentWdTab = (partsInGroup('head')[0] || PART_CATS()[0]).cat;   // 귀 핸들 · 조정 줄이 잠금 안내 옆에 열리지 않게
     wrap.innerHTML='';
-    renderWdLocked(wrap);
+    if(wdLicenseState() === 'unknown') renderWdLicenseUnknown(wrap); else renderWdLocked(wrap);
     refreshWdPreviewColorSection();
     updateWdGizmoForActivePanel();
     return;
@@ -1837,6 +1851,8 @@ function renderWardrobe(){
      ⚠️ 거르는 것은 가챠 파츠뿐이다 — 꾸미기 파츠를 «가진 것만» 으로 거르면 기존 유저가 쓰던 파츠를 잃는다.
      partsInCat 자체는 안 건드린다(관리자 등록 때 카테고리 상한 계산에는 가챠 파츠도 같이 센다). */
   const list=partsInCat(info.cat).filter(p=>!gachaMod().isGachaPart(p) || gachaMod().gachaCount(p.id)>0);
+  /* 보유분을 받기 전 · 못 받음 — 뽑은 가챠 파츠를 «없음» 으로 지우지 않고 그 자리에 «불러오는 중 · 못 불러왔어요» 한 줄을 둔다(받으면 gacha.js 가 다시 그린다) */
+  const _gachaUnknown = !gachaMod().ownedKnown() && partsInCatFor(info.cat, true).length > 0;
   const sec=document.createElement('div'); sec.className='wd-cat';
   const head=document.createElement('div'); head.className='wd-cat-head';
   const h3=document.createElement('h3'); h3.textContent=info.icon+' '+info.label+' · '+list.length+'개';
@@ -1866,7 +1882,13 @@ function renderWardrobe(){
       sec.appendChild(note);
     }
   }
-  if(list.length===0 && !isAdmin()){
+  if(_gachaUnknown){
+    const gnote=document.createElement('div'); gnote.className='wd-gacha-unknown';
+    gnote.style.cssText='font-size:11px;color:var(--ink-soft);margin:-2px 2px 6px;';
+    gnote.textContent='🎰 '+gachaMod().ownedUnknownText();
+    sec.appendChild(gnote);
+  }
+  if(list.length===0 && !isAdmin() && !_gachaUnknown){
     const empty=document.createElement('div'); empty.className='wd-empty';
     empty.innerHTML='<span class="ic">'+escHtml(info.icon)+'</span>아직 등록된 '+escHtml(info.label)+' 파츠가 없어요.';
     sec.appendChild(empty);

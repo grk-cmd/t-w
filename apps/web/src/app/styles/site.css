@@ -8,9 +8,16 @@
   src: url('galmuri/dist/Galmuri11-Bold.woff2') format('woff2');
   font-display: swap;
 }
+/* 같은 글꼴의 보통 굵기 — 제목(굵은 파일을 400 으로 쓴다)에 끼지 않게 이름을 따로 둔다. 첫 화면 사람 말풍선 · 이름표 닉네임 */
+@font-face {
+  font-family: 'Galmuri11 Regular';
+  src: url('galmuri/dist/Galmuri11.woff2') format('woff2');
+  font-display: swap;
+}
 
 :root {
   --font-cute: 'Galmuri11', 'DotGothic16', var(--font-pixel);
+  --font-cute-thin: 'Galmuri11 Regular', 'DotGothic16', var(--font-pixel);
   --raised:
     inset -1px -1px var(--bevel-dark), inset 1px 1px var(--bg-face-2), inset -2px -2px var(--bevel-lo),
     inset 2px 2px var(--bevel-hi);
@@ -285,7 +292,7 @@ h3 {
   padding-block: 36px 40px;
   overflow: hidden;
 }
-/* 왼쪽 소개 글 · 오른쪽 📰 소식 창 — 좁으면 위아래. 소식 창은 위에 붙인다(그 아래 자리를 비워 둔다) */
+/* 왼쪽 소개 글 · 오른쪽 📰 소식 창 — 좁으면 위아래. 소식 창은 위에 붙인다(그 아래는 사람 그림 — .hero-side) */
 .hero .wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -295,6 +302,154 @@ h3 {
 .hero-copy {
   color: var(--on-desk);
   max-width: 560px;
+}
+/* 오른쪽: 소식 창 · 그 아래 사람 그림 */
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/* 사람 그림 줄 — 오른쪽에 붙여 나란히 · 좁으면 줄바꿈 */
+.crew-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 12px;
+}
+/* 그림 파일은 화면의 두 배 크기 — 높이를 맞춰 절반으로 보인다 */
+.crew {
+  display: block;
+  height: 176px;
+  width: auto;
+  max-width: 100%;
+}
+/* 사람 하나: 그림 단추 · 위 말풍선 · 아래 이름표 */
+.crew-mate {
+  position: relative;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.crew-btn {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.crew-btn:focus-visible {
+  outline: 1px dotted var(--on-desk);
+  outline-offset: 2px;
+}
+/* 이름표 — 앱 좌석 이름표(.seat-nameplate)와 같은 모양(바탕 없이 흰 글자 + 8방향 검은 외곽선) · 도트 글꼴 두 줄(위 역할은 굵게 · 아래 닉네임은 얇게).
+   두 span 사이 빈칸은 글로 읽힐 때 «관리자 고로케» 가 되게 둔다 */
+.crew-tag {
+  text-align: center;
+  color: var(--plate-ink);
+  font: 15px/1.3 var(--font-cute);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  text-shadow:
+    -1.5px 0 var(--plate-outline),
+    1.5px 0 var(--plate-outline),
+    0 -1.5px var(--plate-outline),
+    0 1.5px var(--plate-outline),
+    -1.5px -1.5px var(--plate-outline),
+    1.5px -1.5px var(--plate-outline),
+    -1.5px 1.5px var(--plate-outline),
+    1.5px 1.5px var(--plate-outline);
+}
+.crew-role,
+.crew-name {
+  display: block;
+}
+.crew-name {
+  font-family: var(--font-cute-thin);
+}
+.crew-live {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 2;
+}
+/* 말풍선 — 앱 머리 위 말풍선(.seat-bubble-dom)과 같은 도트 아트: 크림 바탕 · 계단 모서리 테두리(9×9 · 조각 3) · 도트 꼬리.
+   ⚠️ 테두리 9px 와 아트는 짝이다(줄이면 계단이 잘린다) · background-clip 을 빼면 깎은 모서리가 크림으로 메워진다.
+   폭은 앱(200px)보다 좁게 — 관리자 그림이 좁아 폰에서 첫 화면 밖으로 나가지 않게.
+   ⚠️ 아트 · 크림색은 앱 desk-companion-prototype.html .seat-bubble-dom 과 짝 — 한쪽을 바꾸면 같이(SVG 안 %23FFFFCC 와 background 도 짝) */
+.crew-say {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 150px;
+  padding: 0 3px;
+  border: 9px solid transparent;
+  border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' viewBox='0 0 9 9' shape-rendering='crispEdges'%3E%3Crect x='2' y='1' width='5' height='1' fill='%23FFFFCC'/%3E%3Crect x='1' y='2' width='7' height='5' fill='%23FFFFCC'/%3E%3Crect x='2' y='7' width='5' height='1' fill='%23FFFFCC'/%3E%3Crect x='2' y='0' width='5' height='1' fill='%23000000'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%23000000'/%3E%3Crect x='7' y='1' width='1' height='1' fill='%23000000'/%3E%3Crect x='0' y='2' width='1' height='5' fill='%23000000'/%3E%3Crect x='8' y='2' width='1' height='5' fill='%23000000'/%3E%3Crect x='1' y='7' width='1' height='1' fill='%23000000'/%3E%3Crect x='7' y='7' width='1' height='1' fill='%23000000'/%3E%3Crect x='2' y='8' width='5' height='1' fill='%23000000'/%3E%3C/svg%3E")
+    3 fill / 9px / 0 stretch;
+  background: #ffffcc;
+  background-clip: padding-box;
+  color: #000000;
+  font: 15px var(--font-cute-thin);
+  line-height: 1.4;
+  text-align: center;
+  word-break: keep-all;
+  /* 단추 위를 살짝 덮어도 누름은 그림이 받게(연타가 끊기지 않게) */
+  pointer-events: none;
+}
+/* 일본어는 띄어쓰기가 없어 keep-all 이면 줄이 안 바뀌고 말풍선 밖으로 나간다 — 일본어 페이지만 글자 사이에서 바꾼다 */
+.crew-say:lang(ja) {
+  word-break: normal;
+}
+/* 꼬리 — 꼭대기 줄이 몸통의 검은 아래 테두리에 겹쳐야 입이 뚫린다(앱과 같은 -18px).
+   크림 한 줄을 위로 더 올려 테두리 안쪽 크림과 겹친다(배율 화면에서 이음매 실선이 안 보이게) · 자리(--tail-x)는 JS 가 정수 px 로 */
+.crew-say::after {
+  content: '';
+  position: absolute;
+  left: var(--tail-x, calc(50% - 7px));
+  bottom: -18px;
+  width: 15px;
+  height: 15px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5' viewBox='0 -1 5 5' shape-rendering='crispEdges'%3E%3Crect x='0' y='-1' width='5' height='2' fill='%23FFFFCC'/%3E%3Crect x='1' y='1' width='3' height='1' fill='%23FFFFCC'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23FFFFCC'/%3E%3Crect x='0' y='1' width='1' height='1' fill='%23000000'/%3E%3Crect x='4' y='1' width='1' height='1' fill='%23000000'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%23000000'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%23000000'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%23000000'/%3E%3C/svg%3E")
+    no-repeat;
+  background-size: 15px 15px;
+}
+/* 연타 — 빙글 돌며 날아갔다가 제자리로(길이는 CrewMate 가 FLY_MS 로 넘긴다) */
+.crew-btn.fly {
+  animation: crew-fly var(--fly-ms) ease-in-out;
+}
+@keyframes crew-fly {
+  0% {
+    transform: none;
+  }
+  35% {
+    transform: translate(140px, -240px) rotate(540deg);
+    opacity: 1;
+  }
+  45% {
+    opacity: 0;
+  }
+  70% {
+    transform: translate(0, -30px);
+    opacity: 0;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.crew-boom {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  font-size: 32px;
+  transform: translate(-50%, -50%);
 }
 .news .body {
   padding: 6px;
@@ -308,6 +463,38 @@ h3 {
 }
 .news-empty p {
   margin: 0;
+}
+/* 소식 목록 — 창 높이를 넘으면 안에서 스크롤(첫 화면이 길어지지 않게) · 본문은 관리자가 친 줄바꿈 그대로 */
+.news-list {
+  margin: 0;
+  padding: 4px 8px;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.news-list li + li {
+  border-top: 1px dotted var(--ink-soft);
+}
+.news-list li {
+  padding: 6px 0;
+}
+.news-head {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.news-head time {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.news-body {
+  margin: 4px 0 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 .hero-copy .logo {
   display: block;
@@ -417,7 +604,8 @@ h3 {
     transition: none;
   }
   .land:hover .land-ic,
-  .land-bar .blink {
+  .land-bar .blink,
+  .crew-btn.fly {
     animation: none;
   }
 }

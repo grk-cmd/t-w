@@ -18,21 +18,23 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | 자리 | 내용 |
 |---|---|
 | `src/app/` | `App`(언어 공급 + 페이지) · `entry-client.tsx`(미리 그린 HTML 에 이어 붙이기 — 언어는 `<html lang>`) · `entry-server.tsx`(빌드 때 언어마다 그리기) · `styles/` |
-| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로(🔒 투게더랜드 잠긴 아이콘 · 경고창 · 📰 소식 창 자리) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
+| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로(🔒 투게더랜드 잠긴 아이콘 · 경고창 · 📰 소식 창) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
 | `src/widgets/creator/` | 🎨 웹 생성기(#440) — 3D 미리보기 · 고르기 판 · 되돌리기 · 앱으로 가져가기를 묶는다. three 와 몸 모델이 무거워 첫 화면 묶음과 따로 받는다. **지금은 홈페이지에 붙어 있지 않다**(사용자 결정 — 다시 열 때는 `pages/home` 에 자리를 다시 만들어 lazy 로 싣는다) |
 | `src/features/character-maker/` | 얼굴 레이어(`model/catalog.ts` — 코드에는 «없음» 과 처음 얼굴의 하이라이트 · 눈썹 · 입 · 볼만 도형으로, 나머지는 서버 상품): 👁 눈 폴더(동공 · 하이라이트(빛반사) · 아이라인을 차례로 쌓음 — 폴더를 옮기면 셋이 같이, 층은 폴더 안에서 따로) · 눈썹 · 입 · 볼 · 액세서리(최대 5개) · 상태 규칙(`reduce` — 모르는 그림 · 색 모양은 안 받음 · 대칭: 폴더 · 레이어는 거울, 폴더 안 층은 같은 값 · 오드아이) · 되돌리기 40번 · 자리 계산 한 벌(`model/geometry.ts` — 그리기와 끌기가 같은 행렬) · 얼굴 판 그리기(`drawFace`) · 앞모습 판(`drawFront`) · 얼굴 텍스처 한 벌(코어 `rasterFront`) · 평면 얼굴 텍스처 칸(`ui/FaceTexturePanel.tsx` — 고른 것을 끌어 옮김 · 계산은 `model/drag.ts`) · 관리자가 올린 꾸미기 상품(`api/web-parts.ts` 가 자체 서버 `GET /v2/catalog?only=products&target=baseModel` 를 읽어 `model/remote-parts.ts` 가 그림(decal) · 기본 몸 모델 · 얼굴 면 조각만(면은 서버가 안 걸러 웹이 거름) 하나씩 펼쳐 검사 · 그림 주소는 응답 `files`(해시 → Storage 다운로드 URL)에서 우리 버킷 · 같은 해시 · `alt=media` 가 맞는 URL 을 써서 Storage 에서 바로 받음(API 서버가 그림 바이트를 내지 않게) · 없거나 틀리면 조각의 해시로 `/v2/catalog/assets/{해시}.png` 를 만듦 · 잠긴 상품은 건너뜀 · 눈 감은 얼굴 그림(표정 closed)은 모든 자리 → `setRemoteParts` 로 코드 그림 뒤에 붙임 · 그림은 `lib/part-images.ts` 가 CORS 로 불러옴 · **동공(`slot: pupil`) 그림은 흰 부분에 고른 눈 색을 곱해 칠한다**(`tintImage` — 관리자 · 홈페이지 사이 약속, 오드아이는 짝마다) · 동공 · 아이라인의 처음 얼굴은 서버 목록 맨 앞(`FIRST_ITEM` — 관리자 진열 순서) · 받는 중 · 못 받음 · 없음(`RemoteLoad`)은 빈 칸에 안내) |
 | `src/features/clone-code/` | 앱으로 가져가기 — 코어 `encodeCloneCode`(앱 «코드 입력하기» 가 읽는 DCC1). 싣는 칸은 앱 생성기와 같다(피부 · 얼굴 · 감은눈 · 상의 · 하의 색 · 크기 xf 는 앱 생성기 처음 값 — 파츠 · 책상 없음). 비밀번호 · 코드는 화면에만 · 복사 · txt 파일 저장(`saveText` — 브라우저 안에서 파일을 만든다 · 앱 «📂 파일 불러오기» 가 읽음) |
+| `src/entities/site/` | 📰 소식 · 💾 내려받기 — 서버 공개 길 `GET /v2/site`(로그인 없음 · 관리자가 웹 관리자에서 고침)를 한 페이지에 한 번 받는다(`useSite` — 받는 중 · 못 받음 · 받음). 설치 파일 주소는 우리 GitHub 릴리스(`grk-cmd/t-w`) 앞머리만 받는다 · 못 받았거나 닫혔으면 단추는 눌리지 않는다 |
 | `src/entities/character/` | 코어 한 벌(몸 · 얼굴 · 톤 · 앞모습 지도)을 만드는 `loadCharKit` · 3D 미리보기. 빛 · 재질 고치기는 코어 한 벌(`@tw/char-core` 의 `lighting.ts` — 앱 생성기 · 실행 화면과 같은 숫자) |
 | `src/shared/i18n/` | 언어(`ko` 기본 · `en` · `ja`) · 주소(`/` · `/en/` · `/ja/`) · 화면 글(`messages.ts` — 언어마다 같은 모양, 빠지면 타입 검사가 잡는다) |
 | `src/shared/config/` | 바깥 주소 한 곳(도움말 · 자체 서버 API `API_ORIGIN` · 파츠 그림을 바로 받는 Storage `STORAGE_ORIGIN` · `STORAGE_BUCKET`(운영 버킷). API 는 홈페이지 CSP connect-src · img-src 에, Storage 는 img-src 에 같은 주소 — 우리 도메인이 아닌 것은 Storage 하나) |
+| `src/shared/api/` | 우리 서버 공개 GET 한 벌(`getPublic` — 토큰 · 쿠키 안 실음 · 봉투 `{ success, data }` · 6초 · 실패와 없음을 가름). 공개 길을 읽는 곳(카탈로그 · `/v2/site`)은 모두 이것을 부른다 |
 | `src/shared/lib/html-template/` | 빌드한 `index.html` 틀의 자리표 셋(`%TW_LANG%` · `<!--tw-head-->` · `<!--tw-body-->`)을 채운다 — 하나라도 빠지면 던진다 |
 | `scripts/prerender.mjs` | SSR 빌드를 불러 `dist/index.html` · `dist/en/index.html` · `dist/ja/index.html` 을 쓴다 |
-| `public/` | 아이콘(앱 것을 복사 — `apps/desktop/app/assets/icon/tw-mini.png` · `apps/desktop/build/icon.iconset/icon_256x256.png`) · 글꼴 라이선스 · 소개 칸 앱 화면 `features/`(도움말 캡처 `firebase/hosting/help/img` 의 사본 — 도움말 캡처를 다시 찍으면 여기도 바꾸고 `pages/home/model/feature-shots.ts` 의 크기도 맞춘다 · 순서는 문구 `features` 와 같다) |
+| `public/` | 아이콘(앱 것을 복사 — `apps/desktop/app/assets/icon/tw-mini.png` · `apps/desktop/build/icon.iconset/icon_256x256.png`) · 글꼴 라이선스 · 첫 화면 사람 그림 `crew/`(사용자가 준 관리자 · 개발자 그림 — 둘레 빛번짐을 잘라 화면 두 배 크기 webp 로 · 차례 · 크기는 `pages/home/model/crew.ts`) · 소개 칸 앱 화면 `features/`(도움말 캡처 `firebase/hosting/help/img` 의 사본 — 도움말 캡처를 다시 찍으면 여기도 바꾸고 `pages/home/model/feature-shots.ts` 의 크기도 맞춘다 · 순서는 문구 `features` 와 같다) |
 
 - **색**은 디자인 시스템 원본(`docs/design-system/project/tokens.json`)에서 빌드 때 만든다(`vite.config.ts` 의 `virtual:tw-tokens.css` — 도움말 사이트와 같은 변환기 `scripts/build-design-tokens.js`). 사본을 커밋하지 않는다. 페이지는 `<html data-theme="classic">`.
 - **몸 모델 · 피부 그림**은 앱 원본(`apps/desktop/app/parts/base-glb.js` · `skin-data.js`)에서 빌드 때 꺼내 파일로 낸다(`virtual:tw-char-assets` — 사본 커밋 없음). 설치 파일에도 든 공개 자산이라 웹에 둬도 된다(#430 4절).
 - **캐릭터 코어**는 `@tw/char-core` 빌드(`packages/char-core/dist`)를 쓴다 — `dev` · `build` · `test` 앞에 코어 빌드가 먼저 돈다(`pre*` 스크립트).
-- **글꼴**: 제목은 갈무리11 굵게(`galmuri` · SIL OFL 1.1), 일본어 가나는 DotGothic16(`@fontsource/dotgothic16` 일본어 묶음 · SIL OFL 1.1). 우리 사이트에 같이 올리고 라이선스는 `/licenses/`.
+- **글꼴**: 제목 · 첫 화면 이름표 역할은 갈무리11 굵게, 첫 화면 말풍선 · 이름표 닉네임은 갈무리11 보통(`--font-cute-thin` · 둘 다 `galmuri` · SIL OFL 1.1), 일본어 가나는 DotGothic16(`@fontsource/dotgothic16` 일본어 묶음 · SIL OFL 1.1). 우리 사이트에 같이 올리고 라이선스는 `/licenses/`.
 
 ## 지킬 것
 - 남이 쓴 값(닉네임 · 캐릭터 이름 · 소식 글)은 JSX 글로만 넣는다 — `dangerouslySetInnerHTML` 은 oxlint(`react/no-danger`)가 막는다. HTML 을 그대로 넣어야 하는 날이 오면 앱의 `safe-html.js` 규칙을 먼저 옮긴다.
@@ -43,4 +45,4 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 ## 아직 아닌 것
 - **Hosting 연결**: `firebase.json` 의 `home` 칸(사이트 `tw-site` · `dist/` 를 `firebase/web-dist/` 로 옮겨 올림 · CSP 는 우리 주소만)은 있다. 사이트 만들기 · 첫 배포 · 맞춤 도메인 `together-working.com` 연결은 사람이 한다(`firebase/hosting/README.md` «새 사이트 만들기» 1 · 3 ~ 6).
 - **캐릭터 만들기**(지금 페이지에 없음 — 다시 열 때의 메모): 파츠 · 동물은 넣지 않는다(사용자 결정 — 꾸미기 파츠는 라이선스 전용 · 웹은 사람만). 얼굴 레이어 그림은 시안 수준이라 디자이너 그림이 오면 `catalog.ts` 표만 바꾼다. 내 계정에 저장은 #441.
-- **내려받기 · 로그인 · 라이브러리 · 소식**: 서버 API 가 있어야 한다(#439 · #441). 내려받기 단추는 그때까지 눌리지 않는다.
+- **로그인 · 라이브러리**: 서버 API 가 있어야 한다(#439 · #441). 소식 · 내려받기는 `GET /v2/site` 를 읽는다 — 서버에 그 길이 생기기 전엔 «불러오지 못했어요» 로 보인다.

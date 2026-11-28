@@ -38,6 +38,7 @@ const toggleEquip = deps.toggleEquip;                          // 👕 착용 �
 const createWardrobeAdjPanel = deps.createWardrobeAdjPanel;
 const _clearMultiPanelRef = deps.clearMultiPanelRef;
 const refreshWdPreviewColorSection = deps.refreshWdPreviewColorSection;
+const renderWardrobe = deps.renderWardrobe;                    // 👕 꾸미기 창 파츠 칸 · 색상 영역 다시 그리기 — 보유분을 알게 되거나 못 받았을 때
 const updateWdGizmoForActivePanel = deps.updateWdGizmoForActivePanel;
 const twNav = deps.twNav;                                      // 🧭 창 열기 통로(nav.js) — [도감으로] 가 꾸미기 창 «도감» 탭을 부탁한다(가챠는 꾸미기 창을 모른다)
 const isAdmin = deps.isAdmin;                                  // 🔑 관리자 — app.js 의 let(로그인할 때 다시 대입된다)
@@ -110,6 +111,11 @@ function gachaSeasonNow(){
 const GACHA_SEASON_LABEL = gachaAlbum.ALBUM_LABEL;
 
 function gachaCount(partId){ return gachaOwned[partId] | 0; }
+/* 보유분을 서버에서 받았나 — 아니면 gachaCount 의 0 은 «안 뽑음» 이 아니라 «모름» 이다(꾸미기 창 색상 영역 · 파츠 칸이 가른다).
+   모를 때 보일 글 — 받는 중이면 «불러오는 중», 못 받았으면 «못 불러왔어요»(받으면 _adoptServerState 가 꾸미기 창을 다시 그린다). */
+function _redrawWardrobe(){ try{ renderWardrobe(); }catch(e){ console.warn('[가챠] 꾸미기 창 다시 그리기 실패', e); } }
+function gachaOwnedKnown(){ return _gachaLoad === 'ready'; }
+function gachaOwnedUnknownText(){ return _gachaLoad === 'failed' ? '뽑은 가챠 파츠를 못 불러왔어요' : '뽑은 가챠 파츠를 불러오는 중…'; }
 function isGachaOwnedPart(partId){ return gachaCount(partId) > 0; }
 // 색상 변경 해금 — 🔴 이 게이트는 가챠 파츠에만 건다. 기존 꾸미기 파츠의 색상은 조건 없이 열려 있고,
 //   전체에 걸면 기존 유저가 쓰던 기능을 잃는다. 다 모았는지는 서버가 센 값(관리자 포함)이다.
@@ -161,6 +167,7 @@ function _adoptServerState(st){
   _gachaLoad = 'ready';
   if(_gachaInvOpen()) renderGachaInv();
   if(wasUnknown && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);   // 뽑기 창이 «불러오는 중 · 못 불러옴» 이었다 — 받은 값으로 다시 그린다(뽑기 연출 중이면 그쪽이 그린다)
+  if(wasUnknown) _redrawWardrobe();   // 꾸미기 창 색상 영역 · 파츠 칸이 «불러오는 중» 이었다 — 받은 보유분으로
 }
 /* 서버 결과 줄에 카탈로그 항목을 붙인다 — 연출 · 이름 · 그림이 rec 를 읽는다. 카탈로그에 없으면 이름 없는 칸으로. */
 function _withRec(out){
@@ -292,6 +299,7 @@ async function pullGacha(notify){
     }else{
       if(_gachaInvOpen()) renderGachaInv();
       if(_gachaLoad !== 'ready' && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);   // 뽑기 창도 «못 불러왔어요 · 다시 시도» 로
+      if(_gachaLoad === 'failed') _redrawWardrobe();   // 꾸미기 창도 «불러오는 중» → «못 불러왔어요»
     }
     const again = _gachaPullAgain; _gachaPullAgain = false;
     if(again && res !== 'failed') pullGacha(false);   // 실패 뒤에는 되풀이하지 않는다 — 삼켜진 요청도 같이 버린다
@@ -1031,6 +1039,8 @@ return {
   setPartEditor,                        // 🛠 관리자 등록 창을 건다(app.js)
   isGachaColorUnlocked,                 // 꾸미기 미리보기 색상 영역 — 🔒 게이트
   gachaCount,
+  ownedKnown: gachaOwnedKnown,          // 꾸미기 창 — 보유분을 모르면 0/4 · «없음» 대신 ownedUnknownText
+  ownedUnknownText: gachaOwnedUnknownText,
   sceneHasColorGroup,                   // 관리자 파츠 등록 — 색 없는 파츠(rec.noColor) 판정
   DUPES_FOR_COLOR: GACHA_DUPES_FOR_COLOR,
   pullGacha,                            // 런처 복귀('launcher') · 계정 이어받기 — 서버에서 받기(notify=true 면 실패에 오류 번호)
@@ -1049,7 +1059,7 @@ return {
   runDraw: _gachaRunDraw, renderGachaDraw,
   state: {
     load: ()=>_gachaLoad, page: ()=>_gachaPage, album: ()=>_gachaAlbum,
-    setOwned(v){ gachaOwned = v; }, setUnlocked(v){ _gachaUnlocked = v; }, setSelId(v){ _gachaSelId = v; }, setAlbum(v){ _gachaAlbum = v; _gachaPage = 0; },
+    setOwned(v){ gachaOwned = v; }, setLoad(v){ _gachaLoad = v; }, setUnlocked(v){ _gachaUnlocked = v; }, setSelId(v){ _gachaSelId = v; }, setAlbum(v){ _gachaAlbum = v; _gachaPage = 0; },
   },
 };
 }
