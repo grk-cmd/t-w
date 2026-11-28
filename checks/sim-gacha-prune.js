@@ -38,6 +38,8 @@ const probe = `
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
+/* 프리미엄을 서버가 확인했나(account-state.js premiumKnown) — 꾸미기 창(wardrobe.js)이 읽는다. 이 검사는 계정 모듈을 싣지 않으니 «확인됨» 으로 둔다 */
+globalThis.premiumKnown = () => true;
 /* gacha.js 가 없으면 «못 찾음» 으로 멈춘다 — app.js 만 굴리면 빈 껍데기(GACHA_OFF)라 아무것도 안 지킨 채 초록이 된다. */
 if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
 try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }

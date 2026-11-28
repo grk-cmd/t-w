@@ -45,6 +45,8 @@ globalThis.__P = {
 };`;
 
 const say = console.log; console.log = () => {}; console.warn = () => {};
+/* 프리미엄을 서버가 확인했나(account-state.js premiumKnown) — 이 검사는 계정 모듈을 싣지 않으니 여기서 둔다. 기본은 «확인됨» */
+let _premiumKnown = true; globalThis.premiumKnown = () => _premiumKnown;
 if (!fs.existsSync('gacha.js') || !fs.existsSync('gacha-album.js') || !fs.existsSync('paging.js')) { say('  ? 원본 못 찾음 — gacha.js · gacha-album.js · paging.js'); process.exit(2); }
 try { vm.runInThisContext(fs.readFileSync('paging.js', 'utf8'), { filename: 'paging.js' }); vm.runInThisContext(fs.readFileSync('gacha-album.js', 'utf8'), { filename: 'gacha-album.js' }); vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
@@ -141,6 +143,9 @@ say('\n=== 라이선스 없음 — 카테고리 탭은 잠금 안내뿐 ===');
   P.setPremium(false);
   const r = scene({ entries: entry('cap'), main: 'cap', stacked: null });
   chk(!r, '착용해 둔 꾸미기 파츠의 색상 영역을 열지 않는다(닫으면 저장되는 길을 막는다)');
+  _premiumKnown = false;
+  chk(!scene({ entries: entry('cap'), main: 'cap', stacked: null }), '  라이선스를 아직 모를 때(확인 전)도 열지 않는다 — «있음» 으로 짐작하지 않는다');
+  _premiumKnown = true;
   P.setPremium(true);
   chk(!!scene({ entries: entry('cap'), main: 'cap', stacked: null }), '  라이선스가 있으면 그대로 열린다');
 }

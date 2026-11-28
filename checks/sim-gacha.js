@@ -123,6 +123,7 @@ function mkEnv(opt){
     createWardrobeAdjPanel: (cat, id) => { const p = mkEl('div'); p.className = 'adj'; p.dataset.id = id; return p; },
     clearMultiPanelRef: () => {},
     refreshWdPreviewColorSection: () => { env.colorRefresh++; },
+    renderWardrobe: () => { env.wdRedraw = (env.wdRedraw | 0) + 1; },
     updateWdGizmoForActivePanel: () => {},
     twNav: { NAV: { WARDROBE_ALBUM: 'wardrobeAlbum' }, go: (name, opts) => { if(name !== 'wardrobeAlbum') return; env.albumOpens = (env.albumOpens || 0) + 1; env.hostOn = true; m.onAlbumShow(opts); m.renderGachaInv(); } },   // 창 열기 통로 — 꾸미기 창 «도감» 탭으로 여는 것 흉내
     isAdmin: () => env.admin,
@@ -174,6 +175,7 @@ await sec('── 1. 만들 때 · 시작', async () => {
   chk(e.gsLoads === 0 && !Object.keys(e.rt).length && !e.timers.length && !e.intervals.length && e.ls.size === 0,
       '만들 때는 요청 · 서버 신호 구독 · 타이머 · 저장소 쓰기가 0 — 계정 확인 뒤 startGacha 가 한다');
   chk(M.state.load() === 'idle' && JSON.stringify(M.owned()) === '{}', '  시작 전에는 «받지 않음»(idle) · 보유분은 빈 값');
+  chk(!M.ownedKnown() && M.ownedUnknownText() === '뽑은 가챠 파츠를 불러오는 중…', '  ★ 받기 전 — ownedKnown false · «불러오는 중»(꾸미기 창이 0 개로 적지 않게)');
   M.startGacha(M.session); await flush();
   chk(e.gsLoads === 1 && e.rt.collection && e.rt.collection.length === 1 && M.state.load() === 'ready' && M.gachaCount('a') === 1, 'startGacha — 서버에서 한 번 받고 서버 신호(collection)를 듣는다');
   chk(!e.timers.length && !e.intervals.length, '  주기 타이머 · 부팅 지연 타이머가 없다');
@@ -257,12 +259,15 @@ await sec('── 4. 받기 — 상태 · 실패 · 경합 · 신호 · 회수',
   let M = e.mk();
   let res = await M.pullGacha(false);
   chk(res === 'failed' && M.state.load() === 'failed' && e.errs.length === 0 && e.gsLoads === 1, '못 받음 — failed 로 남고 오류 번호는 안 띄운다(서버 신호 · 시작에서는 조용히)');
+  chk(!M.ownedKnown() && M.ownedUnknownText() === '뽑은 가챠 파츠를 못 불러왔어요' && (e.wdRedraw | 0) === 1,
+      '  ★ 꾸미기 창 — 보유분 «모름»(ownedKnown false) · «못 불러왔어요» · 창을 한 번 다시 그린다(0/4 · «없음» 으로 그리지 않게)');
   await flush(); e.timers.length && e.runTimers();
   chk(e.gsLoads === 1 && !e.timers.length && !e.intervals.length, '  혼자 다시 받지 않는다(타이머 · 되풀이 0)');
   res = await M.pullGacha(true);
   chk(res === 'failed' && e.errs.join() === 'E-CHAR-15', '  사용자가 연 · 누른 받기가 실패하면 E-CHAR-15');
   e.gsLoadFail = false; res = await M.pullGacha(true);
   chk(res === 'ready' && M.state.load() === 'ready' && M.gachaCount('a') === 2, '  다시 시도 — 받으면 ready');
+  chk(M.ownedKnown() && (e.wdRedraw | 0) === 3, '  ★ 받으면 ownedKnown · 꾸미기 창을 한 번 더 다시 그린다(받은 보유분으로)');
   /* 받은 뒤 한 번 실패해도 알던 값은 그대로 */
   e.gsLoadFail = true; res = await M.pullGacha(false);
   chk(res === 'failed' && M.state.load() === 'ready' && M.gachaCount('a') === 2, '받은 뒤 한 번 못 받아도 알던 값 · ready 는 그대로');
@@ -502,8 +507,8 @@ await sec('── 7. app.js 배선', () => {
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // 파츠 등록 창 셋은 adminPartReg.이름
   const getters = ['isAdmin: ()=>isAdmin,', 'savedParts: ()=>savedParts,', 'partCats: ()=>PART_CATS,', 'wdDraftDef: ()=>wdDraftDef,', 'activeWdAdj: ()=>activeWdAdj,', 'setActiveWdAdj: (v)=>{ activeWdAdj = v; },'];
   const vals = ['seats: seats,', 'slots: slots,', 'presence: Presence,'];
-  chk(deps.length === 31 && fnDeps.length === 18 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)) && deps.includes('twNav: twNav,') && deps.some(l => /^levelCap: (focusTotalMod\.)?FOCUS_LEVEL_CAP_HOURS,$/.test(l)),
-      'deps 31개 — 함수 18은 화살표 · 📚 [도감으로] 는 창 열기 통로(twNav) · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋 · 레벨 상한은 값 · 서버 경로와 구독은 만든 것 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 32 && fnDeps.length === 19 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)) && deps.includes('twNav: twNav,') && deps.some(l => /^levelCap: (focusTotalMod\.)?FOCUS_LEVEL_CAP_HOURS,$/.test(l)),
+      'deps 32개 — 함수 19는 화살표(꾸미기 창 다시 그리기 renderWardrobe 포함) · 📚 [도감으로] 는 창 열기 통로(twNav) · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋 · 레벨 상한은 값 · 서버 경로와 구독은 만든 것 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
