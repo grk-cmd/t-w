@@ -58,6 +58,7 @@
 | `E-FR-04` | 선택한 친구 요청 일부를 처리하지 못했어요 | `myhome/friend-manage.js` — 받은 요청 일괄 수락 · 거절 |
 | `E-FR-05` | 친구의 접속 상태를 받지 못했어요 — 연결을 확인하고 다시 시도해 주세요 | `myhome/friends-sub.js` — 놀러 가기 · 파도타기 친구 고르기의 접속 상태 한 번 읽기(presenceGet) 실패(이어지는 동안 한 번만) |
 | `E-ACC-03` | 서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `account/license-gate.js` — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음) |
+| `E-ACC-07` | 이 PC 의 계정 정보가 맞지 않아 기능을 시작하지 못했어요 — 앱을 다시 켜거나 다시 로그인해 주세요 | `launcher/app-boot.js` — begin 에서 계정 칸 열기 실패(`account-store.js` open — 이 PC 에 적힌 계정 코드가 서버 계정과 다름 · 없음) · 계정 기능(레벨 · 친구 · 일정 …)을 하나도 시작하지 않음 · 한 번 · 레벨 [다시 시도] 가 다시 알림 · 코드를 몰래 고쳐 쓰지 않는다(진단 `[app-boot]` 줄에 PC 코드 있음/없음 · 같음/다름 · 쓰기 실패 기록) |
 | `E-ACC-04` | 이 PC를 등록하지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요 | `account/device-register.js` — 켤 때 · [이 PC 다시 등록] 의 이 PC 등록(`POST /v2/me/devices`)이 «등록 PC 가 다 참» 밖의 까닭으로 실패 |
 | `E-FR-06` | 친구 신청을 보내지 못했어요 | `myhome/friend-req-btn.js` — 남의 마이홈 [친구 신청] › [신청하기] |
 | `E-MH-01` | 도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `myhome/help-tab.js` — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(`LOAD_MS`) |
@@ -148,7 +149,7 @@
 | `E-GIFT-08` | 선물을 보내지 못했어요 | `myhome/gift-box.js` — 선물 보내기(`POST /v2/gifts/{code}`) 실패(그림 사본을 못 만든 503 · 누른 그림이 내 칸에 없는 409 `GIFT_SLOT_CHANGED`(내 칸을 다시 받음) 포함 · 하루 한도 · 상대 가득 · 친구 아님 등 서버 안내 코드는 번호 없이 서버 문구) — 격자를 다시 켬 |
 | `E-GIFT-09` | 그 집 선물을 불러오지 못했어요 | `myhome/gift-box.js` — 친구 집을 구경할 때 그 집에 나온 선물 받기(`GET /v2/gifts/{code}`) 실패(그 사람이 없음은 번호 없이 «선물 없음») |
 | `E-GIFT-07` | 내 말랑이를 불러오지 못해 선물 창을 열지 못했어요 | `myhome/mallang-store.js` — 친구 줄 우클릭 선물 보내기 창(`mallang.js` `openGift`)을 열 때 내 칸 받기(`pullMine` site `sendOpen` — `GET /v2/me/mallangs`) 실패 · 창을 열지 않음 |
-| `E-FOCUS-01` | 포커스 기록을 불러오지 못했어요 | `focus/focus-progress.js` — 서버 진척 받기 실패(GET /v2/me/focus) · 내 정보 · 포커스 기록창을 열 때 못 받은 상태면 다시 받다 실패한 때만 알림(시작 때의 실패는 조용히 «못 불러옴» 상태) |
+| `E-FOCUS-01` | 포커스 기록을 불러오지 못했어요 | `focus/focus-progress.js` — 서버 진척 받기 실패(GET /v2/me/focus) · 내 정보 · 포커스 기록창을 열 때 · 레벨 문 [다시 시도] 에서 못 받은 상태면 다시 받다 실패한 때만 알림(켤 때의 실패는 `E-FOCUS-10`) |
 | `E-FOCUS-02` | 집중 시간을 서버에 올리지 못했어요 — 다음에 같이 올릴게요 | `focus/focus-progress.js` — 집중 시간 올리기 실패(POST /v2/me/focus/accruals) · 이어지는 같은 실패는 한 번만(성공하면 풀림) · 혼자 다시 보내지 않고 다음 올리는 때(10분 · 레벨 경계 · 집중 끝 · 로그아웃 · 켤 때)에 |
 | `E-FOCUS-03` | 별 색을 저장하지 못했어요 | `focus/focus-progress.js` — 별 색 저장 실패(PATCH /v2/me/focus) · 서버가 아는 이전 색으로 되돌림 |
 | `E-FOCUS-04` | 달성표를 불러오지 못했어요 | `focus/chal-store.js` — 달성표 받기 실패(GET /v2/me/focus/challenges/current · 지난 주) · 사용자가 서랍을 열거나 [다시 시도] 할 때만 알림(시작 · 하루 경계의 실패는 조용히 «못 불러옴») |
@@ -157,6 +158,7 @@
 | `E-FOCUS-07` | 달성표 보상을 받지 못했어요 | `focus/chal-store.js` — 보상 칸 받기 실패(POST /v2/me/focus/challenges/{주}/rewards/{칸}) · NOT_YET · NOTHING 은 조용히 · 이어지는 같은 실패는 한 번 · 서랍 [보상 받기] 로 |
 | `E-FOCUS-08` | 폰 연결 키를 만들지 못했어요 | `focus/focus-api.js` endpoint — 폰 연결 새 키 만들기(POST /v2/me/focus/mobile-link) |
 | `E-FOCUS-09` | 폰 연결을 끊지 못했어요 | `focus/focus-api.js` endpoint — 폰 연결 끊기(DELETE /v2/me/focus/mobile-link) |
+| `E-FOCUS-10` | 레벨을 불러오지 못했어요 — 내 정보에서 [다시 시도] 를 눌러 주세요 | `focus/focus-progress.js` — 서버 진척 받기 첫 실패(GET /v2/me/focus · 켤 때 등 · `shared/load-state.js` notifyOnce) · 시작마다 한 번 · 그 뒤는 API 복귀(`shared/api-health.js`) 때 한 번 다시 받는다(번호 없음) · 사용자는 내 정보 · 포커스 기록창 · 레벨 문 [다시 시도](실패하면 `E-FOCUS-01`) · 그동안 레벨은 «모름»(레벨 1 로 치지 않는다 — B-1128-2) |
 | `E-BUG-01` | 제보 목록을 불러오지 못했어요 | `support/bug-board-ui.js` — 버그제보 탭 목록 · 필터 · [다음]/[이전] · [다시 시도](`GET /v2/bugs` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · «목록을 불러오지 못했어요 [다시 시도]» · 다시 보내지 않음 · 공지 받기 실패는 번호 없이 공지 칸만 비움) |
 | `E-BUG-02` | 제보를 불러오지 못했어요 | `support/bug-board-ui.js` — 글 열기 · 우편함 «가기» · [다시 시도](`GET /v2/bugs/{number}` — 없는 글 · 남의 비공개 글은 번호 없이 «없음» · «비공개» 화면) |
 | `E-BUG-03` | 제보를 올리지 못했어요 | `support/bug-board-ui.js` — 글쓰기 [등록](`POST /v2/bugs` — 하루 상한 · 공지 조건은 번호 없이 안내 · 입력은 그대로 · 다시 보내지 않음) |

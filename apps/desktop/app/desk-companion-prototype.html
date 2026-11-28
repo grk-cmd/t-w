@@ -6865,7 +6865,9 @@
                  배지 자체는 친구 목록과 같은 .mh-flv(_plFillLv) 그대로다. 버튼으로 감싸는 것은 **이 자리 하나뿐** —
                  친구 목록·마이홈 배지는 누르는 물건이 아니다. ▾ 는 «눌린다» 는 표시(배지는 원래 누르는 물건이 아니었다). -->
             <!-- 서버 진척을 못 받았을 때만 보인다(my-info.js _miRenderHead) — 레벨 배지 자리에 «못 불러왔어요 [다시 시도]» -->
-            <span id="miProgFail" style="display:none;font-size:10.5px;color:var(--ink-soft);">못 불러왔어요 <button id="miProgRetry" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">다시 시도</button></span>
+            <!-- 받기 전 · 받는 중에는 «레벨 불러오는 중…»(레벨 1 을 그리지 않는다 — B-1128-2) -->
+            <span id="miProgLoad" style="display:none;font-size:10.5px;color:var(--ink-soft);">레벨 불러오는 중…</span>
+            <span id="miProgFail" style="display:none;font-size:10.5px;color:var(--ink-soft);">레벨을 못 불러왔어요 <button id="miProgRetry" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">다시 시도</button></span>
             <button id="miLvBtn" class="mi-lv-btn" type="button" aria-expanded="false" aria-controls="miStar" title="별 색"><span id="miLv"></span><span class="mi-lv-car" aria-hidden="true">&#9662;</span></button>
             <button id="miNameEdit" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">수정</button></div>
           <div id="miNameEditRow" style="display:none;align-items:center;gap:4px;">
@@ -8928,6 +8930,7 @@
 <script src="parts/shared/request-id.js"></script>   <!-- 🔁 요청 번호(window.TwRequestId — 같은 일 다시 보내기는 같은 번호) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/device-id.js"></script>   <!-- 🖥️ 이 기기 id(window.TwDeviceId — tw.deviceId · X-Device-Id · realtime hello) — request-id.js 다음 · api-client.js 보다 먼저 -->
 <script src="parts/shared/etag-store.js"></script>   <!-- 🏷️ ETag 기억을 껐다 켜도 남게(window.TwEtagStore — IndexedDB tw-etag-cache) — api-client.js 보다 먼저 -->
+<script src="parts/shared/api-health.js"></script>   <!-- 🩺 API 가 닿는가 한 곳(window.TwApiHealth — 닿지 않는 동안 확인 요청 하나 · 복귀 알림) — api-client.js 보다 먼저 -->
 <script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi — client 읽기 · authed 로그인 통로) — remote-config.js 보다 먼저 -->
 <script src="parts/shared/api-errors.js"></script>   <!-- 🧭 서버 오류 봉투 → 할 일 · 오류 번호 번역표(window.TwApiErrors) — error-codes.js · api-client.js 다음 · 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/realtime/rt-hub.js"></script>   <!-- 🛰 realtime 연결 하나(window.TwRtHub — pv 4 · 닫힘 번호 표 · 작별 · 알림 → 다시 받기 표) — request-id.js · device-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저(연결 재료는 rt-bind.js 가 bind) -->
@@ -9031,6 +9034,7 @@
 <script src="parts/room/ride-bench.js"></script>   <!-- 🗼 올라타기 · 🪑 멀티좌석 책상 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRideBench.createRideBench 로 만든다) -->
 <script src="parts/character/part-paint.js"></script>   <!-- 🖍️ 파츠에 직접 그리기 · 그림칸 — app.js 보다 먼저(app.js 가 원래 자리에서 TwPartPaint.createPartPaint 로 만든다) -->
 <script src="parts/focus/focus-api.js"></script>   <!-- ⏱ 포커스 · 👑 달성표 · 📱 폰 연결 서버 endpoint(/v2/me/focus*) provider — 포커스 모듈 · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
+<script src="parts/shared/load-state.js"></script>   <!-- 📦 서버 값 하나를 받는 틀(window.TwLoadState — 받기 전 · 받는 중 · 받음 · 못 받음 · 복귀 때 다시) — focus-progress.js · app.js 보다 먼저 -->
 <script src="parts/focus/focus-progress.js"></script>   <!-- ⏱ 포커스 진척(서버 값 · 못 올린 초) — app.js 보다 먼저(app.js 가 TwFocusProgress.createFocusProgress 로 만든다) -->
 <script src="parts/focus/focus-level.js"></script>   <!-- ⭐ 포커스 레벨 · 공유 · 태블릿 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLevel.createFocusLevel 로 만든다) -->
 <script src="parts/chat/chat-notice-net.js"></script>   <!-- 📢 시크릿룸 공지 서버 읽기 · 쓰기(window.TwChatNoticeNet) — firebase-init.js(type=module · 늦게 돈다)가 연결한다 -->

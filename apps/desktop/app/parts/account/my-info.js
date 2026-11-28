@@ -111,10 +111,12 @@ function _miRenderHead(){
   /* 🏅 레벨 배지 — 친구 목록 배지와 **같은 함수**(plMod.fillLv → .mh-flv + lvBadgeClass). 모양·티어 색을 여기서 따로 만들지 않는다. */
   const ready = progress().load === 'ready';
   const lvBtn = $e('miLvBtn'); if(lvBtn) lvBtn.style.display = ready ? '' : 'none';
-  const pf = $e('miProgFail'); if(pf) pf.style.display = progress().load === 'failed' ? '' : 'none';   // 못 받았으면 «못 불러왔어요 [다시 시도]»
+  const failed = progress().load === 'failed';
+  const pf = $e('miProgFail'); if(pf) pf.style.display = failed ? '' : 'none';   // 못 받았으면 «레벨을 못 불러왔어요 [다시 시도]»
+  const ldEl = $e('miProgLoad'); if(ldEl) ldEl.style.display = (!ready && !failed) ? '' : 'none';   // 받기 전 · 받는 중이면 «레벨 불러오는 중…»(레벨 1 을 그리지 않는다 — B-1128-2)
   const lv = $e('miLv'); if(lv){
     lv.style.display = ready ? '' : 'none';   // 서버 답 전 · 실패면 레벨 배지를 숨긴다(깜빡이는 레벨 1 을 그리지 않는다)
-    let n = 1, st = null; try{ n = getFocusLevel(); st = myFocusShow(); }catch(_){} plMod.fillLv(lv, n, st);
+    if(ready){ let n = null, st = null; try{ n = getFocusLevel(); st = myFocusShow(); }catch(_){} plMod.fillLv(lv, n, st); }   // 모르면 배지를 채우지 않는다
   }
   const code = $e('miCode'); if(code){ let c = null; try{ c = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} code.textContent = c || '—'; }
   const p = _miRenderAvatar(); if(p && p.catch) p.catch(()=>{});

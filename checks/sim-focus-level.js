@@ -1,7 +1,8 @@
 /* ═══ ⭐ sim-focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿 모듈 구조 (2026-10-14 신설 · 앱 FSD 26번) ═══════════════
    focus-level.js — 오늘치 쌓기 · 서버 레벨을 읽는 이름 · 별 문자열 · 태블릿. 레벨 · 회차 · 별 색의 값은 서버 진척(focus-progress.js — sim-focus-progress.js)이 맡는다.
    여기서는 모듈 모양 · app.js 연결 · 서버 밖으로 아무것도 안 보내는 것을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름 19개(STAR_PALETTE · _mobile… · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · shownFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름 23개(STAR_PALETTE · _mobile… · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · shownFocusLevel · levelGate · tellLevelUnknown · LEVEL_FAILED_TEXT · LEVEL_LOADING_TEXT · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote)
+   ・2-3절: 레벨 모름(B-1128-2) — getFocusLevel · shownFocusLevel 은 못 받았으면 null · levelGate 는 'ok' · 'low' · 'unknown' · tellLevelUnknown 은 못 받았으면 «불러오지 못했어요 [다시 시도]»(reload(true)) · 받는 중이면 «불러오는 중»
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 줄 그대로 · 부르는 곳은 focusLevelMod.이름 · html(app.js 앞)
    ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · focus-level.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -21,7 +22,7 @@ const FN_DEPS = ["onFocusAdded","addFocusToday","findMySeat","getMyUserId","noti
 const VAL_DEPS = ["progress","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","Presence","focusApi","focusStore"];
 const GET_DEPS = ["_focusTotalStarted","_acctDetached","_focusSessionSec","wdDraftDef"];
 const SET_DEPS = ["setFocusSessionSec"];
-const EXPORTS = ["STAR_PALETTE","_mobileBubbleText","_mobileCleanApp","_mobileCountsHere","_mobileOn","_mobileRoomLabel","startMobile","_seatMobileApp","addFocusSeconds","focusCycleOf","formatHMS","getFocusLevel","shownFocusLevel","getStarColor","lvStarStr","myFocusShow","myStarOut","setStarColor","starFromRemote"];
+const EXPORTS = ["STAR_PALETTE","_mobileBubbleText","_mobileCleanApp","_mobileCountsHere","_mobileOn","_mobileRoomLabel","startMobile","_seatMobileApp","addFocusSeconds","focusCycleOf","formatHMS","getFocusLevel","shownFocusLevel","levelGate","tellLevelUnknown","LEVEL_FAILED_TEXT","LEVEL_LOADING_TEXT","getStarColor","lvStarStr","myFocusShow","myStarOut","setStarColor","starFromRemote"];
 const MOVED = ["_lastPushedLevel","_lastPushedStar","_pushLevelIfChanged","DANCE_NOTIFIED_KEY","DANCE_REPAIR_KEY","_dancePending","_danceNotifiedSet","_danceRepairSet","_markDanceNotified","_danceMailExists","_danceUnlockPending","_notifyDanceUnlocks","IDESK_NOTIFIED_KEY","_ideskNotifiedSet","_notifyDeskUnlocks","addFocusSeconds","getFocusLevel","STAR_COLOR_KEY","STAR_PALETTE","_starColorOk","getStarColor","_starPicked","setStarColor","focusCycleOf","lvStarStr","myFocusShow","myStarOut","myStarProfileOut","_adoptStarColorFromProfile","starFromRemote","FOCUS_SYNCED_KEY","_focusSyncing","_focusSyncFailStreak","_focusSyncNoticed","_focusSyncRetryTimer","_focusSyncFailed","_focusLastSyncedVal","_setFocusSyncedMark","_getFocusSyncedMark","_hasFocusSyncedMark","syncFocusTotalToServer","FOCUS_SYNC_INTERVAL_MS","formatHMS","MOBILE_MAX_ON_MS","MOBILE_KEY_LS","MOBILE_APP_MAX","_mobileFocus","_mobileStop","_mobileNow","_mobileOn","_seatMobileApp","_mobileRoomLabel","_mobileBubbleText","_mobileCleanApp","_mobileGetKey","_mobileNewKey","_mobileLinkUrl","_mobileApplyState","_mobileChanged","_mobileStart","_mobRenderPanel","_mobDrawQr","_mobFillWindow","_mobMakeKey","_mobOpenWindow","_mobCloseWindow","_mobArm","_mobileWasOnTick"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  onFocusAdded: (sec)=>roomFocusSync.add(sec),","  progress: focusProgressMod,", "  _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),", "  FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,", "  FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,", "  FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,", "  Presence: Presence,", "  _acctDetached: ()=>acctStateMod._acctDetached(),", "  _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),", "  addFocusToday: (...a)=>focusTotalMod.addFocusToday(...a),", "  findMySeat: (...a)=>findMySeat(...a),", "  getMyUserId: (...a)=>getMyUserId(...a),", "  focusApi: focusApiMod,", "  focusStore: accountStoreMod,", "  notifyError: (...a)=>TwErrorCodes.notify(...a),", "  rtOnMessage: (...a)=>TwRtHub.store.onMessage(...a),","  serverNow: ()=>TwRtHub.store.serverNow()," , "  toast: (...a)=>toast(...a),", "  wdDraftDef: ()=>wardrobeMod.wdDraftDef(),", "  setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },"];
 
@@ -90,21 +91,46 @@ function runAdd(src, started){
   try{ api.createFocusLevel(deps).addFocusSeconds(3); }catch(_){ calls.push('throw'); }
   return { calls, added, today };
 }
-/* 화면에 그리는 레벨 — 서버 진척을 받았으면 서버 레벨, 못 받았으면 null(레벨 1 을 그리지 않는다 · B-1126-1). 해금 판정용 getFocusLevel 은 그대로 1 */
-function runShown(src, ready){
+/* 레벨 — 서버 진척을 받았으면 서버 레벨, 못 받았으면 null(레벨 1 을 그리지 않는다 · B-1126-1 · 해금 판정도 1 로 치지 않는다 · B-1128-2).
+   progress 는 focus-progress.js 의 약속 그대로(받기 전 null) — load 로 레벨 문 · 안내를 본다 */
+function runShown(src, ready, load){
   const any = anything(), deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps[n] = () => {}; });
-  deps.progress = { isReady: () => ready, getFocusLevel: () => (ready ? 206 : 1), myFocusShow: () => null, STAR_PALETTE: [['#ffd76a', '금']] };
+  const reloads = [], toasts = [];
+  deps.progress = { isReady: () => ready, getFocusLevel: () => (ready ? 206 : null), progress: () => ({ load: ready ? 'ready' : (load || 'failed') }), reload: (u) => { reloads.push(u); return Promise.resolve(); }, myFocusShow: () => null, STAR_PALETTE: [['#ffd76a', '금']] };
+  deps.toast = (msg, icon, ms, action) => { toasts.push({ msg, action }); };
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'module',
     src + '\nreturn window.TwFocusLevel;')(win, any, { getItem: () => null, setItem(){}, removeItem(){} }, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, undefined);
   const m = api.createFocusLevel(deps);
-  return { shown: m.shownFocusLevel(), gate: m.getFocusLevel() };
+  return { m, reloads, toasts, shown: m.shownFocusLevel(), gate: m.getFocusLevel() };
 }
-const judgeShown = (src) => { try{ const a = runShown(src, true), b = runShown(src, false); return a.shown === 206 && a.gate === 206 && b.shown === null && b.gate === 1; }catch(_){ return false; } };
+const judgeShown = (src) => { try{ const a = runShown(src, true), b = runShown(src, false); return a.shown === 206 && a.gate === 206 && b.shown === null && b.gate === null; }catch(_){ return false; } };
+/* 레벨 문 — 받았으면 그대로(206 ≥ 100 ok · < 300 low) · 모르면 'unknown'(«레벨 N 필요» 가 아니다) · 안내는 못 받음 → [다시 시도](reload(true)) · 받는 중 → «불러오는 중» */
+function gateRows(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  try{
+    const a = runShown(src, true);
+    t(a.m.levelGate(100) === 'ok' && a.m.levelGate(206) === 'ok' && a.m.levelGate(300) === 'low', '★ 받았으면 levelGate 는 그대로 — Lv.206: 100 · 206 은 ok · 300 은 low');
+    const f = runShown(src, false, 'failed');
+    t(f.m.levelGate(1) === 'unknown' && f.m.levelGate(100) === 'unknown', '★ 못 받았으면 levelGate 는 unknown — 레벨 1 로 치지 않는다(«레벨이 낮아요» 가 아니다)');
+    f.m.tellLevelUnknown();
+    const ft = f.toasts[0] || {};
+    t(f.toasts.length === 1 && ft.msg === '레벨을 불러오지 못했어요' && ft.action && ft.action.label === '다시 시도', '  못 받음 → «레벨을 불러오지 못했어요 [다시 시도]»');
+    if(ft.action) ft.action.onClick();
+    t(f.reloads.join() === 'true', '  [다시 시도] → progress.reload(true)(실패하면 E-FOCUS-01)');
+    for(const ld of ['loading', 'idle']){
+      const l = runShown(src, false, ld);
+      l.m.tellLevelUnknown();
+      t(l.m.levelGate(1) === 'unknown' && l.toasts.length === 1 && /불러오는 중/.test(l.toasts[0].msg) && !l.toasts[0].action && l.reloads.length === 0, '  ' + ld + ' → unknown · «레벨을 불러오는 중이에요»(단추 없음 · 다시 받지 않음)');
+    }
+  }catch(e){ t(false, '레벨 문 판정이 죽음 — ' + e.message); }
+  return r;
+}
 const judgeAdd = (src) => { const a = runAdd(src, true), b = runAdd(src, false); return a.calls.length === 0 && a.added.join() === '3' && a.today.join() === '3' && b.added.length === 0 && b.today.length === 0; };
 
 const rows = judgeAll(MOD, SRC, HTML);
@@ -113,11 +139,17 @@ say('── 2-2. 쌓기 — 서버에 올릴 몫으로만 넘긴다');
 chk(judgeAdd(MOD), '계정 칸이 열린 뒤: 오늘 시간에 더하고 3초를 미전송분에 넘긴다 · firebaseAPI 호출 0 · 열리기 전엔 아무것도 안 쌓는다');
 chk(!/sendInboxMessage|setMyProfile|syncFocusTotal|fetchProfileStarC|tw\.starColor|focusSyncedSec|danceNotified|ideskNotified/.test(strip(MOD)), '걷은 Firebase 경로 · 해금 우편 · 옛 키 이름이 코드에 없다');
 say('── 2-3. 화면에 그리는 레벨 — 못 받았으면 비운다');
-chk(judgeShown(MOD), 'shownFocusLevel — 받았으면 206 · 못 받았으면 null · 해금 판정 getFocusLevel 은 못 받았을 때 1 그대로');
+chk(judgeShown(MOD), 'shownFocusLevel · getFocusLevel — 받았으면 206 · 못 받았으면 null(해금 판정도 1 로 치지 않는다 — B-1128-2)');
+gateRows(MOD).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. mutation test — 하나라도 못 잡으면 빨강');
 {
-  const m5 = MOD.replace('(progress.isReady() ? progress.getFocusLevel() : null)', 'progress.getFocusLevel()');
-  chk(m5 !== MOD && !judgeShown(m5), '못 받았을 때도 레벨을 돌려주면(레벨 1 을 그림) — 표시 판정이 빨강');
+  const m5 = MOD.replace('const getFocusLevel = () => progress.getFocusLevel();', 'const getFocusLevel = () => (progress.isReady() ? progress.getFocusLevel() : 1);');
+  chk(m5 !== MOD && !judgeShown(m5), '★ 못 받았을 때 레벨 1 을 돌려주면(B-1128-2 옛 모양) — 레벨 판정이 빨강');
+  const gateRed = (m) => m !== MOD && gateRows(m).some(([ok]) => !ok);
+  chk(gateRed(MOD.replace("  if(lv == null) return 'unknown';\n", '')), '레벨 문이 «모름» 을 안 가르면(모름 → low) — 빨강');
+  chk(gateRed(MOD.replace("onClick: () => { progress.reload(true); }", "onClick: () => {}")), '[다시 시도] 가 다시 받지 않으면 — 빨강');
+  chk(gateRed(MOD.replace("if(progress.progress().load === 'failed') toast(LEVEL_FAILED_TEXT", "if(false) toast(LEVEL_FAILED_TEXT")), '못 받음과 받는 중을 안 가르면 — 빨강');
+  chk(gateRed(MOD.replace("return lv >= min ? 'ok' : 'low';", "return 'ok';")), '받았는데 레벨이 모자라도 열면 — 빨강');
   const m1 = MOD.replace('progress.addSeconds(sec);', '');
   chk(m1 !== MOD && !judgeAdd(m1), '미전송분으로 안 넘기면 — 쌓기 판정이 빨강');
   const m2 = MOD.replace('  if(!_focusTotalStarted()) return;   // 계정 확인 전', '  // ');

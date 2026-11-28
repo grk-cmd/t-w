@@ -1,10 +1,10 @@
 /* focus-level.js — ⭐ 포커스 레벨 표시 · 오늘치 쌓기 · 태블릿
    책임: 집중한 초를 오늘치 · 이번 실행 시간에 더하고 서버에 올릴 몫으로 넘긴다(addFocusSeconds) · 서버가 준 레벨 · 별 색을 읽는 이름을 한 곳에 모은다
-     (getFocusLevel · myFocusShow · myStarOut · getStarColor · setStarColor — 값의 주인은 focus-progress.js) · 남의 별 모양 받기(starFromRemote) · 별 문자열(lvStarStr) · 📱 태블릿·폰 포커싱 연결.
+     (getFocusLevel · myFocusShow · myStarOut · getStarColor · setStarColor — 값의 주인은 focus-progress.js) · 🔓 레벨 문(levelGate · tellLevelUnknown — 레벨을 모르면 «모름» 으로 가른다) · 남의 별 모양 받기(starFromRemote) · 별 문자열(lvStarStr) · 📱 태블릿·폰 포커싱 연결.
    레벨 · 회차를 앱이 누적에서 세지 않는다 · 해금 안내 우편은 서버 알림이 한다 · 프로필(Firebase)에 레벨 · 별을 쓰지 않는다.
    ★ 📱 폰 연결은 서버 경로다 — 폰 상태는 realtime `mobileFocus`(on · app · at) 그대로, 키 만들기 · 끊기는 focus-api.js(POST · DELETE /v2/me/focus/mobile-link).
      키 원문은 만들 때 한 번만 오므로 계정 칸 tw.mobileKey 에 둔다(QR 다시 보기). 키 만들기 · 끊기는 «읽은 진척의 주인» 과 묶이므로(expectOwner) 먼저 진척을 받은 뒤에 부른다.
-   ★ 밖에서 부르는 이름: (모듈 위) lastSignalText(«마지막 신호» 한 줄 — 순수) · STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileCountsHere · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · shownFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: (모듈 위) lastSignalText(«마지막 신호» 한 줄 — 순수) · STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileCountsHere · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · shownFocusLevel · levelGate · tellLevelUnknown · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwFocusLevel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-focus-level.js · sim-focus-progress.js · sim-mobile-focus.js */
@@ -50,10 +50,24 @@ function addFocusSeconds(sec){
   progress.addSeconds(sec);   // 서버에 올릴 몫(미전송분)으로 — 레벨 · 별은 서버가 준 값이다
   onFocusAdded(sec);   // 📊 시크릿룸 집중 기록(room-focus-sync.js) — 진척에 넣은 뒤에 알린다
 }
-/* ★ 레벨 · 회차 · 별 색은 서버 값이다(focus-progress.js). 해금 레벨은 서버 레벨(999 에서 멈춤) · 표시용 «이번 바퀴» 레벨과 별은 myFocusShow. */
+/* ★ 레벨 · 회차 · 별 색은 서버 값이다(focus-progress.js). 해금 레벨은 서버 레벨(999 에서 멈춤) · 표시용 «이번 바퀴» 레벨과 별은 myFocusShow.
+   받기 전 · 받는 중 · 못 받았으면 null(모름 — 레벨 1 로 치지 않는다 · B-1128-2). 화면에 적는 이름 shownFocusLevel 도 같은 값이다. */
 const getFocusLevel = () => progress.getFocusLevel();
-/* 화면에 그리는 내 레벨 — 서버 진척을 받기 전 · 못 받았으면 null(레벨 1 을 그리지 않는다 — D5-Q5 · B-1126-1). 해금 판정은 getFocusLevel */
-const shownFocusLevel = () => (progress.isReady() ? progress.getFocusLevel() : null);
+const shownFocusLevel = getFocusLevel;
+/* 🔓 레벨 문 — 레벨로 여는 기능은 여기서 가른다. 'ok' · 'low'(레벨이 모자람) · 'unknown'(서버 레벨을 모름 — 모자람이 아니다).
+   'unknown' 이면 «레벨 N 필요» 가 아니라 tellLevelUnknown 으로 알린다(B-1128-2) */
+function levelGate(min){
+  const lv = getFocusLevel();
+  if(lv == null) return 'unknown';
+  return lv >= min ? 'ok' : 'low';
+}
+/* 레벨을 몰라 기능을 열지 못할 때 — 못 받았으면 «불러오지 못했어요 [다시 시도]»(reload(true) — 또 실패하면 E-FOCUS-01) · 받기 전 · 받는 중이면 «불러오는 중» */
+const LEVEL_FAILED_TEXT = '레벨을 불러오지 못했어요';
+const LEVEL_LOADING_TEXT = '레벨을 불러오는 중이에요 — 잠시 뒤 다시 해 주세요';
+function tellLevelUnknown(){
+  if(progress.progress().load === 'failed') toast(LEVEL_FAILED_TEXT, null, undefined, { label: '다시 시도', onClick: () => { progress.reload(true); } });
+  else toast(LEVEL_LOADING_TEXT);
+}
 const myFocusShow = () => progress.myFocusShow();
 /* 방에 싣는 모양 — 회차가 없으면 null(= 지운다 · 옛 판은 모름) */
 function myStarOut(){
@@ -328,6 +342,10 @@ return {
   formatHMS,
   getFocusLevel,
   shownFocusLevel,
+  levelGate,
+  tellLevelUnknown,
+  LEVEL_FAILED_TEXT,
+  LEVEL_LOADING_TEXT,
   getStarColor,
   lvStarStr,
   myFocusShow,
