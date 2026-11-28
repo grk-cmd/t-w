@@ -1703,7 +1703,7 @@ const WD_ALBUM_TAB = 'album';
 const WD_ALBUM_GROUP = { group:'album', icon:'📚', label:'도감' };
 /* 라이선스가 없으면 «도감» 만 쓴다 — 다른 탭은 잠금 안내를 그린다(관리자는 다 연다).
    'ok' | 'no' | 'unknown' — 서버가 아직 확인하지 않았으면(premiumKnown) «없음» 으로 치지 않는다: 잠금 안내 · [라이선스 등록하러 가기] 대신 «확인 중» 을 그리고,
-   «도감» 으로 옮기지도 않는다. 확인이 오면 app.js 가 renderWardrobe 를 다시 부른다(onPremiumChanged). CLAUDE.md «모르는 값». */
+   «도감» 으로 옮기지도 않는다. 확인이 오면 license-gate.js _refreshPremiumGatedUI 가 renderWardrobe 를 다시 부른다(onPremiumChanged). CLAUDE.md «모르는 값». */
 function wdLicenseState(){
   if(isPremium() || isAdmin()) return 'ok';
   return premiumKnown() ? 'no' : 'unknown';

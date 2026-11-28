@@ -143,6 +143,11 @@ function behave(src, opt){
     const ugrid = (gridsOf()[0] || { children: [] }).children.map(c => c.textContent);
     t(/뽑은 가챠 파츠를 불러오는 중/.test(wrap.textContent) && ugrid.some(n => /밀짚/.test(n)) && !ugrid.some(n => /별 모자/.test(n)),
       '★ 가챠 보유분을 아직 모르면 칸 위에 «불러오는 중» 한 줄(꾸미기 파츠는 그대로)');
+    /* 가챠 파츠만 있는 분류 — 모를 때 «아직 등록된 … 파츠가 없어요» 를 같이 말하지 않는다 */
+    parts.push({ id: 'gg1', cat: 'glasses', name: '별 안경', gacha: true, stackable: true }); st.two = true;
+    U.selectWdTab('glasses'); U.renderWardrobe();
+    t(/뽑은 가챠 파츠를 불러오는 중/.test(wrap.textContent) && !/아직 등록된/.test(wrap.textContent), '  가챠 파츠만 있는 분류 — «불러오는 중» 만(«아직 등록된 파츠가 없어요» 를 같이 말하지 않음)');
+    parts.pop(); st.two = false; U.selectWdTab('hat');
     st.gknown = true; U.renderWardrobe();
     t(!/불러오는 중/.test(wrap.textContent) && (gridsOf()[0] || { children: [] }).children.some(c => /별 모자/.test(c.textContent)), '  받으면 그 줄은 없고 뽑은 가챠 칸이 보인다');
     st.premium = false; st.known = true; log.length = 0;
@@ -253,6 +258,7 @@ const behaveBreaks = [
   ['라이선스를 모르는데 잠금 안내', m => m.replace("if(wdLicenseState() === 'unknown') renderWdLicenseUnknown(wrap); else renderWdLocked(wrap);", 'renderWdLocked(wrap);')],
   ['모름을 «확인됨» 으로', m => m.replace("return premiumKnown() ? 'no' : 'unknown';", "return 'no';")],
   ['가챠 보유분을 모르는데 안내 없음', m => m.replace('if(_gachaUnknown){', 'if(false){')],
+  ['보유분을 모르는데 «파츠가 없어요» 도 같이', m => m.replace('if(list.length===0 && !isAdmin() && !_gachaUnknown){', 'if(list.length===0 && !isAdmin()){')],
   ['잠금 안내 없이 칸을 그림', m => m.replace("  if(!wdLicensed()){\n    if(currentWdTab === wdEar.TAB)", "  if(false){\n    if(currentWdTab === wdEar.TAB)")],
   ['안 뽑은 가챠도 칸에', m => m.replace("!gachaMod().isGachaPart(p) || gachaMod().gachaCount(p.id)>0", '!0')],
   ['도감 탭에서 서버를 안 맞춤', m => m.replace('if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);', '')],

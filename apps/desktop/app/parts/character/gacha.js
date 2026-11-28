@@ -166,8 +166,8 @@ function _adoptServerState(st){
   _srvState = { earned: st.earned, bonus: st.bonus, left: st.left, season: st.season };
   _gachaLoad = 'ready';
   if(_gachaInvOpen()) renderGachaInv();
-  if(wasUnknown && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);
-  if(wasUnknown) _redrawWardrobe();   // 꾸미기 창 색상 영역 · 파츠 칸이 «불러오는 중» 이었다 — 받은 보유분으로   // 뽑기 창이 «불러오는 중 · 못 불러옴» 이었다 — 받은 값으로 다시 그린다(뽑기 연출 중이면 그쪽이 그린다)
+  if(wasUnknown && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);   // 뽑기 창이 «불러오는 중 · 못 불러옴» 이었다 — 받은 값으로 다시 그린다(뽑기 연출 중이면 그쪽이 그린다)
+  if(wasUnknown) _redrawWardrobe();   // 꾸미기 창 색상 영역 · 파츠 칸이 «불러오는 중» 이었다 — 받은 보유분으로
 }
 /* 서버 결과 줄에 카탈로그 항목을 붙인다 — 연출 · 이름 · 그림이 rec 를 읽는다. 카탈로그에 없으면 이름 없는 칸으로. */
 function _withRec(out){
@@ -1059,7 +1059,7 @@ return {
   runDraw: _gachaRunDraw, renderGachaDraw,
   state: {
     load: ()=>_gachaLoad, page: ()=>_gachaPage, album: ()=>_gachaAlbum,
-    setOwned(v){ gachaOwned = v; }, setUnlocked(v){ _gachaUnlocked = v; }, setSelId(v){ _gachaSelId = v; }, setAlbum(v){ _gachaAlbum = v; _gachaPage = 0; },
+    setOwned(v){ gachaOwned = v; }, setLoad(v){ _gachaLoad = v; }, setUnlocked(v){ _gachaUnlocked = v; }, setSelId(v){ _gachaSelId = v; }, setAlbum(v){ _gachaAlbum = v; _gachaPage = 0; },
   },
 };
 }

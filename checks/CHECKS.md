@@ -197,7 +197,7 @@
 | **sim-bookmark.js** | 236 | **fbd1a1cead1a** |
 | **sim-overlay-gap.js** | 345 | **eeee70a317a5** |
 | **sim-overlay-layered.js** | 364 | **727c39586ae7** |
-| **sim-part-color-entry.js** | 160 | **833f20712012** |
+| **sim-part-color-entry.js** | 203 | **0225846e5d33** |
 | **sim-run-rect.js** | 76 | **366198fb34a1** |
 | **sim-pk-fit.js** | 188 | **d8cbb3611fc6** |
 | **sim-pl-grab-pick.js** | 211 | **05f87d671a99** |
@@ -391,9 +391,9 @@
 | **sim-wd-pic-help.js** | 101 | **d07f53e740ca** |
 | **sim-focus-level.js** | 179 | **a686c5085763** |
 | **sim-chat-ui.js** | 126 | **875c6fad360f** |
-| **sim-license-gate.js** | 445 | **b61bb37c4e66** |
+| **sim-license-gate.js** | 474 | **b87b8f83ac3c** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
-| **sim-wardrobe.js** | 529 | **a346ba21b913** |
+| **sim-wardrobe.js** | 535 | **6688b2c97173** |
 | **sim-settings-panel.js** | 255 | **a900a07f7321** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |

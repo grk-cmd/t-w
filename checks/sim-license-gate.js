@@ -95,6 +95,29 @@ function callsWith(src, uid){
 }
 const judgeNoUid = (src) => !callsWith(src, null).includes('myInvites') && callsWith(src, 'ME').includes('myInvites');
 
+/* 👕 프리미엄 알림(onPremiumChanged)이 오면 꾸미기 창을 다시 그린다 — «라이선스 확인 중» 탭이 지금 값으로(wardrobe.js wdLicenseState).
+   진짜 _refreshPremiumGatedUI 를 알림 콜백으로 받아 불러, 가짜 renderWardrobe 가 몇 번 불렸는지 센다 */
+function premiumRedrawCount(src){
+  const any = anything();
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  let onChange = null, n = 0;
+  deps.onPremiumChanged = (fn) => { onChange = fn; };
+  deps.renderWardrobe = () => { n++; };
+  deps.seats = [];
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  try{
+    const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwLicenseGate;')(win, any, ls, any, undefined);
+    api.createLicenseGate(deps);
+    if(typeof onChange !== 'function') return -1;
+    const before = n; onChange();
+    return n - before;
+  }catch(_){ return -2; }
+}
+
 
 /* ── 켤 때 판정 갈래 — 진짜 checkInviteGate · _goOnline · 서버에 연결할 수 없어요 화면을 돌려 불린 것을 센다 ── */
 async function gateRun(src, o){
@@ -387,7 +410,13 @@ say('── 2-5. 초대 게이트 로그인 · 가입 뒤 «들어감» — 진�
 (await gateLoginRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 2-6. 가입 카드 — [다른 계정으로 로그인] · [구글도 연결하기](진짜 _showInviteGate · _showSignupDone)');
 (await signupCardRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+say('── 2-7. 프리미엄 알림 → 꾸미기 창 다시 그리기(진짜 _refreshPremiumGatedUI)');
+chk(premiumRedrawCount(MOD) === 1, '★ 프리미엄을 확인 · 바뀌면(onPremiumChanged) 꾸미기 창(renderWardrobe)을 한 번 다시 그린다 — «라이선스 확인 중» 이 남지 않게');
 say('── 3. mutation test — 하나라도 못 잡으면 빨강');
+{
+  const m3 = MOD.replace(/\n  try\{ renderWardrobe\(\); \}catch[^\n]*/, '');
+  chk(m3 !== MOD && premiumRedrawCount(m3) !== 1, '프리미엄 알림에 꾸미기 창 다시 그리기를 빼면 — 2-7 이 빨강');
+}
 {
   const m2 = MOD.replace("  if(!getMyUserId()){ _setInviteBtn(btn,", "  if(false){ _setInviteBtn(btn,");
   chk(m2 !== MOD && !judgeNoUid(m2), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
