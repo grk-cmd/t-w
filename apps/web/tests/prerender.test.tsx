@@ -48,7 +48,9 @@ describe('미리 그린 페이지', () => {
       for (const c of CREW) {
         const role = m.crew[c.key].role;
         expect(html).toContain(`aria-label="${role} ${c.name}"`);
-        expect(html).toContain(`<img class="crew" src="${c.src}" width="${c.w}" height="${c.h}" alt=""/>`);
+        expect(html).toContain(
+          `<span class="crew-body"><img class="crew" src="${c.src}" width="${c.w}" height="${c.h}" alt=""/></span>`,
+        );
         expect(html).toContain(
           `<figcaption class="crew-tag"><span class="crew-role">${role}</span> <span class="crew-name">${c.name}</span></figcaption>`,
         );

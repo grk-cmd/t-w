@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { bubbleShift, nextTap } from '../model/crew';
+import { BOP_MS, bopFrames, bubbleShift, nextTap } from '../model/crew';
 
 /** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS 애니메이션 길이도 이 값 — --fly-ms) */
 const SAY_MS = 2500;
@@ -58,6 +58,14 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     el.style.left = `${-Math.round(w / 2) + push + Math.round(r.left) - r.left}px`;
     el.style.bottom = `${r.top - Math.round(r.top)}px`;
   }, [say]);
+  const body = useRef<HTMLSpanElement>(null);
+  /** 눌렀을 때 통통 — 누를 때마다 처음부터(겹치지 않게 앞 것을 지움) · 애니메이션 줄이기 설정이면 안 튄다 */
+  const bop = () => {
+    const el = body.current;
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const a of el.getAnimations()) a.cancel();
+    el.animate(bopFrames(), { duration: BOP_MS, easing: 'linear' });
+  };
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -72,6 +80,7 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
       timer.current = setTimeout(() => setFlying(false), FLY_MS);
       return;
     }
+    bop();
     setSay(nextLine.current);
     nextLine.current = (nextLine.current + 1) % lines.length;
     timer.current = setTimeout(() => setSay(null), SAY_MS);
@@ -99,7 +108,10 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
             💣
           </span>
         )}
-        <img className="crew" src={src} width={w} height={h} alt="" />
+        {/* 튀기는 이 칸 · 숨쉬기는 그림 · 날기는 단추 — 셋이 다른 요소라 겹쳐도 덮어쓰지 않는다 */}
+        <span ref={body} className="crew-body">
+          <img className="crew" src={src} width={w} height={h} alt="" />
+        </span>
       </button>
       <figcaption className="crew-tag">
         <span className="crew-role">{role}</span> <span className="crew-name">{name}</span>
