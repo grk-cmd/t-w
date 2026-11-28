@@ -15,12 +15,10 @@ import {
 } from '@/entities/homepage/site';
 import { useEnv, withProdMark } from '@/shared/api';
 import { formatDate } from '@/shared/lib';
-import { endsEdit, isStaleNewsError, useSiteNewsEdit } from '../model/useSiteNewsEdit';
+import { endsEdit, isStaleNewsError, staleNewsText, useSiteNewsEdit } from '../model/useSiteNewsEdit';
 import styles from './SiteNewsCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
-const CONFLICT =
-  '다른 곳에서 먼저 고쳤거나 내렸어요 — 목록을 다시 불러왔어요. 글을 다시 [고치기] 로 열어 주세요';
 
 /** 🌐 홈페이지(together-working.com) 📰 소식 창 글 — 언어마다 따로 쓴다. 그 언어 제목이 있는 글만 그 언어 페이지에 보인다 */
 export function SiteNewsCard() {
@@ -37,10 +35,14 @@ export function SiteNewsCard() {
     setEditing(null);
     setDraft(emptyNewsDraft());
   };
-  /** 실패 글 — 옛 판(409 · 404)이면 «다시 열어 주세요». 폼은 실패한 글이 지금 고치는 글일 때만 비운다(endsEdit) */
+  /** 실패 글 — 폼은 실패한 글이 지금 고치는 글일 때만 비우고(endsEdit), 옛 판(409 · 404) 글은 그에 맞춰 고른다(staleNewsText) */
   const fail = (err: unknown, fallback: string, failedId: string | null) => {
-    if (failedId !== null && endsEdit(editing?.id ?? null, failedId, err)) reset();
-    setMessage({ text: isStaleNewsError(err) ? CONFLICT : siteErrorMessage(err, fallback), error: true });
+    const ended = failedId !== null && endsEdit(editing?.id ?? null, failedId, err);
+    if (ended) reset();
+    setMessage({
+      text: isStaleNewsError(err) ? staleNewsText(ended) : siteErrorMessage(err, fallback),
+      error: true,
+    });
   };
 
   const submit = (e: FormEvent) => {

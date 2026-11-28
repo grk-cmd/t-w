@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { endsEdit, isStaleNewsError } from '@/features/notice/edit-site-news';
+import {
+  endsEdit,
+  isStaleNewsError,
+  STALE_EDIT_TEXT,
+  STALE_LIST_TEXT,
+  staleNewsText,
+} from '@/features/notice/edit-site-news';
 import { PortError } from '@/shared/api';
 
 const conflict = new PortError('conflict', '먼저 고침', 'CONCURRENT_UPDATE');
@@ -23,5 +29,12 @@ describe('홈페이지 소식 카드 — 쓰기가 실패했을 때 쓰던 폼',
   it('다른 글을 내리다 실패해도 쓰던 글(새 글 · 다른 글 고치기)은 그대로', () => {
     expect(endsEdit('a', 'b', conflict)).toBe(false);
     expect(endsEdit(null, 'b', gone)).toBe(false);
+  });
+
+  it('옛 판 글: 고치던 글이 닫혔으면 «다시 열어 주세요» · 다른 글(내리기)이면 «확인하고 다시»', () => {
+    expect(staleNewsText(endsEdit('a', 'a', conflict))).toBe(STALE_EDIT_TEXT);
+    expect(staleNewsText(endsEdit('a', 'b', conflict))).toBe(STALE_LIST_TEXT);
+    expect(staleNewsText(endsEdit(null, 'b', gone))).toBe(STALE_LIST_TEXT);
+    expect(STALE_LIST_TEXT).not.toContain('[고치기]');
   });
 });
