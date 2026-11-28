@@ -96,7 +96,12 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
   };
   useEffect(() => {
     const all = timers.current;
-    return () => all.forEach((t) => clearTimeout(t));
+    const el = body.current;
+    // 날던 중에 사라지면 onfinish(land)가 정리 뒤에 타이머를 다시 걸지 않게 날기도 멈춘다
+    return () => {
+      all.forEach((t) => clearTimeout(t));
+      for (const a of el?.getAnimations() ?? []) a.cancel();
+    };
   }, []);
 
   /** 떨어진 뒤 — 💫 어질어질 · 끝나면 다시 누를 수 있다 */
@@ -130,7 +135,8 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     taps.current = r.taps;
     if (r.fly) return launch();
     bop();
-    if (r.fuse) {
+    // 시안처럼 💣 는 처음 뜬 때부터 TAP_WINDOW_MS 뒤 사라진다 — 넷째 누름이 시간을 다시 세지 않는다
+    if (r.fuse && !fuse) {
       setFuse(true);
       later('fuse', TAP_WINDOW_MS, () => setFuse(false));
     }
