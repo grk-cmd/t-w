@@ -108,10 +108,11 @@ describe('설치 파일 주소 — 우리 GitHub 릴리스의 판 태그 / 파�
         'latest/a.exe',
       ].map((x) => RELEASE_DOWNLOAD_PREFIX + x),
     ])
-      expect(
-        parseSite(raw({ download: { open: true, version: '0.14.0', files: { ...NO_FILES, win: bad } } })),
-        bad,
-      ).toBeNull();
+      for (const k of ['win', 'macArm64', 'macX64'] as const)
+        expect(
+          parseSite(raw({ download: { open: true, version: '0.14.0', files: { ...NO_FILES, [k]: bad } } })),
+          `${k}: ${bad}`,
+        ).toBeNull();
   });
 });
 
