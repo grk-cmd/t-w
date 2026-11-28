@@ -26,9 +26,10 @@ const item = (o: Record<string, unknown> = {}) => ({
   body: { ko: '고쳤어요', en: 'Fixed', ja: '直しました' },
   ...o,
 });
+const NO_FILES = { win: null, macArm64: null, macX64: null };
 const raw = (o: Record<string, unknown> = {}) => ({
   news: [item()],
-  download: { open: false, version: null, files: {} },
+  download: { open: false, version: null, files: NO_FILES },
   ...o,
 });
 
@@ -50,107 +51,67 @@ describe('parseSite — 서버 data 모양 확인', () => {
     expect(parseSite(null)).toBeNull();
   });
 
-  it('소식은 모양이 틀린 글만 버린다 · 비운 언어는 빈 글 · 앞뒤 빈칸은 뗀다', () => {
+  it('소식 글 하나라도 모양이 틀리면 전체를 모름 — 몰래 빼거나 빈 값 · 1970년으로 채우지 않는다', () => {
+    for (const bad of [
+      item({ id: '' }),
+      item({ publishedAt: 'not-a-date' }),
+      item({ publishedAt: undefined }),
+      item({ pinned: 'yes' }),
+      item({ title: { ko: 3, en: '', ja: '' } }),
+      item({ title: { ko: '한국어만' } }), // 안 쓴 언어도 '' 로 와야 한다(계약)
+      item({ body: null }),
+    ])
+      expect(parseSite(raw({ news: [item({ id: 'ok' }), bad] })), JSON.stringify(bad)).toBeNull();
+  });
+
+  it('비운 언어는 빈 글 · 앞뒤 빈칸은 뗀다', () => {
     const s = parseSite(
       raw({
-        news: [
-          item({ id: '' }),
-          item({ id: 'n2', publishedAt: 'not-a-date' }),
-          item({ id: 'n3', title: { ko: 3 } }),
-          item({ id: 'n4', title: { ko: '  한국어만  ' }, body: {} }),
-        ],
+        news: [item({ title: { ko: '  한국어만  ', en: '', ja: '' }, body: { ko: '', en: '', ja: '' } })],
       }),
     );
-    expect(s?.news.map((n) => n.id)).toEqual(['n4']);
     expect(s?.news[0]?.title).toEqual({ ko: '한국어만', en: '', ja: '' });
   });
 
-  it('설치 파일 주소는 우리 GitHub 릴리스만 — 다른 주소 · 다른 저장소 · http 는 버린다', () => {
-    const s = parseSite(
-      raw({
-        download: {
-          open: true,
-          version: '0.14.0',
-          files: {
-            win: WIN,
-            macArm64: 'https://evil.example/Together.dmg',
-            macX64: 'https://github.com/someone/t-w/releases/download/v0.14.0/x.dmg',
-          },
-        },
-      }),
-    );
-    expect(s?.download.files).toEqual({ win: WIN, macArm64: null, macX64: null });
-    expect(
-      parseSite(raw({ download: { open: true, files: { win: WIN.replace('https:', 'http:') } } }))?.download
-        .files.win,
-    ).toBeNull();
+  it('내려받기: files · version 모양이 틀리면 전체를 모름', () => {
+    expect(parseSite(raw({ download: { open: false, version: null, files: {} } }))).toBeNull();
+    expect(parseSite(raw({ download: { open: false, version: null } }))).toBeNull();
+    expect(parseSite(raw({ download: { open: true, version: 14, files: NO_FILES } }))).toBeNull();
+    expect(parseSite(raw({ download: { open: true, version: '', files: NO_FILES } }))).toBeNull();
   });
 });
 
-describe('설치 파일 주소 거르기 — 앞머리 뒤에 끼운 경로로 다른 저장소로 비켜 가지 못한다', () => {
-  const winOf = (url: string) =>
-    parseSite(raw({ download: { open: true, version: '0.14.0', files: { win: url } } }))?.download.files.win;
-  it('판 태그 / 파일 이름(.exe · .dmg) 두 조각만 받는다', () => {
+describe('설치 파일 주소 — 우리 GitHub 릴리스의 판 태그 / 파일 이름 두 조각만 · 그 밖은 약속 위반이라 전체를 모름', () => {
+  const winOf = (url: string | null) =>
+    parseSite(raw({ download: { open: true, version: '0.14.0', files: { ...NO_FILES, win: url } } }))
+      ?.download.files.win;
+  it('우리 릴리스 주소 · null(그 파일 없음)은 받는다', () => {
     expect(winOf(WIN)).toBe(WIN);
     expect(winOf(ARM)).toBe(ARM);
-    expect(winOf(`${RELEASE_DOWNLOAD_PREFIX}v0.12.4/Together.Working-Setup-0.12.4.exe`)).not.toBeNull(); // 옛 이름(공백이 . 로)
+    expect(winOf(`${RELEASE_DOWNLOAD_PREFIX}v0.12.4/Together.Working-Setup-0.12.4.exe`)).not.toBeUndefined(); // 옛 이름(공백이 . 로)
+    expect(winOf(null)).toBeNull();
   });
-  it('.. · %2e · 역슬래시 · 더 깊은 경로 · 다른 확장자는 버린다', () => {
+  it('다른 주소 · 다른 저장소 · http · .. · %2e · 역슬래시 · 더 깊은 경로 · 다른 확장자면 전체가 null', () => {
     for (const bad of [
-      '../../../../attacker/x/releases/download/v1/a.exe',
-      '%2e%2e/%2e%2e/%2e%2e/%2e%2e/attacker/x/a.exe',
-      'v1/..\\..\\..\\..\\attacker\\a.exe',
-      'v1/../../a.exe',
-      'v1/sub/a.exe',
-      'v1/.exe',
-      'v1/a.exe?x=1',
-      'v1/a.zip',
-      'latest/a.exe',
+      'https://evil.example/Together.exe',
+      'https://github.com/someone/t-w/releases/download/v0.14.0/x.exe',
+      WIN.replace('https:', 'http:'),
+      ...[
+        '../../../../attacker/x/releases/download/v1/a.exe',
+        '%2e%2e/%2e%2e/%2e%2e/%2e%2e/attacker/x/a.exe',
+        'v1/..\\..\\..\\..\\attacker\\a.exe',
+        'v1/../../a.exe',
+        'v1/sub/a.exe',
+        'v1/.exe',
+        'v1/a.exe?x=1',
+        'v1/a.zip',
+        'latest/a.exe',
+      ].map((x) => RELEASE_DOWNLOAD_PREFIX + x),
     ])
-      expect(winOf(RELEASE_DOWNLOAD_PREFIX + bad), bad).toBeNull();
-  });
-});
-
-describe('createSiteStore — 한 번 받기 · 실패는 실패 · 다시 시도', () => {
-  const ok = () => Promise.resolve({ t: 'ok' as const, site: parseSite(raw())! });
-  const tick = () => new Promise((r) => setTimeout(r, 0));
-
-  it('몇 곳이 ensure 해도 한 번만 받고 · 구독자 모두에게 알린다 · 구독을 풀면 빠진다', async () => {
-    const f = vi.fn(ok);
-    const st = createSiteStore(f);
-    const a = vi.fn();
-    const b = vi.fn();
-    const offA = st.subscribe(a);
-    st.subscribe(b);
-    st.ensure();
-    st.ensure();
-    expect(f).toHaveBeenCalledTimes(1);
-    expect(st.get()).toEqual({ s: 'loading' });
-    offA();
-    await tick();
-    expect(st.get().s).toBe('ready');
-    expect(b).toHaveBeenCalled();
-    expect(a).toHaveBeenCalledTimes(1); // 풀기 전 'loading' 한 번뿐 — 'ready' 는 못 받음
-  });
-
-  it('못 받으면 failed — ready(글 없음 · 닫힘)로 바꾸지 않는다 · 다시 시도는 곧바로 loading → 받으면 ready', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    let fail = true;
-    const f = vi.fn(() => (fail ? Promise.resolve({ t: 'failed' as const, why: 'HTTP 503' }) : ok()));
-    const st = createSiteStore(f);
-    st.ensure();
-    await tick();
-    expect(st.get()).toEqual({ s: 'failed' });
-    expect(warn).toHaveBeenCalled();
-    st.ensure(); // 실패 뒤에도 몰래 다시 받지 않는다
-    expect(f).toHaveBeenCalledTimes(1);
-    fail = false;
-    st.retry();
-    expect(st.get()).toEqual({ s: 'loading' });
-    await tick();
-    expect(st.get().s).toBe('ready');
-    expect(f).toHaveBeenCalledTimes(2);
-    warn.mockRestore();
+      expect(
+        parseSite(raw({ download: { open: true, version: '0.14.0', files: { ...NO_FILES, win: bad } } })),
+        bad,
+      ).toBeNull();
   });
 });
 

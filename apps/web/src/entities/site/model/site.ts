@@ -35,13 +35,14 @@ const LANG_KEYS = ['ko', 'en', 'ja'] as const satisfies readonly Lang[];
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
+/** 응답 읽기는 엄격하게 — 약속과 다른 칸이 하나라도 있으면 전체를 모름(null)으로. 틀린 글을 몰래 빼거나 빈 값 · 1970년으로 채우지 않는다
+    (못 받음이 «글 없음» · «닫힘» 으로 보이지 않게 — 웹 관리자 쪽 wire 읽기와 같은 계약) */
 function langText(v: unknown): LangText | null {
   if (!isRecord(v)) return null;
   const out = { ko: '', en: '', ja: '' };
   for (const k of LANG_KEYS) {
     const s = v[k];
-    if (s === undefined || s === null) continue;
-    if (typeof s !== 'string') return null;
+    if (typeof s !== 'string') return null; // 안 쓴 언어도 '' 로 온다(계약)
     out[k] = s.trim();
   }
   return out;
@@ -61,28 +62,31 @@ function news(v: unknown): SiteNews | null {
 /** 판 태그 · 파일 이름 두 조각만 — `..` · `%2e` · 역슬래시 · 더 깊은 경로를 끼워 다른 저장소로 비켜 가지 못하게 */
 const RELEASE_FILE = /^v\d[0-9A-Za-z.-]*\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:exe|dmg)$/;
 
-function fileUrl(v: unknown): string | null {
-  if (typeof v !== 'string' || !v.startsWith(RELEASE_DOWNLOAD_PREFIX)) return null;
-  return RELEASE_FILE.test(v.slice(RELEASE_DOWNLOAD_PREFIX.length)) ? v : null;
+/** 파일 칸 — null(그 파일 없음) 또는 우리 릴리스 주소. 그 밖(다른 주소 · 다른 모양)은 약속 위반이라 undefined */
+function fileUrl(v: unknown): string | null | undefined {
+  if (v === null) return null;
+  if (typeof v !== 'string' || !v.startsWith(RELEASE_DOWNLOAD_PREFIX)) return undefined;
+  return RELEASE_FILE.test(v.slice(RELEASE_DOWNLOAD_PREFIX.length)) ? v : undefined;
 }
 
 function download(v: unknown): SiteDownload | null {
-  if (!isRecord(v) || typeof v.open !== 'boolean') return null;
-  const version = typeof v.version === 'string' && v.version ? v.version : null;
-  const f = isRecord(v.files) ? v.files : {};
-  return {
-    open: v.open,
-    version,
-    files: { win: fileUrl(f.win), macArm64: fileUrl(f.macArm64), macX64: fileUrl(f.macX64) },
-  };
+  if (!isRecord(v) || typeof v.open !== 'boolean' || !isRecord(v.files)) return null;
+  if (v.version !== null && (typeof v.version !== 'string' || !v.version)) return null;
+  const win = fileUrl(v.files.win);
+  const macArm64 = fileUrl(v.files.macArm64);
+  const macX64 = fileUrl(v.files.macX64);
+  if (win === undefined || macArm64 === undefined || macX64 === undefined) return null;
+  return { open: v.open, version: v.version, files: { win, macArm64, macX64 } };
 }
 
-/** 서버 data → Site. 다운로드 칸 모양이 틀리면 null(모르는 상태로 단추를 열지 않게) · 소식은 모양이 틀린 글만 버린다 */
+/** 서버 data → Site. 어느 칸이든 약속과 다르면 null — 화면은 «불러오지 못했어요»(모르는 채로 단추를 열거나 글을 빼지 않게) */
 export function parseSite(raw: unknown): Site | null {
   if (!isRecord(raw) || !Array.isArray(raw.news)) return null;
   const dl = download(raw.download);
   if (!dl) return null;
-  return { news: raw.news.map(news).filter((n): n is SiteNews => n !== null), download: dl };
+  const list = raw.news.map(news);
+  if (list.some((n) => n === null)) return null;
+  return { news: list as SiteNews[], download: dl };
 }
 
 /** 한 언어 페이지에 보일 고정 아닌 글 수(📌 고정은 모두) */
