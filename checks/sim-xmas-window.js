@@ -38,6 +38,7 @@ function el(tag, id){
     setAttribute: (k, v) => { attrs[k] = String(v); }, getAttribute: (k) => (k in attrs ? attrs[k] : null),
     addEventListener: (t, fn) => { (ls[t] = ls[t] || []).push(fn); }, fire: (t, ev) => (ls[t] || []).forEach(f => f(ev || {})),
     appendChild: (c) => { e.children.push(c); return c; }, insertBefore: (c) => { e.children.unshift(c); return c; },
+    removeChild: (c) => { const i = e.children.indexOf(c); if (i >= 0) e.children.splice(i, 1); return c; },
     querySelectorAll: (sel) => (sel === 'button' ? e.children.filter(c => c.tagName === 'BUTTON') : []),
     focus: () => {}, closest: () => null, setPointerCapture: () => {}, getBoundingClientRect: () => ({ left: 0, top: 0 }), offsetWidth: 640,
     getContext: () => null, files: null };
@@ -219,6 +220,43 @@ say('── 3절 장식 달기');
   chk(w3.S.errs.join() === 'E-XMAS-02', '그 밖 실패는 E-XMAS-02');
   const wc = world({ hangRet: { ok: false, code: 'conflict' } }); wc.S.ready(); wc.api.open(); await settle(); wc.N.calls.length = 0; await wc.els.xmasHang.onclick(); await settle();
   chk(/다른 PC 에서 먼저/.test(wc.S.toasts.join()) && !wc.S.errs.length && wc.N.calls.join() === 'hang,where,tree:1', '실패 conflict(다른 PC 가 먼저 바꿈) — 안내 · 트리 · 내 자리를 다시 읽는다(다시 보내지 않음)');
+}
+
+say('── 3-3절 고르는 줄 · 한마디 칸을 지금 걸린 내 장식에 맞춘다(껐다 켜면 별로 돌아가 그림이 바뀌던 것)');
+{
+  const pressed = (w) => w.els.xmasPick.children.filter(b => b.getAttribute('aria-pressed') === 'true');
+  /* 내 그림 장식 — 다시 열면 «내 그림» 칸이 하나 붙고 골라져 있다 · 한마디가 채워져 있다 · 그대로 걸면 그림을 보낸다 */
+  const data = { cur: 2, mine: { t: 2, s: 4, v: 2, k: 'img', w: '메리 크리스마스', id: 'id4' }, trees: { 2: { 4: { k: 'img', v: 2, id: 'id4' } } }, imgs: { id4: PNG('A') } };
+  const w = world({ data, hangRet: { ok: true, tree: 2, slot: 4, version: 3, moved: false, changed: true } }); w.S.ready(); w.api.open(); await settle();
+  const mineBtns = () => w.els.xmasPick.children.filter(b => b.title === '내 그림');
+  chk(mineBtns().length === 1 && pressed(w).length === 1 && pressed(w)[0] === mineBtns()[0], '내 그림 장식이면 «내 그림» 칸이 하나 붙고 골라져 있다');
+  chk(w.els.xmasWord.value === '메리 크리스마스', '한마디 칸에 지금 걸린 한마디');
+  w.els.xmasWord.value = '해피 뉴이어';
+  await w.els.xmasHang.onclick(); await settle();
+  chk(w.N.lastHang.kind === 'img' && w.N.lastHang.img === PNG('A') && w.N.lastHang.word === '해피 뉴이어', '한마디만 고쳐 걸면 그림은 그대로 보낸다(별로 바뀌지 않는다)');
+  w.api.close(); w.api.open(); await settle();
+  chk(mineBtns().length === 1, '다시 열어도 «내 그림» 칸은 하나(늘지 않는다)');
+  /* 기본 장식 — 그 장식이 골라져 있다 */
+  const wb = world({ data: { cur: 2, mine: { t: 2, s: 1, v: 1, k: 'sock', w: '', id: null }, trees: { 2: { 1: { k: 'sock', v: 1 } } }, imgs: {} } }); wb.S.ready(); wb.api.open(); await settle();
+  await wb.els.xmasHang.onclick(); await settle();
+  chk(wb.N.lastHang.kind === 'sock' && !wb.els.xmasPick.children.some(b => b.title === '내 그림'), '기본 장식이면 그 장식(양말)이 골라져 있다 · «내 그림» 칸 없음');
+  /* 그림을 못 받으면 고른 것을 건드리지 않는다(«내 그림» 칸 없이 별) · 한마디는 채운다 */
+  const wf = world({ data: { cur: 2, mine: { t: 2, s: 4, v: 2, k: 'img', w: '안녕', id: 'idx' }, trees: { 2: { 4: { k: 'img', v: 2, id: 'idx' } } }, imgs: {} } }); wf.S.ready(); wf.api.open(); await settle();
+  chk(!wf.els.xmasPick.children.some(b => b.title === '내 그림') && pressed(wf).length === 1 && pressed(wf)[0].title === '별' && wf.els.xmasWord.value === '안녕', '내 그림을 못 받으면 «내 그림» 칸을 안 붙이고 고른 것은 그대로 · 한마디는 채운다');
+  /* 아직 안 걸었으면 별 · 빈 한마디 */
+  const wn = world({ data: { cur: 5, mine: null, trees: { 5: {} }, imgs: {} } }); wn.S.ready(); wn.api.open(); await settle();
+  chk(pressed(wn).length === 1 && pressed(wn)[0].title === '별' && wn.els.xmasWord.value === '', '아직 안 걸었으면 별 · 빈 한마디(지금과 같다)');
+  /* 세션 reset — 앞 계정의 «내 그림» 칸 · 한마디를 남기지 않는다 */
+  w.api.reset();
+  chk(!mineBtns().length && w.els.xmasWord.value === '' && pressed(w)[0].title === '별', 'reset 하면 «내 그림» 칸 · 한마디를 비우고 별로');
+  /* mutation test — 맞추기를 빼면 위 판정이 빨강 */
+  const mutW =  (from, to) => { const src = SRC.split(from).join(to); if (src === SRC) return null; const m = { exports: {} }; new Function('module', 'window', 'TwSafeHtml', src)(m, undefined, global.TwSafeHtml); return m.exports; };
+  const noSync = mutW('    syncPickToMine(mine ? cache[String(mine.s)] : null);\n', '');
+  if (noSync){
+    const wm = world({ data: { cur: 2, mine: { t: 2, s: 4, v: 2, k: 'img', w: '메리', id: 'id4' }, trees: { 2: { 4: { k: 'img', v: 2, id: 'id4' } } }, imgs: { id4: PNG('A') } }, mod: noSync, hangRet: { ok: true, tree: 2, slot: 4, version: 3, moved: false, changed: true } });
+    wm.S.ready(); wm.api.open(); await settle(); await wm.els.xmasHang.onclick(); await settle();
+    chk(wm.N.lastHang.kind === 'star' && wm.els.xmasWord.value === '', 'mutation test — 맞추기를 빼면 별로 바뀌어 걸린다(위 판정이 잡는다)');
+  } else chk(false, 'mutation test — 바꿀 자리를 못 찾음');
 }
 
 say('── 3-2절 내 장식 덮어 그리기(목록은 서버 캐시라 몇 초 늦을 수 있다 · 내 몫 mine 은 캐시 없음)');

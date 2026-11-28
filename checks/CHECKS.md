@@ -607,7 +607,7 @@
 | **sim-xmas-api.js** | 322 | **fa9d0a462767** |
 | **sim-xmas-rules.js** | 169 | **e042938e7f57** |
 | **sim-xmas-tree.js** | 118 | **39e3ea3d376e** |
-| **sim-xmas-window.js** | 559 | **dabd039f9c57** |
+| **sim-xmas-window.js** | 597 | **31ed7f30088f** |
 | **sim-xmas-song.js** | 140 | **8f1589bf966d** |
 | **sim-xmas-bgm.js** | 107 | **f7bc057d8525** |
 | **sim-xmas-letter.js** | 339 | **d694184a4131** |
