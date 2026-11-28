@@ -103,15 +103,15 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     new Function('window', o.src || UI_SRC)(global.window);
     const made = [];
     let lic = !!o.licensed, cap = o.cap === undefined ? (o.capNull ? null : 10) : o.cap, answered = !!o.answered, unknownLic = !!o.unknownLic, told = 0, refreshes = 0, release = null;
-    const changeFns = [];
+    const changeFns = [], readyQ = [];
     const ui = global.window.TwRoomCreateUi.createRoomCreateUi({
       roomSettings: RS, bannedWords: BW,
-      rcStore: () => ({ bannedWords: () => o.banned || [], answered: () => answered, refresh: () => { refreshes++; return new Promise((res) => { release = res; }); }, onChange: (fn) => { changeFns.push(fn); } }),
+      rcStore: () => ({ bannedWords: () => o.banned || [], answered: () => answered, ready: (w, ms) => new Promise((res) => { readyQ.push(res); }), refresh: () => { refreshes++; return new Promise((res) => { release = res; }); }, onChange: (fn) => { changeFns.push(fn); } }),
       maxPeople: () => (cap === undefined ? 10 : cap), isLicensed: () => lic, listenEnabled: o.listen !== false, onCreate: (ch, s) => made.push([ch, s]),
-      premiumGate: () => (unknownLic ? 'unknown' : (lic ? 'ok' : 'no')), tellPremiumUnknown: () => { told++; },
+      premiumBlocked: (locked) => { if(unknownLic){ told++; return 'unknown'; } if(locked) locked(); return 'locked'; }, premiumKnown: () => !unknownLic,
     });
     return { ui, el, made, setLic: (v) => { lic = v; }, setCap: (v) => { cap = v; changeFns.forEach((f) => f({}, 'roomMaxPeople')); }, setAnswered: (v) => { answered = v; },
-      setUnknownLic: (v) => { unknownLic = v; }, told: () => told, refreshes: () => refreshes, release: () => release && release() };
+      setUnknownLic: (v) => { unknownLic = v; }, firstAnswer: () => { answered = true; readyQ.splice(0).forEach((f) => f()); },   /* 첫 답이 왔다(실패 — 값은 그대로라 onChange 없음) */ told: () => told, refreshes: () => refreshes, release: () => release && release() };
   }
   let t = mk({ cap: 8 });
   t.ui.open('workingroom');
@@ -175,6 +175,9 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     out.noCreate = u.made.length === 0;
     u.setCap(8);
     out.arrive = u.el('rcMax').textContent === '8명' && u.el('rcCreate').disabled === false && /8명까지/.test(u.el('rcMaxHint').textContent);
+    /* 첫 받기 실패 — 새 창(가짜 DOM 이 바뀌므로 위 창 판정 뒤에) */
+    { const f = mk({ src, capNull: true }); f.ui.open('workingroom'); f.firstAnswer(); await new Promise((r) => setImmediate(r));
+      out.firstFail = /불러오지 못했어요/.test(f.el('rcMaxHint').textContent) && f.el('rcMaxRetry').hidden === false; }
     u = mk({ src, capNull: true, answered: true });
     u.ui.open('workingroom');
     out.failed = /불러오지 못했어요/.test(u.el('rcMaxHint').textContent) && u.el('rcMaxRetry').hidden === false && u.el('rcCreate').disabled === true;
@@ -191,6 +194,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   }
   const cu = await capUnknown();
   chk(cu.loading && cu.noCreate, '★ 정원을 모르면 «정원을 불러오는 중» · 인원 칸 비움 · + − [방 만들기] 꺼짐 · Enter 로도 안 만든다');
+  chk(cu.firstFail, '★ 창을 연 채 첫 받기가 실패하면(저장값도 없음 — 값이 안 바뀌어 onChange 없음) 첫 답(ready) 때 «불러오지 못했어요 [다시 시도]» 로 다시 그린다');
   chk(cu.arrive, '  창을 연 채 정원이 오면(onChange) 처음 값 = 정원으로 다시 그린다');
   chk(cu.failed && cu.retry && cu.retryEnd, '★ 첫 답이 왔는데도 모르면 «정원을 불러오지 못했어요 · [다시 시도]» — 누르면 한 번 다시 묻고(그 동안 «불러오는 중»)');
   chk(cu.lic, '★ 라이선스를 모르면 투게더룸 버튼을 잠그지 않고 누르면 «확인 중» 안내(채널은 그대로)');
@@ -198,8 +202,9 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     ["  if(cap == null){ paintCapUnknown(); return; }", "", 'loading', '★ 모르는 정원을 따로 안 그림(옛 모양 — «undefined명»)'],
     ["  if(cap == null || max == null) return;   // 정원을 모른다", "  if(false) return;   // 정원을 모른다", 'noCreate', '모르는 정원으로도 만듦'],
     ["  const failed = !retrying && rcStore().answered();", "  const failed = false;", 'failed', '못 받음을 «불러오는 중» 으로 뭉갬'],
+    ["  if(max == null && !rcStore().answered()) rcStore().ready(null, CAP_WAIT_MS)", "  if(false) rcStore().ready(null, CAP_WAIT_MS)", 'firstFail', '★ 첫 받기 실패를 기다리지 않음(«불러오는 중» 에 머묾)'],
     ["rcStore().onChange((c, key) => { if(key === 'roomMaxPeople' && !$('roomCreatePanel').hidden) paint(); });", "", 'arrive', '정원이 와도 다시 안 그림'],
-    ["$('rcChTogether').disabled = !isLicensed() && premiumGate() !== 'unknown';", "$('rcChTogether').disabled = !isLicensed();", 'lic', '★ 모르는 라이선스에 투게더룸을 잠금(옛 모양)'],
+    ["$('rcChTogether').disabled = !isLicensed() && premiumKnown();", "$('rcChTogether').disabled = !isLicensed();", 'lic', '★ 모르는 라이선스에 투게더룸을 잠금(옛 모양)'],
   ];
   const cuMissed = [];
   for(const [from, to, key, what] of CU_BREAKS){

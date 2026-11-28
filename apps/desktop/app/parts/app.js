@@ -824,8 +824,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   _seatHidden: (...a)=>hiddenSeatsMod._seatHidden(...a),
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
-  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
-  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
   _rollRoulette: (...a)=>rouletteMod._rollRoulette(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
@@ -1546,8 +1545,7 @@ const mallangMod = TwMallang.createMallang({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   premiumOn: (...a)=>_premiumOn(...a),
-  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
-  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
   mallangStore: mallangStoreMod,
   giftBox: giftBoxMod,
 });
@@ -1808,8 +1806,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
-  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
-  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
   userNameMax: ()=>userNameMod.USER_NAME_MAX,
   myHomeSticker,
   stickerMax: mhStLayoutMod.STICKER_MAX,
@@ -2920,7 +2917,7 @@ const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
   setIsPremium: (v)=>{ isPremium = v; },
-  toast: (...a)=>toast(...a),   // «라이선스 확인 중» 안내(tellPremiumUnknown)
+  toast: (...a)=>toast(...a),   // «라이선스 확인 중» 안내(premiumBlocked)
 });
 /* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v2/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
 const userApiMod = TwUserApi.store;   // 🪪 계정 provider(account/user-api.js) — 서버 user · invite 길 · 화면 문구
@@ -3721,7 +3718,9 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
   maxPeople: ()=>maxPeople(),
-  isLicensed: ()=>roomEntryMod._myRoomLicensed(), premiumGate: (...a)=>acctStateMod.premiumGate(...a), tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
+  isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   listenEnabled: TwListenModel.ENABLED,
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
 });
@@ -3732,7 +3731,9 @@ TwRoomLobbyUi.createRoomLobbyUi({
   inRoom: ()=>Presence.active(),
   twNav: twNav,
   maxPeople: ()=>maxPeople(),
-  isLicensed: ()=>roomEntryMod._myRoomLicensed(), premiumGate: (...a)=>acctStateMod.premiumGate(...a), tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
+  isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   isBlocked: (card)=>TwListenModel.isBlockedRoom(card),
   joinRoom: (code)=>roomEntryMod.joinRoom(code),   // 입장 중 막기는 room-entry 한 깃발(코드 칸 · 최근 방과 같이)
   openCreate: (ch)=>roomCreateUi.open(ch),
@@ -4411,7 +4412,7 @@ const charCodeMod = TwCharCode.createCharCode({
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
-  premiumKnown: ()=>acctStateMod.premiumKnown(),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),
   overheadMod: overheadMod,
@@ -4842,8 +4843,7 @@ const themeUiMod = TwThemeUi.createThemeUi({
   customUsable: (...a)=>themeMod.customUsable(...a),
   setCustom: (...a)=>themeMod.setCustom(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
-  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
-  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   serverOn: ()=>TwServerFeatures.on('themeCustomSave'),   // 계정 저장을 끄면 이 PC 에만
   loadCustom: (...a)=>TwUserApi.themeCustom.load(...a),   // 👑 GET · PUT /v2/me/theme-custom(account/user-api.js — 판은 provider 가 든다)
@@ -4856,7 +4856,7 @@ themeMod.onApplied(()=>helpTabMod.themeChanged());   // 📘 연 도움말 틀�
 themeMod.applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
 themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
 /* 🔤 창 글꼴 — 테마처럼 파싱 즉시 건다(늦으면 기본 글꼴이 번쩍인다) */
-const fontUiMod = TwFontUi.createFontUi({ _premiumOn: (...a)=>_premiumOn(...a), premiumGate: (...a)=>acctStateMod.premiumGate(...a), tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a), refreshChildren: (...a)=>themeMod.applyTheme(...a) });
+const fontUiMod = TwFontUi.createFontUi({ _premiumOn: (...a)=>_premiumOn(...a), premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a), refreshChildren: (...a)=>themeMod.applyTheme(...a) });
 fontUiMod.apply(); fontUiMod.bind();
 TwNetReady.whenNetReady(()=>{ themeUiMod.pullCustom(); });   // 👑 내 색 — 계정 사본 받기(서버 길이 없으면 pullCustom 이 바로 돌아간다)
 
@@ -4908,8 +4908,8 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   escHtml: (...a)=>escHtml(...a),
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   premiumOn: ()=>_premiumOn(),
-  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
-  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
+  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   appMode: ()=>launcherStateMod.appMode(),
 });
 focusTotalMod.onDayEnd(()=>{ weeklyChal.dayEnded(); });   // 하루가 바뀐 때 달성표도 이번 주를 다시 받는다

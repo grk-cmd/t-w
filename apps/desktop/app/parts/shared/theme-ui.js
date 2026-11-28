@@ -25,8 +25,7 @@ const CUSTOM_ID = deps.CUSTOM_ID;   // 👑 내 색 칸 번호(theme.js)
 const getCustom = deps.getCustom;   // () => { default:{a,b}?, bubble:{a,b}? }
 const setCustom = deps.setCustom;   // (obj) => 씻은 obj — 이 PC 사본에 쓴다
 const _premiumOn = deps._premiumOn;   // () => bool — 이름은 app.js 와 같게(검사가 옮기기 전 글로 합친다)
-const premiumGate = deps.premiumGate;   // () => 'ok'|'no'|'unknown' — 프리미엄을 모르면 «전용이에요» 대신 «확인 중»(account-state.js)
-const tellPremiumUnknown = deps.tellPremiumUnknown;   // «라이선스 확인 중» 안내 한 줄(app.js)
+const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» · 아니면 넘긴 잠금(account-state.js)
 const customUsable = deps.customUsable;   // (theme) => bool — 내 색을 쓸 수 있나(theme.js 한 곳)
 const getMyUserId = deps.getMyUserId;
 const serverOn = deps.serverOn;   // 읽는 함수 — 서버가 «내 색» 을 받는가(shared/server-features.js) · 아니면 이 PC 에만 둔다(읽기 · 쓰기 · 실패 알림 없음)
@@ -117,7 +116,7 @@ let _cxDraft = null;   // { a, b } — 상자가 열린 동안만
 const _cxEl = id => document.getElementById(id);
 function _cxChipClick(){
   const lock = _cxEl('themeCxLock');
-  if(!_premiumOn()){ if(premiumGate() === 'unknown'){ tellPremiumUnknown(); return; } if(lock) lock.style.display = 'block'; return; }   // 모르면 잠금 안내 대신 «확인 중»
+  if(!_premiumOn()){ premiumBlocked(() => { if(lock) lock.style.display = 'block'; }); return; }   // 모르면 잠금 안내 대신 «확인 중»
   if(customUsable(getTheme()) && getAccent() !== CUSTOM_ID){ setAccent(CUSTOM_ID); return; }   // 만들어 둔 색이면 먼저 그 색으로
   _cxOpen();
 }

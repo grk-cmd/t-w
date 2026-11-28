@@ -170,7 +170,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
         mySecretRoom: async () => o.secret ? { code: o.secret.code, name: o.secret.name } : null,
         secretGuests: async () => (o.secret ? o.secret.guests : null) },
       inRoom: () => !!o.inRoom, twNav: nav, maxPeople: () => (o.cap === undefined ? 10 : o.cap), isLicensed: () => !!o.licensed,
-      premiumGate: () => (o.unknown ? 'unknown' : (o.licensed ? 'ok' : 'no')), tellPremiumUnknown: () => { log.told = (log.told || 0) + 1; },
+      premiumBlocked: (locked) => { if(o.unknown){ log.told = (log.told || 0) + 1; return 'unknown'; } if(locked) locked(); return 'locked'; }, premiumKnown: () => !o.unknown,
       isBlocked: o.isBlocked || NOBLOCK,
       joinRoom: async (c) => { log.joins.push(c); await tick(); },
       openCreate: (ch) => log.creates.push(ch), toast: (m) => log.toasts.push(m), notifyError: (c) => log.errors.push(c),
@@ -319,7 +319,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
       const pv3 = classic(noGen, 'TwRoomLobbyProvider').createRoomLobbyProvider({ apiGet: async () => { await gt; return { code: 'SCRT-AAAA' }; }, peek: async () => null, roomCode: () => null, myUserId: () => who, now: () => now });
       const rd = pv3.mySecretRoom(); who = 'B'; pv3.reset(); rel(); let ok = true; try{ await rd; }catch(_){ ok = false; }
       chk(noGen !== P_SRC && ok, '세대 확인을 빼면 2절 «읽는 중 계정이 바뀌면 던진다» 가 빨강'); }
-    { const um = U_SRC.replace("if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast(TEXT.togetherLocked);", 'toast(TEXT.togetherLocked);');
+    { const um = U_SRC.replace("premiumBlocked(() => toast(TEXT.togetherLocked));", 'toast(TEXT.togetherLocked);');
       chk(um !== U_SRC && !(await unknownProbe(um)).tellOk, '★ 모르는 라이선스에 «라이선스가 있어야» 를 띄우면 3절 «확인 중» 이 빨강'); }
     { const um = U_SRC.replace("c.max != null ? c.n + '/' + c.max : c.n + '명'", "c.n + '/' + c.max");
       chk(um !== U_SRC && !(await unknownProbe(um)).capOk, '모르는 정원을 «n/null» 로 적으면 3절이 빨강'); }

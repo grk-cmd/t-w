@@ -11,8 +11,7 @@
 
 function createFontUi(deps){
 const _premiumOn = deps._premiumOn;   // () => bool — 이름은 app.js 와 같게(검사가 옮기기 전 글로 합친다)
-const premiumGate = deps.premiumGate;   // () => 'ok'|'no'|'unknown' — 프리미엄을 모르면 «전용이에요» 대신 «확인 중»(account-state.js)
-const tellPremiumUnknown = deps.tellPremiumUnknown;   // «라이선스 확인 중» 안내 한 줄(app.js)
+const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» · 아니면 넘긴 잠금(account-state.js)
 const refreshChildren = deps.refreshChildren;
 const FC = TwFontChoice;
 const KEY = 'tw.uiFont';
@@ -77,7 +76,7 @@ function refresh(){
 let _pcFamilies = null, _pcDraft = '';
 function _pcClose(){ _pcDraft = ''; const b = $('fontPcBox'); if(b) b.style.display = 'none'; }
 async function _pcOpen(){
-  if(!_premiumOn()){ if(premiumGate() === 'unknown'){ tellPremiumUnknown(); return; } const l = $('fontPcLock'); if(l) l.style.display = 'block'; return; }   // 모르면 잠금 안내 대신 «확인 중»
+  if(!_premiumOn()){ premiumBlocked(() => { const l = $('fontPcLock'); if(l) l.style.display = 'block'; }); return; }   // 모르면 잠금 안내 대신 «확인 중»
   const box = $('fontPcBox'); if(!box) return;
   box.style.display = 'block'; _pcDraft = FC.pcName(stored());
   const s = $('fontPcSearch'); if(s) s.value = '';

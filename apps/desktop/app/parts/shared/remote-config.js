@@ -44,7 +44,6 @@ const BANNED_WORD_LEN_MAX = 20;   // 한 낱말 길이 상한(서버와 같은 �
 const DEFAULTS = Object.freeze({
   roomLimits: Object.freeze({ workingroom: null, togetherroom: null }),   // 서버 판정(channelFull) — 모르면 null(위 [모름])
   roomMaxPeople: null,             // 정원 — 서버(방 서버 full)가 판정 · 모르면 null
-
   inviteGate: true,
   roomServerTiming: Object.freeze({ joinWaitMs: TIMING_RANGES.joinWaitMs[2], clientGiveUpMs: TIMING_RANGES.clientGiveUpMs[2] }),
   minVersion: Object.freeze({ app: null, room: null }),
@@ -121,6 +120,7 @@ function createRemoteConfig(){
   let src = 'default';          // 지금 값의 출처 — 'api' | 'cache' | 'default'
   let opts = null;              // start 가 받은 것 { api, storage, now, win, rt }
   let lastTry = 0, inflight = null;
+  let recoverArmed = false;    // 복귀 다시 묻기를 아직 안 썼다 — 실패 한 묶음에 한 번(복귀로 묻다 또 실패하면 다음 실패 전까지 다시 열지 않는다 · load-state.js 와 같은 규칙)
   const listeners = [], waiters = [];
   const now = () => (opts && opts.now) ? opts.now() : Date.now();
   const warn = (...a) => { try{ console.warn('[원격 설정]', ...a); }catch(_){} };
@@ -168,6 +168,7 @@ function createRemoteConfig(){
   /* 다시 읽기. maxAgeMs 를 주면 마지막 시도가 그보다 최근이면 묻지 않는다(성공이든 실패든 — 멈췄을 때 입장마다 기다리지 않게). */
   function refresh(o){
     const maxAge = (o && o.maxAgeMs) || 0;
+    const byRecover = !!(o && o.recover);
     if(!opts || !opts.api){ answer(); return Promise.resolve(cur); }
     if(inflight) return inflight;
     if(maxAge && lastTry && now() - lastTry < maxAge) return Promise.resolve(cur);
@@ -178,7 +179,7 @@ function createRemoteConfig(){
         src = 'api';
         apply(data, false); saveCache(data);
       })
-      .catch((e) => { warn('API 를 못 읽음 — ' + (src === 'cache' ? '저장값' : src === 'default' ? '기본값' : '지난 값') + ' 그대로', (e && (e.code || e.message)) || e); })
+      .catch((e) => { if(!byRecover) recoverArmed = true; warn('API 를 못 읽음 — ' + (src === 'cache' ? '저장값' : src === 'default' ? '기본값' : '지난 값') + ' 그대로', (e && (e.code || e.message)) || e); })
       .then(() => { inflight = null; answer(); return cur; });
     return inflight;
   }
@@ -198,7 +199,7 @@ function createRemoteConfig(){
       if(w && w.addEventListener) w.addEventListener('focus', again);
     }catch(_){}
     if(opts.rt) opts.rt.on('config', () => { refresh(); });   // 서버가 바꿨다는 알림 · 오래 끊겼다 붙음 — 기다리지 않고 묻는다(304 면 그대로)
-    if(opts.health) opts.health.onRecover(() => { if(src !== 'api') refresh(); });   // API 가 돌아왔다 — 이번 실행에 받은 적이 없으면(저장값 · 기본값) 한 번 묻는다(받은 뒤엔 알림이 맡는다)
+    if(opts.health) opts.health.onRecover(() => { if(src === 'api' || !recoverArmed) return; recoverArmed = false; refresh({ recover: true }); });   // API 가 돌아왔다 — 이번 실행에 받은 적이 없고(저장값 · 기본값) 받기가 실패해 있으면 한 번 묻는다. 확인 요청(api-health)도 같은 /v2/config 지만 ETag 304 라 본문은 다시 안 받는다
     return p;
   }
 

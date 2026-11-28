@@ -539,6 +539,7 @@ const findId = (el, id) => { if(!el) return null; if(el.id === id) return el; fo
 async function judgeUnknown(src, ck){
   let e = mkEnv({ src, saved: [G('a')] }); let M = e.mk();
   ck(M.ticketsLeft() === null && M.ticketsEarned() === null && M.bonus() === null, '받기 전 — 남은 뽑기 · 총 · 보너스가 null(0 이 아니다)');
+  let rel = null; e.gs = ST({}, { earned: 3, left: 3 }); e.gsLoadFail = true; e.gsHold = new Promise((r) => { rel = r; });   // 창을 열면 받기가 나가고(idle) 답을 붙잡아 «불러오는 중» 을 본다 — 풀면 실패
   e.els.gachaGoDraw.onclick();
   const bar = () => e.els.gachaDrawBar.textContent + e.els.gachaDrawBar.innerHTML, stage = () => e.els.gachaDrawStage.textContent + e.els.gachaDrawStage.innerHTML;
   ck(/불러오는 중/.test(bar()) && !/0회/.test(bar()), '받기 전 뽑기 창 정보줄 — «불러오는 중» · «0회» 가 아니다');
@@ -546,7 +547,7 @@ async function judgeUnknown(src, ck){
   ck(/불러오는 중/.test(stage()) && !/남은 뽑기가 없어요|컴플리트/.test(stage()), '  무대 — «불러오는 중» · «남은 뽑기가 없어요» 를 말하지 않는다');
   e.hostOn = true; M.renderGachaInv();
   ck(/불러오는 중/.test(e.els.gachaInvBar.innerHTML) && !/0회/.test(e.els.gachaInvBar.innerHTML), '  도감 아래 줄도 «불러오는 중» · «0회» 가 아니다');
-  e.gs = ST({}, { earned: 3, left: 3 }); e.gsLoadFail = true; await M.pullGacha(false); await flush();
+  e.gsHold = null; if(rel) rel(); await flush(); await flush();
   ck(M.state.load() === 'failed' && /못 불러왔어요/.test(bar()) && e.els.gachaDraw1.disabled === true, '못 받음 — 정보줄 «못 불러왔어요» · 버튼 꺼짐');
   ck(/못 불러왔어요/.test(e.els.gachaInvBar.innerHTML), '  도감 아래 줄도 «못 불러왔어요»');
   const rb = findId(e.els.gachaDrawStage, 'gachaDrawRetry');
@@ -558,6 +559,9 @@ async function judgeUnknown(src, ck){
   e = mkEnv({ src, saved: [G('a')] }); M = e.mk(); e.gs = ST({}); e.gsLoadFail = true; await M.pullGacha(false);
   e.gsLoadFail = false; const n1 = e.gsLoads; e.els.gachaGoDraw.onclick(); await flush(); await flush();
   ck(e.gsLoads === n1 + 1 && M.state.load() === 'ready', '못 받은 채로 뽑기 창을 열면 그때 다시 받는다');
+  e = mkEnv({ src, saved: [G('a')] }); M = e.mk(); e.gs = ST({}, { earned: 2, left: 2 });
+  e.els.gachaGoDraw.onclick(); await flush(); await flush();
+  ck(e.gsLoads === 1 && M.state.load() === 'ready' && /남은 뽑기 <b>2회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && !e.errs.length, '★ 아직 안 받은(idle) 채로 뽑기 창을 열어도 그때 받는다(«불러오는 중» 에 머물지 않음 · 오류 번호 없음)');
   ck(M.nextTicketLevel(null, 999) === null && M.nextTicketLevel('x', 999) === null && M.nextTicketLevel(7, 999) === 10, '다음 뽑기 레벨 — 레벨을 모르면 null(0 레벨로 짐작하지 않는다)');
 }
 await sec('── 8. 모르는 뽑기 수(받기 전 · 못 받음)', async () => {
@@ -568,7 +572,8 @@ await sec('── 8. 모르는 뽑기 수(받기 전 · 못 받음)', async () =
     ["  if(left == null){ _gachaUnknownStage(); return; }", "", '무대가 «모름» 을 따로 안 그림'],
     ["rb.id = 'gachaDrawRetry';", "rb.id = 'x';", '무대에 [다시 시도] 가 없음'],
     ["  if(wasUnknown && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);", "", '받은 뒤 열린 뽑기 창을 안 다시 그림'],
-    ["    if(_gachaLoad === 'failed') pullGacha(true);   // 못 받은", "    // 못 받은", '못 받은 채로 창을 열어도 안 받음'],
+    ["    if(_gachaLoad === 'failed' || _gachaLoad === 'idle') pullGacha(_gachaLoad === 'failed');", "    if(_gachaLoad === 'failed') pullGacha(true);", '★ 아직 안 받은(idle) 채로 창을 열면 안 받음(«불러오는 중» 에 머묾)'],
+    ["    if(_gachaLoad === 'failed' || _gachaLoad === 'idle') pullGacha(_gachaLoad === 'failed');", "    if(_gachaLoad === 'idle') pullGacha(false);", '못 받은 채로 창을 열어도 안 받음'],
     ["(left == null ? '🎰 ' + _gachaLeftUnknownText() : ", "(false ? '' : ", '도감 아래 줄이 «0회» 로'],
     ["  if(level == null || !Number.isFinite(n)) return null;\n", "", '★ 모르는 레벨을 0 으로(옛 모양 Number(level) || 0)'],
   ];

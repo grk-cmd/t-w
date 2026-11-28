@@ -25,8 +25,8 @@ const TEXT = Object.freeze({
  *   twNav: typeof window.TwNav,
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
- *   premiumGate: () => 'ok'|'no'|'unknown',
- *   tellPremiumUnknown: () => unknown,
+ *   premiumBlocked: (locked?: () => void) => 'unknown'|'locked',
+ *   premiumKnown: () => boolean,
  *   isBlocked: (card: { music: boolean }) => boolean,
  *   joinRoom: (code: string) => Promise<void>,
  *   openCreate: (channel: string) => void,
@@ -43,8 +43,8 @@ const inRoom = deps.inRoom;   // 방 안이면 모달은 «연결된 방» 화�
 const twNav = deps.twNav;     // 방을 나와 로비가 다시 보이면 room-entry 가 NAV.ROOM_LOBBY 로 알린다(서로를 모르게)
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
-const premiumGate = deps.premiumGate;   // () => 'ok'|'no'|'unknown' — 프리미엄을 모르면 «전용이에요» 대신 «확인 중»(account-state.js)
-const tellPremiumUnknown = deps.tellPremiumUnknown;   // «라이선스 확인 중» 안내 한 줄(app.js)
+const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» · 아니면 넘긴 잠금(account-state.js)
+const premiumKnown = deps.premiumKnown;   // 읽는 함수 — 서버가 프리미엄을 확인해 줬나(아니면 «아님» 이 아니라 «모름»)
 const joinRoom = deps.joinRoom;
 const isBlocked = deps.isBlocked;   // 🎧 들어가지 못하는 방인가(listen-model.js isBlockedRoom) — 목록에서 뺀다
 const openCreate = deps.openCreate;
@@ -134,7 +134,7 @@ function paint(){
   $('lobbyPage').textContent = (pg.page + 1) + ' / ' + pg.pages;
   $('lobbyPrev').disabled = pg.page <= 0;
   $('lobbyNext').disabled = pg.page >= pg.pages - 1;
-  $('lobbyCreate').title = (st.channel === 'togetherroom' && !isLicensed() && premiumGate() !== 'unknown') ? TEXT.togetherLocked : '';
+  $('lobbyCreate').title = (st.channel === 'togetherroom' && !isLicensed() && premiumKnown()) ? TEXT.togetherLocked : '';
   st.cards = r.list;
   st.state = st.loading ? null : r.state;
   measureTitles();
@@ -198,7 +198,7 @@ $('lobbyRefresh').onclick = () => refresh();
 $('lobbyPrev').onclick = () => { st.page--; paint(); };
 $('lobbyNext').onclick = () => { st.page++; paint(); };
 $('lobbyCreate').onclick = () => {
-  if(st.channel === 'togetherroom' && !isLicensed()){ if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast(TEXT.togetherLocked); return; }   // 라이선스를 모르면 «있어야 만들 수 있어요» 가 아니다
+  if(st.channel === 'togetherroom' && !isLicensed()){ premiumBlocked(() => toast(TEXT.togetherLocked)); return; }   // 라이선스를 모르면 «있어야 만들 수 있어요» 가 아니다
   openCreate(st.channel);
 };
 $('lobbyQuick').onclick = () => {

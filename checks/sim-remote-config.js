@@ -371,6 +371,17 @@ const RCM = require(path.resolve(where('remote-config.js')));
         ok(m === 2 && s6.maxPeople() === 12 && s6.source() === 'api');
         if(rec) rec(); await new Promise((res) => setTimeout(res, 0));
         ok(m === 2);
+        /* 실패 한 묶음에 한 번 — 복귀로 묻다 또 실패하면(서버는 닿지만 설정만 실패) 다음 복귀엔 다시 묻지 않는다 · 다른 받기가 실패하면 다시 연다 */
+        let rec8 = null, m8 = 0;
+        const s8 = M.createRemoteConfig();
+        const t0 = () => new Promise((res) => setTimeout(res, 0));
+        await s8.start({ api: mkApi(mkFetch(() => { m8++; throw new TypeError('x'); })), win: { localStorage: memStore() }, health: { onRecover: (fn) => { rec8 = fn; } } });
+        if(rec8) rec8(); await t0(); await t0();
+        ok(m8 === 2);
+        if(rec8) rec8(); await t0(); await t0();
+        ok(m8 === 2);
+        await s8.refresh(); if(rec8) rec8(); await t0(); await t0();
+        ok(m8 === 4);
       }catch(_){ bad++; }
       return bad;
     }
@@ -392,8 +403,10 @@ const RCM = require(path.resolve(where('remote-config.js')));
       ["  clapDailyMax: null,", "  clapDailyMax: 5,", '모르는 박수 상한을 5 로'],
       ["  giftDailySendMax: null,", "  giftDailySendMax: 10,", '모르는 선물 상한을 10 으로'],
       ["    roomLimitOf: (ch) => (CHANNELS.indexOf(ch) >= 0 ? cur.roomLimits[ch] : cur.roomLimits.workingroom),", "    roomLimitOf: (ch) => cur.roomLimits[ch] || cur.roomLimits.workingroom,", '모르는 채널 상한을 워킹룸 값으로 대신함'],
-      ["    if(opts.health) opts.health.onRecover(() => { if(src !== 'api') refresh(); });", "", '★ API 복귀 때 다시 안 물음(못 받은 채 남음)'],
-      ["    if(opts.health) opts.health.onRecover(() => { if(src !== 'api') refresh(); });", "    if(opts.health) opts.health.onRecover(() => { refresh(); });", 'API 복귀마다 받은 뒤에도 또 물음'],
+      ["    if(opts.health) opts.health.onRecover(() => { if(src === 'api' || !recoverArmed) return; recoverArmed = false; refresh({ recover: true }); });", "", '★ API 복귀 때 다시 안 물음(못 받은 채 남음)'],
+      ["if(src === 'api' || !recoverArmed) return; recoverArmed = false;", "", 'API 복귀마다 받은 뒤에도 또 물음'],
+      ["if(src === 'api' || !recoverArmed) return; recoverArmed = false;", "if(src === 'api') return;", '★ 복귀로 묻다 실패해도 복귀마다 또 물음(실패 한 묶음에 한 번이 아님)'],
+      ["      .catch((e) => { if(!byRecover) recoverArmed = true; warn(", "      .catch((e) => { recoverArmed = true; warn(", '복귀 받기 실패가 다시 열어 끝없이 돎'],
     ];
     const missed = [];
     for(const [from, to, what] of BREAKS){

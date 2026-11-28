@@ -39,15 +39,15 @@ function judge(mod, html, files, app) {
     r.pass = !('INVITE_PASS_KEY' in st) && !('_markInvitePassed' in st);
     const got = []; st.onPremiumChanged(() => got.push('a')); st.onPremiumChanged(() => got.push('b'));
     const unknown0 = st.premiumKnown() === false && prem() === false;   // 서버가 확인해 주기 전 — false 는 «모름»
-    const gate0 = st.premiumGate();
+    const lk = []; const gate0 = st.premiumBlocked(() => lk.push('x'));   // 모름 — 잠금을 안 부르고 «확인 중»
     st._setPremium(false); r.first = unknown0 && st.premiumKnown() === true && prem() === false && got.join() === 'a,b';   // 첫 확인은 값이 그대로여도(false → false) 한 번 알린다 — «확인 중» 으로 그린 칸이 지금 값으로 바뀌게
-    const gateNo = st.premiumGate();
+    const gateNo = st.premiumBlocked(() => lk.push('no'));   // 확인된 «아님» — 잠금을 부른다
     st._setPremium(false); r.quiet = got.length === 2;
     st._setPremium(1); r.prem = prem() === true && got.join() === 'a,b,a,b';
     st._setPremium(true); r.premSame = got.length === 4;
-    r.gate = gate0 === 'unknown' && gateNo === 'no' && st.premiumGate() === 'ok' && typeof st.PREMIUM_UNKNOWN_TEXT === 'string' && /확인 중/.test(st.PREMIUM_UNKNOWN_TEXT);
-    st.resetPremium(); r.gate = r.gate && st.premiumGate() === 'unknown' && prem() === false;
-    st.tellPremiumUnknown(); r.gate = r.gate && toasts.length === 1 && toasts[0] === st.PREMIUM_UNKNOWN_TEXT;
+    r.gate = gate0 === 'unknown' && gateNo === 'locked' && lk.join() === 'no' && toasts.length === 1 && toasts[0] === st.PREMIUM_UNKNOWN_TEXT && /확인 중/.test(st.PREMIUM_UNKNOWN_TEXT)
+      && st.premiumBlocked() === 'locked' && toasts.length === 1;   // 잠금 없이 불러도(아님) 아무것도 안 띄운다
+    st.resetPremium(); r.gate = r.gate && st.premiumBlocked(() => lk.push('y')) === 'unknown' && lk.join() === 'no' && toasts.length === 2 && prem() === false;
     r.detach = st._acctDetached() === false && (st.setAcctDetached(true), st._acctDetached() === true);
     r.rcNull = st._rcStore() === null;
     win.TwRemoteConfig = { store: { maxPeople: () => 7 } }; r.rc = st._rcStore() && st._rcStore().maxPeople() === 7;
@@ -85,7 +85,7 @@ say('── 1. 값 · 함수');
 chk(!R.err && R.keys && R.re, '저장 키 넷 · 친구코드 모양(MATE-XXXX)이 옮기기 전 값 그대로' + (R.err ? ' — ' + R.err : ''));
 chk(R.email && R.pass, '로그인 이메일은 저장 키에서 읽는다(없으면 null) · 초대 통과 표시는 걷었다(0.13)');
 chk(R.first && R.quiet, '프리미엄 «모름» — 확인 전 premiumKnown 은 false · 첫 확인은 같은 값이어도 한 번 알림(«확인 중» 을 지운다) · 그 뒤로는 값이 바뀔 때만');
-chk(R.gate, '★ 프리미엄 문 — 확인 전 · reset 뒤 \'unknown\'(«아님» 이 아니다) · 거짓 \'no\' · 참 \'ok\' · «확인 중» 안내 글이 한 곳');
+chk(R.gate, '★ premiumBlocked — 확인 전 · reset 뒤 잠금을 안 부르고 «라이선스 확인 중»(글은 한 곳) · \'unknown\' · 확인된 «아님» 이면 잠금을 부르고 \'locked\'');
 chk(R.prem && R.premSame, '프리미엄 — 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 쓰는 함수로');
 chk(R.detach, '신원 놓음 — 처음 false · 쓰는 함수로 올린다');
 chk(R.rcNull && R.rc, '원격 설정 한 벌 — 없으면(검사 · 옛 html) null · 있으면 그 store');
@@ -104,7 +104,7 @@ const lateHtml = HTML.indexOf(line) < 0 ? HTML : HTML.replace(line, '').replace(
 chk(judge(MOD, lateHtml, FILES, APP).late.length > 0, 'account-state.js 를 app.js 뒤로 옮기면 빨강');
 chk(!judge(MOD.replace(/  if\(wasKnown && isPremium\(\) === v\) return;[^\n]*\n/, ''), HTML, FILES, APP).premSame, '같은 값에도 알리면 빨강');
 chk(!judge(MOD.replace(/  if\(wasKnown && isPremium\(\) === v\) return;/, '  if(isPremium() === v) return;'), HTML, FILES, APP).first, '첫 확인(같은 값)에 안 알리면 빨강(«확인 중» 이 남는다)');
-chk(!judge(MOD.replace("  if(!_premiumKnown) return 'unknown';\n", ''), HTML, FILES, APP).gate, '★ 모르는 프리미엄을 \'no\' 로 보면 빨강');
+chk(!judge(MOD.replace("  if(!_premiumKnown){ toast(PREMIUM_UNKNOWN_TEXT); return 'unknown'; }\n", ''), HTML, FILES, APP).gate, '★ 모르는 프리미엄을 «아님» 으로 잠그면 빨강');
 chk(!judge(MOD.replace('  _premiumKnown = true;\n', ''), HTML, FILES, APP).first, '확인했는데도 «모름» 이면 빨강');
 chk(!judge(MOD.replace("const LOGIN_EMAIL_KEY = 'tw.loginEmail';", "const LOGIN_EMAIL_KEY = 'tw.loginMail';"), HTML, FILES, APP).keys, '저장 키 글자가 바뀌면 빨강');
 const extra = FILES.map(([f, t]) => [f, f === 'myhome/guestbook.js' ? t + '\nonPremiumChanged(()=>{});\n' : t]);

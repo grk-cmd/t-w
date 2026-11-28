@@ -15,8 +15,8 @@ const toast = deps.toast;
 const escHtml = deps.escHtml;
 const formatHMS = deps.formatHMS;
 const _premiumOn = deps.premiumOn;              // ⚠️ isPremium 을 직접 읽지 않는다(TDZ) — app.js 의 _premiumOn
-const premiumGate = deps.premiumGate;   // () => 'ok'|'no'|'unknown' — 프리미엄을 모르면 «전용이에요» 대신 «확인 중»(account-state.js)
-const tellPremiumUnknown = deps.tellPremiumUnknown;   // «라이선스 확인 중» 안내 한 줄(app.js)
+const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» · 아니면 넘긴 잠금(account-state.js)
+const premiumKnown = deps.premiumKnown;   // 읽는 함수 — 서버가 프리미엄을 확인해 줬나(아니면 «아님» 이 아니라 «모름»)
 const appMode = deps.appMode;                   // 'run' | … — 읽는 함수(앱 모드의 주인은 launcher/launcher-state.js)
 const { PHASE, CELL, ruleItems: _chalRuleItems } = TwChalStore;
 
@@ -203,7 +203,7 @@ function _chalRender(){
   if(stateBox){
     stateBox.style.display = notReady ? 'block' : 'none';
     if(notReady && stateMsg) stateMsg.textContent = v.load === 'failed' ? '달성표를 못 불러왔어요'
-      : (v.load === 'locked' || !v.premium ? (premiumGate() === 'unknown' ? '라이선스를 확인하는 중이에요…' : '👑 달성표는 프리미엄 전용이에요') : '달성표를 불러오는 중이에요…');
+      : (v.load === 'locked' || !v.premium ? (!premiumKnown() ? '라이선스를 확인하는 중이에요…' : '👑 달성표는 프리미엄 전용이에요') : '달성표를 불러오는 중이에요…');
     if(retry) retry.style.display = v.load === 'failed' ? 'inline-block' : 'none';
   }
   const seg = _chalEl('chalPhaseSeg');
@@ -525,7 +525,7 @@ function _chalRenderRuleList(){
 
   btn.onclick = () => {
     /* ⚠️ 게이트 ① — isPremium 을 직접 읽으면 TDZ 로 앱이 통째로 안 켜진다. 반드시 _premiumOn(). */
-    if(!_premiumOn()){ try{ if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast('👑 달성표는 프리미엄 전용이에요'); }catch(_){} return; }
+    if(!_premiumOn()){ try{ premiumBlocked(() => toast('👑 달성표는 프리미엄 전용이에요')); }catch(_){} return; }
     if(_chalIsOpen()){ _chalOpen(false); return; }
     _chalDraft = null;
     if(store.load() === 'locked'){ toast('👑 달성표는 프리미엄 전용이에요'); return; }

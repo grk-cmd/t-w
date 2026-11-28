@@ -75,7 +75,7 @@ function mkEnv(opt){
   env.mk = () => ctx.TwWeeklyChallenge.createWeeklyChallenge({
     chalStore: store, toast: (m) => env.toasts.push(m), escHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'), formatHMS: (s) => 'T' + s,
     premiumOn: () => env.premium, appMode: () => 'run',
-    premiumGate: () => (env.unknown ? 'unknown' : (env.premium ? 'ok' : 'no')), tellPremiumUnknown: () => { env.told = (env.told || 0) + 1; },
+    premiumBlocked: (locked) => { if(env.unknown){ env.told = (env.told || 0) + 1; return 'unknown'; } if(locked) locked(); return 'locked'; }, premiumKnown: () => !env.unknown,
   });
   env.fire = (e) => env.onEvent.forEach(f => f(e));
   env.change = () => env.onChange.forEach(f => f());
@@ -286,9 +286,9 @@ await sec('── 8. mutation test', async () => {
     giveup: async (src) => { const e = mkEnv({ src, view: runView() }); e.mk().open(true); e.els.chalGiveupBtn.click(); pbox(e.popups[0]).querySelectorAll('[data-a]').find(b => b.getAttribute('data-a') === 'no').click(); await flush(); return !e.calls.some(c => c[0] === 'giveUp'); },
   };
   const BREAKS = [
-    ['gate', "if(!_premiumOn()){ try{ if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast('👑 달성표는 프리미엄 전용이에요'); }catch(_){} return; }", '', '프리미엄 게이트를 지움'],
-    ['gateUnknown', "try{ if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast('👑 달성표는 프리미엄 전용이에요'); }", "try{ toast('👑 달성표는 프리미엄 전용이에요'); }", '★ 모르는 라이선스에 «프리미엄 전용» 안내(옛 모양)'],
-    ['gateUnknown', "(premiumGate() === 'unknown' ? '라이선스를 확인하는 중이에요…' : '👑 달성표는 프리미엄 전용이에요')", "'👑 달성표는 프리미엄 전용이에요'", '모르는 라이선스에 상태 줄이 «프리미엄 전용»'],
+    ['gate', "if(!_premiumOn()){ try{ premiumBlocked(() => toast('👑 달성표는 프리미엄 전용이에요')); }catch(_){} return; }", '', '프리미엄 게이트를 지움'],
+    ['gateUnknown', "try{ premiumBlocked(() => toast('👑 달성표는 프리미엄 전용이에요')); }", "try{ toast('👑 달성표는 프리미엄 전용이에요'); }", '★ 모르는 라이선스에 «프리미엄 전용» 안내(옛 모양)'],
+    ['gateUnknown', "(!premiumKnown() ? '라이선스를 확인하는 중이에요…' : '👑 달성표는 프리미엄 전용이에요')", "'👑 달성표는 프리미엄 전용이에요'", '모르는 라이선스에 상태 줄이 «프리미엄 전용»'],
     ['foreign', "if(_chalKeyForeign) return;", '', '다른 플랫폼 조건을 센 척함'],
     ['desktop', "  if(state && state.desktop) return;\n", '', '바탕화면 · 작업표시줄에서도 셈'],
     ['keep', "    if(r.ok){\n      /* [수정]은", "    if(true){\n      /* [수정]은", '저장 실패에도 초안을 닫음'],

@@ -10,11 +10,11 @@
  * @param {{
  *   roomSettings: typeof window.TwRoomSettings,
  *   bannedWords: typeof window.TwBannedWords,
- *   rcStore: () => { bannedWords(): string[], answered(): boolean, refresh(): Promise<unknown>, onChange(fn: (c: object, key: string) => void): unknown },
+ *   rcStore: () => { bannedWords(): string[], answered(): boolean, ready(want: unknown, ms: number): Promise<unknown>, refresh(): Promise<unknown>, onChange(fn: (c: object, key: string) => void): unknown },
  *   maxPeople: () => number|null,
  *   isLicensed: () => boolean,
- *   premiumGate: () => 'ok'|'no'|'unknown',
- *   tellPremiumUnknown: () => unknown,
+ *   premiumBlocked: (locked?: () => void) => 'unknown'|'locked',
+ *   premiumKnown: () => boolean,
  *   listenEnabled: boolean,
  *   onCreate: (channel: string, settings: { title: string, max: number, open: boolean, music: boolean }) => void,
  * }} deps
@@ -25,8 +25,8 @@ const bannedWords = deps.bannedWords;
 const rcStore = deps.rcStore;
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
-const premiumGate = deps.premiumGate;   // () => 'ok'|'no'|'unknown' — 프리미엄을 모르면 «전용이에요» 대신 «확인 중»(account-state.js)
-const tellPremiumUnknown = deps.tellPremiumUnknown;   // «라이선스 확인 중» 안내 한 줄(app.js)
+const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» · 아니면 넘긴 잠금(account-state.js)
+const premiumKnown = deps.premiumKnown;   // 읽는 함수 — 서버가 프리미엄을 확인해 줬나(아니면 «아님» 이 아니라 «모름»)
 const onCreate = deps.onCreate;
 const listenEnabled = deps.listenEnabled;   // 🎧 같이 듣기 스위치(listen-model.js ENABLED) — 꺼져 있으면 «같이 듣기 방» 칸을 숨기고 싣지 않는다
 
@@ -39,6 +39,7 @@ let retrying = false;   // [다시 시도] 로 정원을 다시 묻는 중
    모르는 동안 + · − · [방 만들기] 는 꺼 둔다(정원 판정은 서버지만 고를 범위를 짐작해 보이지 않는다). */
 const CAP_LOADING = '정원을 불러오는 중이에요…';
 const CAP_FAILED = '정원을 불러오지 못했어요';
+const CAP_WAIT_MS = 15000;   // 첫 답을 기다리는 상한 — 첫 받기가 실패해도(값이 안 바뀌어 onChange 가 안 온다) 답이 오면 «불러오지 못했어요» 로 다시 그린다
 function paintCapUnknown(){
   const failed = !retrying && rcStore().answered();
   $('rcMax').textContent = '';
@@ -51,7 +52,7 @@ function paintCapUnknown(){
 function paint(){
   $('rcChWorking').classList.toggle('on', channel === 'workingroom');
   $('rcChTogether').classList.toggle('on', channel === 'togetherroom');
-  $('rcChTogether').disabled = !isLicensed() && premiumGate() !== 'unknown';   // 모르면 잠그지 않는다 — 누르면 «확인 중»
+  $('rcChTogether').disabled = !isLicensed() && premiumKnown();   // 모르면 잠그지 않는다 — 누르면 «확인 중»
   $('rcOpenHint').textContent = $('rcOpen').checked ? roomSettings.OPEN_HINT.on : roomSettings.OPEN_HINT.off;
   $('rcTitleCount').textContent = $('rcTitle').value.trim().length + '/' + roomSettings.TITLE_MAX;
   const cap = maxPeople();
@@ -75,6 +76,7 @@ function open(ch){
   channel = (ch === 'togetherroom' && isLicensed()) ? 'togetherroom' : 'workingroom';
   max = maxPeople();   // 모르면 null — 정원이 오면 paint 가 채운다
   retrying = false;
+  if(max == null && !rcStore().answered()) rcStore().ready(null, CAP_WAIT_MS).then(() => { if(!$('roomCreatePanel').hidden) paint(); });   // 첫 답(성공 · 실패)이 오면 한 번 다시 그린다
   $('rcTitle').value = '';
   $('rcOpen').checked = true;
   $('rcMusic').checked = false;   // 만든 뒤엔 못 바꾸니 늘 꺼진 채로 연다(docs/LISTEN_TOGETHER.md 1장)
@@ -96,7 +98,7 @@ function submit(){
 }
 
 $('rcChWorking').onclick = () => { channel = 'workingroom'; paint(); };
-$('rcChTogether').onclick = () => { if(isLicensed()){ channel = 'togetherroom'; paint(); } else if(premiumGate() === 'unknown') tellPremiumUnknown(); };
+$('rcChTogether').onclick = () => { if(isLicensed()){ channel = 'togetherroom'; paint(); } else premiumBlocked(); };   // 모르면 «확인 중»(아님이면 단추가 꺼져 있다)
 $('rcMaxDown').onclick = () => { const cap = maxPeople(); if(cap == null || max == null) return; max = roomSettings.clampMax(max - 1, cap); paint(); };
 $('rcMaxUp').onclick = () => { const cap = maxPeople(); if(cap == null || max == null) return; max = roomSettings.clampMax(max + 1, cap); paint(); };
 $('rcOpen').onchange = paint;

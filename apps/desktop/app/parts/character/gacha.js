@@ -980,7 +980,7 @@ function _gachaDrawOpen(){ const ov=document.getElementById('gachaDrawOverlay');
     dw.style.display='block';
     _gachaRestorePos('draw', q('gachaDrawWin'));
     renderGachaDraw(null);
-    if(_gachaLoad === 'failed') pullGacha(true);   // 못 받은 채로 열면 이번이 «다시 시도»(도감 열기와 같다) — 받는 동안 무대는 «불러오는 중»
+    if(_gachaLoad === 'failed' || _gachaLoad === 'idle') pullGacha(_gachaLoad === 'failed');   // 못 받았거나 아직 안 받았으면 지금 받는다(못 받음이면 «다시 시도» — 오류 번호도) — 받는 동안 무대는 «불러오는 중»
   };
   if(q('gachaBackInv')) q('gachaBackInv').onclick = ()=>{
     closeGachaDraw();

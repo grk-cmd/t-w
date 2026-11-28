@@ -3,9 +3,9 @@
    초대 게이트(license-gate.js) · 계정(account.js) · 내 정보(my-info.js)에 흩어져 있어서 계정 ↔ 게이트 ↔ 내 정보가 서로를 불렀다(checks/sim-dep-cycles.js).
    ★ 아래 본문은 옮기기 전 글 그대로다(license-gate.js 의 키 · _setPremium, account.js 의 로그인 키 둘 · getMyLoginEmail · FRIEND_CODE_LOGIN_RE · _acctDetached, my-info.js 의 _acctRelaunchAfterDetach).
      옮긴 뒤 바뀐 것 — _setPremium 이 다시 그리기를 직접 부르지 않고 «프리미엄이 바뀌었다» 알림(onPremiumChanged)을 돌린다(게이트가 건다) ·
-     _acctDetached 는 계정이 쓰는 함수(setAcctDetached)로 올린다 · 프리미엄 «모름»(premiumKnown · premiumGate) · 전용 자산 막기 판단 한 곳(licenseAssetBlocked)이 더해졌다.
+     _acctDetached 는 계정이 쓰는 함수(setAcctDetached)로 올린다 · 프리미엄 «모름»(premiumKnown · premiumBlocked) · 전용 자산 막기 판단 한 곳(licenseAssetBlocked)이 더해졌다.
    ★ 원격 설정 한 벌 읽기(_rcStore)도 여기 — 초대 게이트 · 방 입장 · app.js 가 같이 쓴다.
-   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · _rcStore · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · _setPremium · resetPremium · premiumKnown · licenseAssetBlocked · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · _rcStore · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · _setPremium · resetPremium · premiumKnown · premiumBlocked · PREMIUM_UNKNOWN_TEXT · licenseAssetBlocked · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
    ⚠️ 전역 이름은 TwAccountState — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    app.js · 쓰는 모듈보다 먼저 싣는 classic script. */
 (function(){
@@ -24,7 +24,7 @@ function _premiumChanged(){ _premiumFns.forEach(fn=>fn()); }   // «프리미엄
 
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';   // 0.12 까지 이 PC 가 들던 키 — 0.13 은 서버가 계정에 묶어 안다. 첫 실행에 올리고 지울 옛 값(읽기 전용)
 /* 🔑 isPremium 은 **이 함수로만** 바꾼다 — 바뀌면 _refreshPremiumGatedUI 가 내 좌석의 책상 · 아이템을 다시 적용한다.
-   [모름] 서버 확인(GET /v2/me)이 오기 전에는 «아직 모름» 이다 — isPremium 은 false 지만 «아님» 이 아니다. premiumKnown() · premiumGate() 는 프리미엄으로 여는 기능(캐릭터 코드 불러오기 · 달성표 · 커스텀 상태 · 글꼴 · 색 · 마이홈 꾸미기 · 투게더룸 · 라이선스 글)이 «모름» 을 가를 때 쓴다.
+   [모름] 서버 확인(GET /v2/me)이 오기 전에는 «아직 모름» 이다 — isPremium 은 false 지만 «아님» 이 아니다. premiumKnown() · premiumBlocked() 는 프리미엄으로 여는 기능(캐릭터 코드 불러오기 · 달성표 · 커스텀 상태 · 글꼴 · 색 · 마이홈 꾸미기 · 투게더룸 · 라이선스 글)이 «모름» 을 가를 때 쓴다.
      전용 자산을 막고 접는 판단은 이 값이 아니라 카탈로그 레코드의 서버 locked 다(licenseAssetBlocked · premium-assets.js).
    [부르는 곳] 서버가 «이 계정 + 이 기기» 로 판정해 준 값(license-premium.js)만. 확인 전 저장값으로 켜지 않는다. 같은 값이면 조용하다. */
 let _premiumKnown = false;
@@ -36,14 +36,15 @@ function _setPremium(v){
   if(isPremium() !== v) setIsPremium(v);
   _premiumChanged();
 }
-/* 🔓 프리미엄 문 — 'ok' · 'no' · 'unknown'(서버가 아직 확인해 주지 않음 — «아님» 이 아니다). 프리미엄으로 여는 기능은 'unknown' 이면
-   «프리미엄 전용이에요» 같은 안내 · 잠금 대신 PREMIUM_UNKNOWN_TEXT 를 알린다(CLAUDE.md «모르는 값을 그럴듯한 값으로 바꾸지 않는다»). 관리자 통과는 부르는 쪽이 더한다. */
+/* 🔓 프리미엄이 아니라 기능을 못 열 때 한 곳 — premiumBlocked(locked?) 를 부른다(프리미엄 · 관리자 통과는 부르는 쪽이 먼저 본다).
+   서버가 아직 확인해 주지 않았으면(«모름» — «아님» 이 아니다) locked 를 부르지 않고 «라이선스 확인 중» 을 알린 뒤 'unknown',
+   확인된 «아님» 이면 locked()(«프리미엄 전용이에요» 안내 · 잠금 · 무료 메뉴)를 부르고 'locked'. CLAUDE.md «모르는 값을 그럴듯한 값으로 바꾸지 않는다». */
 const PREMIUM_UNKNOWN_TEXT = '라이선스 확인 중이에요 — 잠시 뒤 다시 눌러 주세요';
-function premiumGate(){
-  if(!_premiumKnown) return 'unknown';
-  return isPremium() ? 'ok' : 'no';
+function premiumBlocked(locked){
+  if(!_premiumKnown){ toast(PREMIUM_UNKNOWN_TEXT); return 'unknown'; }
+  if(locked) locked();
+  return 'locked';
 }
-function tellPremiumUnknown(){ toast(PREMIUM_UNKNOWN_TEXT); }
 /* 계정이 바뀌거나 세션을 놓을 때 «모름» 으로 되돌린다 — 알림 없이(다음 계정 확인이 다시 정한다 · license-premium.js reset) */
 function resetPremium(){
   _premiumKnown = false;
@@ -98,10 +99,9 @@ return {
   _setPremium,
   resetPremium,
   licenseAssetBlocked,
-  premiumKnown: () => _premiumKnown,
-  premiumGate,
-  tellPremiumUnknown,
-  PREMIUM_UNKNOWN_TEXT,   // 읽는 함수 — 서버가 확인해 준 적이 있나(없으면 isPremium 의 false 는 «모름»)
+  premiumKnown: () => _premiumKnown,   // 읽는 함수 — 서버가 확인해 준 적이 있나(없으면 isPremium 의 false 는 «모름»)
+  premiumBlocked,   // 프리미엄이 아니라 못 열 때 — 모르면 «확인 중» · 아니면 locked()
+  PREMIUM_UNKNOWN_TEXT,
   onPremiumChanged,
   _acctDetached: ()=>_acctDetached,   // 읽는 함수
   setAcctDetached: (v)=>{ _acctDetached = v; },   // 쓰는 함수 — 계정이 신원을 놓을 때(_wipeAccountLocal)

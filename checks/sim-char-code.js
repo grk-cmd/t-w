@@ -19,11 +19,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ["applyCharToSeat","closeGearMenu","createSeat","decryptCode","encryptCode","layoutSeats","loadCharGLB","renderLauncher","renderSeatTabs","saveCurSlot","saveSlots","selectSeat","toast"];
 const VAL_DEPS = ["CHAR_SLOT_MAX","overheadMod","premiumMod","scene","seats","slots"];
-const GET_DEPS = ["curSlot","focusLevelMod","gachaMod","isAdmin","isPremium","premiumKnown"];
+const GET_DEPS = ["curSlot","focusLevelMod","gachaMod","isAdmin","isPremium"];
 const SET_DEPS = ["curSlot"];
 const EXPORTS = ["downloadBlob","importCloneCode","loadEncryptedGlbAsSeat","openCodeModal"];
 const MOVED = ["downloadBlob","loadEncryptedGlbAsSeat","openCodeModal","importCloneCode","exportDef"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  decryptCode: (...a)=>codeCryptoMod.decryptCode(...a),","  encryptCode: (...a)=>codeCryptoMod.encryptCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  premiumKnown: ()=>acctStateMod.premiumKnown(),","  layoutSeats: (...a)=>layoutSeats(...a),","  loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),","  overheadMod: overheadMod,","  premiumMod: premiumMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),","  scene: scene,","  seats: seats,","  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  decryptCode: (...a)=>codeCryptoMod.decryptCode(...a),","  encryptCode: (...a)=>codeCryptoMod.encryptCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  premiumBlocked: (...a)=>acctStateMod.premiumBlocked(...a),","  layoutSeats: (...a)=>layoutSeats(...a),","  loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),","  overheadMod: overheadMod,","  premiumMod: premiumMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),","  scene: scene,","  seats: seats,","  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -84,7 +84,8 @@ async function entryRows(mod){
     deps.decryptCode = async () => { log.decrypt++; return null; };
     deps.saveSlots = () => { log.saved++; };
     deps.toast = (m) => log.toasts.push(m);
-    deps.premiumKnown = () => known;
+    deps.isPremium = () => false;
+    deps.premiumBlocked = (locked) => { if(!known){ log.toasts.push('라이선스 확인 중이에요 — 잠시 뒤 다시 눌러 주세요'); return 'unknown'; } if(locked) locked(); return 'locked'; };   // account-state.js premiumBlocked 흉내(글은 그쪽 한 곳)
     const win = { crypto: { subtle: {} } };   // 가짜 프록시가 아닌 평범한 객체 — 없는 이름을 «then 이 있는 것» 으로 돌려주면 await 가 영영 끝나지 않는다
     const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'crypto',
       mod + '\nreturn window.TwCharCode;')(win, any, { getItem: () => null, setItem(){}, removeItem(){} }, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, { subtle: {} });
@@ -112,7 +113,7 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const charCodeMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('charCodeMod.' + x)); if(n){ ls[i] = ls[i].replace('charCodeMod.' + n, n); return ls.join('\n'); } } return a; }, null],
-  ['모름에도 불러옴', m => m.replace("if(!premiumKnown()){ toast(", "if(false){ toast("), null, null],
+  ['모름에도 불러옴', m => m.replace("if(!isPremium() && premiumBlocked() === 'unknown') return false;", "if(false) return false;"), null, null],
   ['만들 때 던짐', m => m.replace('function createCharCode(deps){', 'function createCharCode(deps){ throw new Error("mutation");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
