@@ -162,6 +162,7 @@ function mkEnv(o){
       shownFocusLevel: () => 42, myFocusShow: () => null, starFromRemote: (c) => (c && c.star) ? { cyc: 2, lv: 7, color: c.star } : null,
       lvBadgeClass: (n) => 'lv' + n, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n, starPaint: () => {},
       myhomeAvatar: () => (env.homeLoaded && env.homeData && env.homeData.avatar) || null, myHomeFriends: () => env.friends,
+      friendsNotice: () => (env.friendsNoticeV || null),
       friendsRefreshPresence: (ids) => { env.refreshed.push(ids.slice().sort().join()); return Promise.resolve().then(() => { if(env.onRefresh) env.onRefresh(); }); },
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
@@ -414,6 +415,10 @@ async function behave(src){
     chk(e.likes.slice(-1)[0] === JSON.stringify({ ro: false, ownerId: 'ME01', setIdx: m.state().cur }), '  👍 반응 칸 — 내 목록이면 나 · 지금 고른 프리셋(수만 보인다)');
     m.st.sel = 0; m.grabTo(1);
     chk(m.state().sets[1].items.length === 0, '  내 목록에서는 담기가 아무것도 안 한다(읽기 전용일 때만)');
+    e.friendsNoticeV = '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요';   // 친구 목록을 못 받음 — 화면 캐시는 옛 값 · 처음 값({})일 수 있다
+    e.byId.myPlPeek.fire('contextmenu'); await flush();
+    { const k = e.byId.myPlFriendPick.children; chk(k.length === 1 && k[0].textContent === e.friendsNoticeV, '🌊 우클릭 — 친구 목록을 못 받았으면 friends-sub 안내 한 칸(«아직 친구가 없어요» · 옛 목록 아님)'); }
+    e.byId.myPlPeek.fire('contextmenu'); e.friendsNoticeV = null; e.refreshed.length = 0;
     e.onRefresh = () => { e.friends.F2.online = true; e.friends.F1.online = false; };
     e.byId.myPlPeek.fire('contextmenu');
     let fr = e.byId.myPlFriendPick.children;
@@ -924,6 +929,8 @@ async function behave(src){
     chk(lv.className === 'mh-flv lv34' && lv.textContent === 'Lv34', '🏅 레벨 배지(plMod.fillLv) — 친구 목록과 같은 함수');
     m.fillLv(lv, null, null);
     chk(lv.className === '' && lv.textContent === '', '  레벨을 모르면 숨긴다');
+    { const bad = [0, 'x', -3].map(v => { m.fillLv(lv, v, null); return lv.className === '' && lv.textContent === ''; });
+      chk(bad.every(Boolean), '  잘못된 레벨(0 · 글자 · 음수)도 숨긴다 — Lv.1 로 그리지 않는다'); }
     chk(m.ytVideoId('https://youtu.be/abcdefghijk?t=3') === 'abcdefghijk' && m.ytVideoId('https://www.youtube.com/shorts/abcdefghijk') === 'abcdefghijk' && m.ytVideoId('x') === null, '🔗 유튜브 id 파서(마이홈 BGM 과 한 벌)');
   }
   say('── 7-2. 😴 재생 창 사각형 폴링 — 닫혀 있고 off 를 보냈으면 잔다 · 열리면 다시');
@@ -978,10 +985,10 @@ function wiring(PL, APP, HTML){
   const fnNames = [['toast', 'toast'], ['getMyUserId', 'getMyUserId'], ['getDisplayName', 'getDisplayName'], ['asyncPrompt', 'asyncPrompt'], ['shownFocusLevel', 'shownFocusLevel'],
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
-    ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
+    ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence'], ['friendsNotice', 'friendsSubMod.notice']];
   const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['playlistAccountStore: accountStoreMod,', 'myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'playlistLikeUi: plLikeUi,', 'fetchPlaylistCard: (...a)=>apiPublicReadsMod.fetchPlaylistCard(...a),', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 25 && !miss.length, 'deps 25개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 경로 provider · 계정 칸 · 👍 반응 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 26 && !miss.length, 'deps 26개 — 함수 20은 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 경로 provider · 계정 칸 · 👍 반응 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
@@ -1037,6 +1044,8 @@ async function runAll(PL, APP, HTML){
 
   say('── 9. mutation test');
   const BREAKS = [
+    ['PL', "  const n = star ? star.lv : parseInt(lv, 10);\n  if(!star && !(n >= 1)){", "  const n = star ? star.lv : Math.max(1, parseInt(lv, 10) || 1);\n  if(lv == null && !star){", '잘못된 레벨(0 · 글자)을 Lv.1 배지로(옛 `|| 1`)'],
+    ['PL', "  if(notice){   // 못 받음 · 받는 중", "  if(false){   // 못 받음 · 받는 중", '못 받은 친구 목록을 «아직 친구가 없어요» · 옛 목록으로 그림'],
     ['PL', "? s.items.filter(x => x && x.id).slice(0, PL_MAX).map(", "? s.items.filter(x => x && x.id).map(", '관문이 20곡으로 안 깎음'],
     ['PL', "out[i].name  = (typeof s.name === 'string') ? s.name.slice(0, PL_TITLE_MAX) : '';", 'out[i].name  = String(s.name || \'\').slice(0, PL_TITLE_MAX);', '깨진 이름을 «[object Object]» 로'],
     ['PL', "if(mine.some(x => x.id === vid)){", 'if(false){', '같은 곡이 또 들어감'],

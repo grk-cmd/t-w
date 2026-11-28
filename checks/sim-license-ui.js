@@ -19,11 +19,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = [];
 const VAL_DEPS = ["licenseScreenMod"];
-const GET_DEPS = ["isPremium"];
+const GET_DEPS = ["isPremium","premiumKnown"];
 const SET_DEPS = [];
-const EXPORTS = ["refreshLicenseUI","openLicenseUI"];
-const MOVED = ["refreshLicenseUI","openLicenseUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  isPremium: ()=>isPremium,","  licenseScreenMod: licenseScreenMod,"];
+const EXPORTS = ["LIC_LABEL","paintLicenseLabel","refreshLicenseUI","openLicenseUI"];
+const MOVED = ["paintLicenseLabel","refreshLicenseUI","openLicenseUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const GLUE = ["  isPremium: ()=>isPremium,","  premiumKnown: ()=>acctStateMod.premiumKnown(),","  licenseScreenMod: licenseScreenMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -91,6 +91,33 @@ for(const [name, fm, fa, fh] of breaks){
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 4. 런처 [라이선스] 단추 글 — 프리미엄을 모르면 «확인 중»(«🔑 라이선스 등록» 으로 짐작하지 않는다 · CLAUDE.md «모르는 값»)');
+/* 진짜 deps(읽는 함수 둘)로 만들어 단추 글만 본다 — lcLicenseLbl 하나만 있는 가짜 문서 */
+function labelOf(src, known, prem){
+  const lbl = { textContent: '' };
+  const doc = { getElementById: (id) => (id === 'lcLicenseLbl' ? lbl : null) };
+  const api = new Function('window', 'document', 'module', src + '\nreturn window.TwLicenseUi;')({}, doc, undefined);
+  const ui = api.createLicenseUi({ isPremium: () => prem, premiumKnown: () => known, licenseScreenMod: { view: () => ({ mode: 'idle', devices: [] }), open: () => Promise.resolve(), onChange(){} } });
+  ui.paintLicenseLabel();
+  return lbl.textContent;
+}
+function judgeLabel(src){
+  try{
+    return labelOf(src, false, false) === '🔑 라이선스 확인 중…' && labelOf(src, true, true) === '🔓 라이선스 등록됨' && labelOf(src, true, false) === '🔑 라이선스 등록';
+  }catch(_){ return false; }
+}
+chk(judgeLabel(MOD), '확인 전 «🔑 라이선스 확인 중…» · 프리미엄 «🔓 라이선스 등록됨» · 아님 «🔑 라이선스 등록»');
+chk(/licenseLabel: \(\)=>licenseUiMod\.paintLicenseLabel\(\),/.test(SRC) && !/lcLicenseLbl/.test(strip(SRC)), '  켤 때(app.js licenseLabel)도 같은 함수 — app.js 에 단추 글을 따로 적지 않는다');
+const LG = ["license-gate.js","parts/account/license-gate.js","app/parts/account/license-gate.js"].map(read).find(Boolean) || '';
+chk(/function _refreshPremiumGatedUI\(\)\{\n  try\{ paintLicenseLabel\(\); \}/.test(LG), '  프리미엄이 바뀌거나 처음 확인되면(_refreshPremiumGatedUI) 다시 그린다');
+{
+  const LB = [
+    ["return !premiumKnown() ? LIC_LABEL.unknown : (isPremium() ? LIC_LABEL.on : LIC_LABEL.off);", "return isPremium() ? LIC_LABEL.on : LIC_LABEL.off;", '★ 모르는 프리미엄을 «등록» 으로(옛 모양)'],
+    ["unknown: '🔑 라이선스 확인 중…'", "unknown: '🔑 라이선스 등록'", '모름 글이 «등록» 과 같음'],
+  ];
+  const missed = LB.filter(([f, t]) => MOD.indexOf(f) < 0 || judgeLabel(MOD.split(f).join(t))).map(([, , w]) => w);
+  chk(!missed.length, 'mutation test ' + LB.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

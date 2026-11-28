@@ -1,7 +1,7 @@
 /* license-ui.js — 🔑 설정 › 라이선스 구획 그리기 — 기기 목록 화면(license-screen.js view())을 DOM 에 옮긴다
    [왜] 구획의 «무엇을 보이나» 는 license-screen.js view() 가 정한다(상태 여섯 — 불러오는 중 · 못 받음 · 라이선스 없음 · 등록됨 · 이 기기만 없음 · 회수됨).
      이 파일은 그 한 벌을 칸에 그리기만 한다 — 단추의 동작은 license-key.js 가 건다. 서버가 준 기기 이름은 textContent 로만 넣는다(남이 정한 글).
-   ★ 밖에서 부르는 이름: refreshLicenseUI(그리기) · openLicenseUI(opts)(창 열기 = 받기 + 그리기) — app.js 는 licenseUiMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: paintLicenseLabel(런처 단추 글 — 모르면 «확인 중») · refreshLicenseUI(그리기) · openLicenseUI(opts)(창 열기 = 받기 + 그리기) — app.js 는 licenseUiMod.이름 으로 부른다.
    ⚠️ document · window 등 브라우저 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLicenseUi — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-license-ui.js(모듈 모양) · checks/sim-license-screen.js(상태 · 그리기) */
@@ -9,6 +9,7 @@
 
 function createLicenseUi(deps){
 const isPremium = deps.isPremium;   // 읽는 함수
+const premiumKnown = deps.premiumKnown;   // 읽는 함수 — 서버가 프리미엄을 확인해 줬나(account-state.js · 아니면 isPremium 의 false 는 «모름»)
 const licenseScreenMod = deps.licenseScreenMod;   // 🔑 license-screen.js — view() · open()
 
 const licUiEl = (id) => document.getElementById(id);
@@ -46,11 +47,19 @@ function licDeviceRow(d, canAct){
   return row;
 }
 
+/* 런처 [라이선스] 단추 글 — 서버가 확인해 주기 전엔 «확인 중»(«🔑 라이선스 등록» 으로 그리지 않는다 · CLAUDE.md «모르는 값»).
+   켤 때(app.js licenseLabel) · 프리미엄이 바뀌거나 처음 확인될 때(license-gate.js _refreshPremiumGatedUI) · 구획을 그릴 때 부른다. */
+const LIC_LABEL = Object.freeze({ on: '🔓 라이선스 등록됨', off: '🔑 라이선스 등록', unknown: '🔑 라이선스 확인 중…' });
+function licenseLabelText(){ return !premiumKnown() ? LIC_LABEL.unknown : (isPremium() ? LIC_LABEL.on : LIC_LABEL.off); }
+function paintLicenseLabel(){
+  const lbl = licUiEl('lcLicenseLbl');
+  if(lbl) lbl.textContent = licenseLabelText();
+}
+
 /* --- 라이선스 구획 그리기 --- */
 function refreshLicenseUI(){
   const v = licenseScreenMod.view();
-  const lbl = licUiEl('lcLicenseLbl');
-  if(lbl) lbl.textContent = isPremium() ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록';
+  paintLicenseLabel();
 
   const waiting = v.mode === 'loading' || v.mode === 'failed';
   licUiShow('licenseStatusBox', waiting);
@@ -97,6 +106,8 @@ function openLicenseUI(opts){
 licenseScreenMod.onChange(refreshLicenseUI);
 
 return {
+  LIC_LABEL,
+  paintLicenseLabel,
   refreshLicenseUI,
   openLicenseUI,
 };

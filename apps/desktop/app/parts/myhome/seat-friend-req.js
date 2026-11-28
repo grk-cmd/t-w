@@ -2,7 +2,9 @@
    app.js «👻 … · DRAG / PET» 안의 친구 신청 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다.
    ・책임: 첫 번째 우클릭은 안내만(5초 안에 한 번 더 누르면 보냄) · 두 번째에 앞단 검사(준비 · 나 · 이미 친구 · 정원) 뒤 friendNet().sendFriendRequest.
      좌석 길은 이미 보낸 요청이 열려 있으면 보내지 않는다(friendNet().isFriendRequestAlive) — 사유 없이 다시 보내면 서버가 마이홈에서 적은 사유를 지운다.
-   ・받는 deps 5 — 함수 2(getMyUserId · toast) · 값 FRIEND_MAX · 읽는 함수 2: _myHomeFriends(친구 구독이 다시 대입) ·
+     그 확인을 못 읽으면 «없음» 으로 치지 않고 보내지 않는다(E-FR-07) — 못 읽은 채 빈 사유로 보내면 적어 둔 사유가 지워진다.
+     이미 친구 · 정원 판정은 friendsForCheck(받은 목록 · 아니면 한 번 읽기) 로 — 못 받은 목록을 빈 {} 로 치지 않는다(못 읽으면 보내지 않음 · 토스트는 friends-sub 한 곳).
+   ・받는 deps 5 — 함수 3(getMyUserId · toast · friendsForCheck) · 값 FRIEND_MAX · 읽는 함수 1:
      friendNet(데이터 provider — sendFriendRequest(myId, toId, msg) · isFriendRequestAlive(toId, myId) — app.js 가 친구 요청 포트로 잇는다).
    ・내놓는 것: _friendReqAsk(uid, seat) — 좌석 우클릭 메뉴(room/seat-menu.js)가 app.js 를 거쳐 부른다 ·
      sendFriendReq(uid, name, msg) — 보내기 한 벌(앞단 검사 포함 · 결과만 돌려준다) · resultView(res, name) — 결과 → 안내 문구 한 벌.
@@ -13,10 +15,10 @@
 
 function createSeatFriendReq(deps){
 const FRIEND_MAX = deps.FRIEND_MAX;
-const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
 const friendNet = deps.friendNet;   // 읽는 함수 — 데이터 provider(sendFriendRequest · isFriendRequestAlive), 준비 전이면 없음
 const getMyUserId = deps.getMyUserId;
 const toast = deps.toast;
+const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) → Promise<목록 | null(못 읽음 — 토스트는 거기서 한 번)>
 /* 🙋 친구가 아닌 상대 우클릭 → 친구 신청 — 확인창 대신 **2단계 확인**(5초 안에 메뉴에서 한 번 더 고르면 보낸다).
    [왜] 실행 화면은 투명 전체화면 오버레이라 native 확인 다이얼로그를 못 쓰고, 새 fixed 오버레이는 audit 검사 여럿에 항목이 는다.
    ⚠️ 부르는 쪽(app.js contextmenu)의 회사원 모드 차단보다 뒤에서 불려야 한다 — 그 모드는 토스트도 없어야 한다. */
@@ -35,17 +37,20 @@ function _friendReqAsk(uid, seat){
   _friendReqSend(uid, name);
 }
 /* 보내기 한 벌 — 좌석 두 번 우클릭과 남의 마이홈 [친구 신청](friend-req-btn.js)이 같이 부른다. 앞단 검사 순서 · 판단은 여기 하나.
-   msg = 신청 사유(없으면 빈 칸). → { ok } | { ok:false, reason: not_ready · self · already · full · save_failed · error }(좌석 길만 pending — 보낸 요청이 열려 있음) */
+   msg = 신청 사유(없으면 빈 칸). → { ok } | { ok:false, reason: not_ready · self · friends_unknown · already · full · save_failed · error }(좌석 길만 pending · pending_unknown) */
 async function sendFriendReq(uid, name, msg){
-  return _blocked(uid) || _send(uid, msg);
+  return (await _blocked(uid)) || _send(uid, msg);
 }
-/* 앞단 검사 — 요청 없이 판단한다. 막히면 { ok:false, reason } · 아니면 null */
-function _blocked(uid){
+/* 앞단 검사 — 막히면 { ok:false, reason } · 아니면 null. 친구 목록은 friendsForCheck(받았으면 요청 0 · 아니면 한 번 읽기).
+   목록을 못 읽으면 friends_unknown — 빈 목록으로 치지 않는다(이미 친구 · 정원을 모름 → 보내지 않는다) */
+async function _blocked(uid){
   const net = friendNet();
   if(!net || !net.sendFriendRequest) return { ok:false, reason:'not_ready' };
   if(uid === getMyUserId()) return { ok:false, reason:'self' };
-  if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };
-  if(_myHomeFriends() && Object.keys(_myHomeFriends()).length >= FRIEND_MAX) return { ok:false, reason:'full' };
+  const fr = await friendsForCheck();
+  if(!fr) return { ok:false, reason:'friends_unknown' };
+  if(fr[uid]) return { ok:false, reason:'already' };
+  if(Object.keys(fr).length >= FRIEND_MAX) return { ok:false, reason:'full' };
   return null;
 }
 async function _send(uid, msg){
@@ -57,10 +62,11 @@ async function _send(uid, msg){
   }catch(e){ return { ok:false, reason:'error', err:e }; }
 }
 /* 결과 → 보일 것 한 벌 — 좌석 · 마이홈 [친구 신청] 두 입구가 같은 말을 하게(마이홈은 fail 이면 문구 대신 E-FR-06).
-   → { kind: 'ok' | 'info' | 'fail', text } */
+   → { kind: 'ok' | 'info' | 'fail' | 'quiet', text } — quiet 는 이미 알렸다(친구 목록 못 읽음 — friends-sub 가 토스트 한 번) · 보이는 것 없음 */
 function resultView(res, name){
   const r = res && res.reason;
   if(res && res.ok) return { kind:'ok', text: name + '님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요' };
+  if(r === 'friends_unknown') return { kind:'quiet', text:null };
   if(r === 'not_ready') return { kind:'info', text:'아직 준비 중이에요' };
   if(r === 'self') return { kind:'info', text:'내 코드는 추가할 수 없어요' };
   if(r === 'already') return { kind:'info', text:'이미 친구예요' };
@@ -70,15 +76,20 @@ function resultView(res, name){
   return { kind:'fail', text:'요청에 실패했어요' };
 }
 /* 좌석 길 — 사유 칸이 없어 빈 사유로 보낸다. 열린 요청에 다시 보내면 서버가 마이홈에서 적은 사유를 지우므로, 보낸 요청이 살아 있으면 보내지 않는다.
-   살아 있나는 앞단 검사를 지난 뒤에만 묻는다(막힐 일이면 요청 0) · 못 읽으면 그대로 보낸다. */
+   살아 있나는 앞단 검사를 지난 뒤에만 묻는다(막힐 일이면 요청 0). → true · false · null(못 읽음 — 모름).
+   ★ 못 읽으면 보내지 않는다(E-FR-07) — «없음» 으로 치고 빈 사유를 보내면 서버가 마이홈에서 적은 사유를 지운다. */
 async function _sentPending(uid){
   const net = friendNet();
-  if(!net || !net.isFriendRequestAlive) return false;
-  try{ return !!(await net.isFriendRequestAlive(uid, getMyUserId())); }catch(_){ return false; }
+  if(!net || !net.isFriendRequestAlive) return null;
+  try{ return !!(await net.isFriendRequestAlive(uid, getMyUserId())); }catch(e){ return { err: e }; }
 }
 async function _friendReqSend(uid, name){
-  const res = _blocked(uid) || ((await _sentPending(uid)) ? { ok:false, reason:'pending' } : await _send(uid, ''));
-  toast(resultView(res, name).text);
+  const blocked = await _blocked(uid);
+  if(blocked){ const v = resultView(blocked, name); if(v.kind !== 'quiet') toast(v.text); return; }
+  const pending = await _sentPending(uid);
+  if(pending === true){ toast(resultView({ ok:false, reason:'pending' }, name).text); return; }
+  if(pending !== false){ TwErrorCodes.notify('E-FR-07', pending && pending.err); return; }   // 보낸 요청이 열려 있는지 모른다 — 보내지 않는다
+  toast(resultView(await _send(uid, ''), name).text);
 }
 
 return {

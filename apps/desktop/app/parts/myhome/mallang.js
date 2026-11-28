@@ -11,7 +11,7 @@
      방문자는 그 집 주인이 등록한 이미지로 자기 화면에 소환(각자 로컬).
    · 모듈 모양: window.TwMallang = { createMallang(deps) } — app.js 가 마이홈 수령함 모듈보다 먼저 만들고,
      마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallangMod` 로 받아 부른다.
-     deps 5 — toast · getMyUserId · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
+     deps 6 — toast · getMyUserId · premiumOn(프리미엄 판정 — app.js _premiumOn) · premiumBlocked(모르면 «확인 중») · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
      🎁 받은 선물은 선물 상태 주인(gift-box.js)이 서버에서 받아 오고 «내 선물 중 무엇이 화면에 나와야 하나» 도 정한다(onScreen) — 이 파일은 그 목록을 그리고(syncGifts) 🎁 배지를 맡는다. 선물 id 를 따로 들지 않는다.
      화면 자리(MAX_LIVE 동시 상한)는 이 파일의 사실이라 attachScreen 으로 선물함에 알린다. 남의 집에 나온 선물(방문자)은 이 파일이 한 번 그린다.
      🎁 보내기 창도 서버 경로다(giftBox.send · fetchSentToday · fetchSent — 창 상태는 이 파일 안). 보낸 사람 · 이름은 서버가 토큰에서 정한다.
@@ -24,6 +24,7 @@ function createMallang(deps){
   const toast = deps.toast;
   const getMyUserId = deps.getMyUserId;
   const premiumOn = deps.premiumOn;   // 👑 프리미엄 판정(app.js _premiumOn) — 전역 window._premiumOn 을 읽지 않는다
+  const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» · 아니면 넘긴 잠금(account-state.js)
   const mallangStore = deps.mallangStore;   // 🧸 칸 상태 주인(mallang-store.js) — mine() · view() · add · toggle · remove · pullMine · openView
   const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — onScreen() · enterHome · leaveHome · attachScreen · hide · onChange · fetchVisible
   const LOAD = mallangStore.LOAD;
@@ -79,7 +80,7 @@ function createMallang(deps){
   function homeWin(){ return document.getElementById('myHomeWin'); }
   function roomBox(){ return document.getElementById('mhRoomPreview'); }   // 청록 바탕화면 박스
   function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
-  function hasLicense(){ try{ return !!premiumOn(); }catch(_){ return false; } }
+  function hasLicense(){ return !!premiumOn(); }   // deps 로 받은 읽는 함수 — 던짐을 «아님» 으로 삼키지 않는다(모름은 premiumBlocked)
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
 
   /* ── 폴더 + 레이어 DOM 주입 ── */
@@ -919,7 +920,7 @@ function createMallang(deps){
   /* 열기 — 내 칸 · 오늘 보낸 수 · 상대 집 선물 수 · 보낸 말랑이 기록을 나란히 받는다(서로 다른 자원). 내 칸을 못 받으면 E-GIFT-07 · 창을 열지 않는다.
      남은 수 · 상대 수 · 기록을 못 받으면 막지 않는다(판정은 서버 — 남은 수 · 상대 수는 «확인하지 못했어요», 기록은 «보냄» 표시 없이) */
   async function openGift(friendId, friendName){
-    if(!hasLicense()){ toast('👑 말랑이 선물은 라이선스 보유자 전용이에요'); return; }
+    if(!hasLicense()){ premiumBlocked(() => toast('👑 말랑이 선물은 라이선스 보유자 전용이에요')); return; }   // 라이선스를 모르면 «전용이에요» 가 아니다
     const seq = houseSeq;
     const [ok, sent, theirs, history] = await Promise.all([
       mallangStore.pullMine({ site: 'sendOpen' }),

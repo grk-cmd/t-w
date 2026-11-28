@@ -25,6 +25,7 @@ const rtOn = deps.rtOn;                         // 🛰 서버가 «바뀌었다
 const getMyUserId = deps.getMyUserId;
 const viewingUserId = deps.viewingUserId;      // 👀 지금 관람 중인 친구 uid(없으면 null) — app.js 의 _mhViewingUserId
 const myHomeFriends = deps.myHomeFriends;      // 👥 친구 목록 캐시 — app.js 의 _myHomeFriends
+const friendsNotice = deps.friendsNotice;      // 👥 친구 목록을 못 받았으면 안내 문구 · 받았으면 null(friends-sub.js notice) — 받기 전 {} 를 «친구 없음» 으로 그리지 않게
 const toast = deps.toast;
 const uiIconEl = deps.uiIconEl;
 const escRegisterWindow = deps.escRegisterWindow;
@@ -895,15 +896,23 @@ function _applyAnnivHeight(px){
     tagInfo.textContent = _schedTagSel.length ? `👥 ${_schedTagSel.length}명 태그됨` : '';
   };
 
+  /* 친구 태그 목록이 비었을 때의 한 줄 — 친구 목록을 못 받았으면 friends-sub 안내(«불러오는 중» · «못 불러옴»), 받았는데 없으면 «친구가 없어요», 있으면 null.
+     못 받은 목록(처음 값 {})을 «친구가 없어요» 로 그리지 않는다 */
+  const _tagEmptyText = (fids)=>{
+    const n = friendsNotice();
+    if(n) return n;
+    return fids.length ? null : '친구가 없어요';
+  };
   // 👥 친구 태그 팝업
   if(tagBtn && tagPop && tagList){
     tagBtn.addEventListener('click', ()=>{
       _schedTagTarget = 'sched';
       const fids = Object.keys(myHomeFriends()||{});
       tagList.innerHTML = '';
-      if(!fids.length){
-        const e=document.createElement('div'); e.style.cssText='font-size:10px;color:#aaa;padding:6px;';
-        e.textContent='친구가 없어요';
+      const _empty = _tagEmptyText(fids);
+      if(_empty){
+        const e=document.createElement('div'); e.style.cssText='font-size:10px;color:#aaa;padding:6px;white-space:pre-line;';
+        e.textContent=_empty;
         tagList.appendChild(e);
       } else {
         fids.forEach(fid=>{
@@ -1042,9 +1051,10 @@ function _applyAnnivHeight(px){
       _schedTagTarget = 'dday';
       const fids = Object.keys(myHomeFriends()||{});
       tagList.innerHTML = '';
-      if(!fids.length){
-        const e=document.createElement('div'); e.style.cssText='font-size:10px;color:#aaa;padding:6px;';
-        e.textContent='친구가 없어요';
+      const _empty = _tagEmptyText(fids);
+      if(_empty){
+        const e=document.createElement('div'); e.style.cssText='font-size:10px;color:#aaa;padding:6px;white-space:pre-line;';
+        e.textContent=_empty;
         tagList.appendChild(e);
       } else {
         fids.forEach(fid=>{

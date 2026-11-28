@@ -199,7 +199,14 @@ await sec('── 2. 친구 고르기 창', () => {
   const dot = (i) => g.rows()[i].children[0].children[1].style.cssText;
   chk(/#49c96d/.test(dot(0)) && !/#49c96d/.test(dot(2)), '  온라인 점');
   const meta = (i) => g.rows()[i].children[1].children[0];
-  chk(meta(1)._text === 'Lv.1 🏠' && meta(1).title === '지금 다른 방에 있어요' && meta(0)._text === 'Lv.3' && !meta(0).title, '🏠 다른 방에 있는 친구(_friendInRoom) · 레벨');
+  chk(meta(1)._text === '🏠' && meta(1).title === '지금 다른 방에 있어요' && meta(0)._text === 'Lv.3' && !meta(0).title, '🏠 다른 방에 있는 친구(_friendInRoom) · 레벨 · 레벨을 모르면(null) 적지 않는다(Lv.1 아님)');
+  {
+    const lvSrc = "meta.textContent = [f.level == null ? null : 'Lv.' + f.level, inRoom ? '🏠' : null].filter(Boolean).join(' ');";
+    const old = MOD.replace(lvSrc, "meta.textContent = 'Lv.' + (f.level || 1) + (inRoom ? ' 🏠' : '');");
+    let red = false;
+    if(old !== MOD){ const gm = mkEnv({ friends: { c: { name: '나비', online: true, room: 'R2' } } }, old); gm.mk(); gm.open(); red = gm.rows()[0].children[1].children[0]._text !== '🏠'; }
+    chk(red, '  mutation test — 모르는 레벨을 Lv.1 로 그리면(옛 `f.level || 1`) 빨강');
+  }
   chk(g.els.roomInvitePickList.style.maxHeight === '', '10줄 이하면 높이 제한 없음');
   const many = {}; for(let i = 0; i < 11; i++) many['f' + i] = { name: 'n' + String(i).padStart(2, '0') };
   const h = mkEnv({ friends: many }); h.mk(); h.open();

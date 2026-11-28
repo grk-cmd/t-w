@@ -47,6 +47,7 @@ const _starPaint = deps.starPaint;
 // 🏠 마이홈 — app.js 의 let(다시 대입)과 구경 가기
 const myhomeAvatar = deps.myhomeAvatar;             // 읽는 함수 — 내 사진(상태 주인 myhome-store.js · 아직 못 받았으면 null)
 const _myHomeFriends = deps.myHomeFriends;           // 읽는 함수 — 친구 목록 캐시(구독마다 다시 대입 · 이 줄보다 뒤에 선언)
+const friendsNotice = deps.friendsNotice;   // 👥 친구 목록을 못 받았으면 안내 문구 · 받았으면 null(friends-sub.js notice) — 받기 전 {} 를 «친구 없음» 으로 그리지 않게
 const friendsRefreshPresence = deps.friendsRefreshPresence;   // (ids) → Promise — 친구 목록이 닫혀 있으면 접속 상태를 한 번 읽는다(friends-sub.js)
 const openFriendHomeView = deps.openFriendHomeView;  // 🏠 공개해 둔 남의 목록 → 그 사람 마이홈 구경
 // 🪟 상태칩 팝업 · 창 겹침 · ESC
@@ -633,9 +634,9 @@ function _plSyncSel(){
 function _plFillLv(el, lv, star){
   if(!el) return;
   el.textContent = '';
-  if(lv == null && !star){ el.className = ''; _starPaint(el, null); return; }
   /* 🌟 회차면 'Lv' 자리에 별이 선다(★342) — 숫자는 **이번 바퀴** 레벨(star.lv). 배지 별은 흰색 고정(CSS .mh-flv .pre). */
-  const n = star ? star.lv : Math.max(1, parseInt(lv, 10) || 1);
+  const n = star ? star.lv : parseInt(lv, 10);
+  if(!star && !(n >= 1)){ el.className = ''; _starPaint(el, null); return; }   // 레벨을 모름(없음 · 0 · 글자) — Lv.1 로 그리지 않는다
   el.className = 'mh-flv ' + (star ? lvStarBadgeClass() : lvBadgeClass(n));
   const p = document.createElement('i');
   if(star){ p.className = 'pre'; p.textContent = lvStarStr(star.cyc); }
@@ -1220,6 +1221,12 @@ function _plRenderFriendPick(){
      여기서 따로 읽으면 같은 데이터를 두 번 나르게 된다. */
   const src = _myHomeFriends() || {};
   const ids = Object.keys(src);
+  const notice = friendsNotice();
+  if(notice){   // 못 받음 · 받는 중 — «아직 친구가 없어요» 가 아니다(마이홈 친구 탭 · 초대 목록과 같은 안내)
+    const d=document.createElement('div'); d.className='pfEmpty';
+    d.textContent=notice;
+    el.appendChild(d); return;
+  }
   if(!ids.length){
     const d=document.createElement('div'); d.className='pfEmpty';
     d.textContent='아직 친구가 없어요.\n마이홈 › 친구에서 추가하면\n그 친구의 목록을 파도탈 수 있어요.';

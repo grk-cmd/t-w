@@ -47,13 +47,13 @@ const txt = (el) => el.textContent + el.children.map(txt).join('');
 function mkEnv(opt){
   const els = new Proxy({}, { get: (t, k) => (typeof k === 'string' ? (t[k] || (t[k] = mkEl(k))) : undefined) });
   const store = Object.assign({}, opt.ls || {}), notes = [], root = mkEl('html');
-  const env = { els, store, notes, root, premium: !!opt.premium, child: 0 };
+  const env = { els, store, notes, root, premium: !!opt.premium, child: 0, unknown: !!opt.unknown, told: 0 };
   globalThis.document = { documentElement: root, getElementById: id => els[id], createElement: t => mkEl() };
   globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
   globalThis.TwErrorCodes = { notify: c => notes.push(c) };
   globalThis.window = { queryLocalFonts: opt.fonts === null ? undefined : async () => (opt.fonts || []).map(f => ({ family: f })) };
-  const w = globalThis.window; new Function('window', 'module', SRC.ui)(w, undefined);
-  env.ui = w.TwFontUi.createFontUi({ _premiumOn: () => env.premium, refreshChildren: () => { env.child++; } });
+  const w = globalThis.window; new Function('window', 'module', opt.src || SRC.ui)(w, undefined);
+  env.ui = w.TwFontUi.createFontUi({ _premiumOn: () => env.premium, premiumBlocked: (locked) => { if(env.unknown){ env.told++; return 'unknown'; } if(locked) locked(); return 'locked'; }, refreshChildren: () => { env.child++; } });
   return env;
 }
 const flush = async () => { for(let i = 0; i < 5; i++) await new Promise(r => setImmediate(r)); };
@@ -87,6 +87,12 @@ say('── 3. 설정 칸 · PC 글꼴 상자');
   chk(e.store['tw.uiFont'] === 'dotum' && e.root.style._p['--win-font'] === FC.cssFor('dotum') && e.els.fontPickRow.children.length === 3 && e.child === 1, '줄을 누르면 저장 · 바로 건다 · 열린 자식 창에도 옮김 · PC 줄은 사라짐');
   e.els.fontPcMore.fire('click'); await flush();
   chk(e.els.fontPcLock.style.display === 'block' && e.els.fontPcBox.style.display !== 'block', '★ 프리미엄이 아니면 PC 글꼴 상자 대신 잠금 안내');
+  {
+    /* ★ 라이선스를 모르면(서버 확인 전) 잠금 안내(«프리미엄 전용») 대신 «확인 중» — CLAUDE.md «모르는 값» */
+    const pcUnknown = async (src) => { const x = mkEnv({ src, unknown: true }); x.ui.bind(); x.els.fontPcMore.fire('click'); await flush(); return x.els.fontPcLock.style.display !== 'block' && x.els.fontPcBox.style.display !== 'block' && x.told === 1; };
+    chk(await pcUnknown(), '★ 라이선스를 모르면 잠금 안내 대신 «확인 중» 한 번(상자도 안 연다)');
+    chk(!(await pcUnknown(SRC.ui.replace("premiumBlocked(() => { const l = $('fontPcLock'); if(l) l.style.display = 'block'; });", "{ const l = $('fontPcLock'); if(l) l.style.display = 'block'; }"))), '  mutation test — «모름» 갈래를 빼면 잠금 안내가 뜬다(빨강)');
+  }
   e = mkEnv({ premium: true, fonts: ['Consolas', 'Batang', 'Consolas', "Evil'Font"] });
   e.ui.bind(); e.els.fontPcMore.fire('click'); await flush();
   const its = e.els.fontPcList.children;

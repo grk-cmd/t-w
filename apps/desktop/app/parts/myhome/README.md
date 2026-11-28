@@ -8,13 +8,14 @@
 **책임** — 방에서 친구가 아닌 상대 좌석을 우클릭 → «👤 친구 신청» 을 누르면, 첫 번째는 안내만 하고 5초 안에 같은 사람을 한 번 더 누르면 친구 요청을 보낸다.
 보내기 전 앞단 검사(데이터 provider 준비 · 나 자신 · 이미 친구 · 친구 정원)는 마이홈 [친구 추가] 와 같은 순서 · 같은 문구다.
 좌석 길은 앞단 검사를 지난 뒤 «보낸 요청이 열려 있나» 를 보고(앞단에서 막히면 요청 0), 열려 있으면 보내지 않고 «이미 ○○님에게 친구 요청을 보냈어요» 만 알린다 — 좌석은 사유 칸이 없어서, 다시 보내면 서버가 마이홈 [친구 신청] 에서 적은 사유를 지운다.
+그 확인을 못 읽으면 «없음» 으로 치지 않고 보내지 않는다(`E-FR-07`). 이미 친구 · 정원은 `friendsForCheck()`(friends-sub — 받은 목록 · 아니면 한 번 읽기)로 본다 — 못 읽으면(null) 빈 목록으로 치지 않고 보내지 않는다(`friends_unknown` → `resultView` 의 `quiet` · 안내는 friends-sub 토스트 한 곳).
 
 **만드는 법** — app.js «DRAG / PET» 안, 좌석 contextmenu 리스너 바로 앞:
 
 ```js
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,                 // 값 — 친구 정원
-  _myHomeFriends: ()=>_myHomeFriends,     // 읽는 함수 — 친구 구독이 다시 대입한다
+  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),   // 판정용 친구 목록 → Promise<목록 | null>
   friendNet: ()=>({ sendFriendRequest: …, isFriendRequestAlive }),   // 읽는 함수 — 친구 요청 포트(send) · 마이홈 단추와 같이 쓰는 isFriendRequestAlive(포트 sentIds — GET 한 번)
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
@@ -314,10 +315,10 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ## friend-req-btn.js — 🙋 남의 마이홈 [친구 신청] · 신청 사유 창
 
 - **책임**: 친구 홈 구경 화면에서 이름 옆 [＋ 친구 신청] 단추를 보이고 숨긴다. 남의 홈이고 친구가 아니고 내가 보낸 요청도 없을 때만 보인다. 누르면 사유(100자) 창을 띄우고 [신청하기]로 보낸다(네이버 이웃 신청처럼).
-- **deps**: `sendFriendReq(uid, name, msg)` → `{ok, reason}` · `resultView(res, name)` → `{kind, text}`(둘 다 좌석 친구 신청 `seat-friend-req.js` 와 같은 한 벌 — 앞단 검사 · 안내 문구) · `friendNet()`(데이터 provider — `isFriendRequestAlive(toId, myId)` 로 내가 보낸 요청이 살아 있나 · 좌석 친구 신청과 같은 모양) · `friends()`(읽는 함수) · `getMyUserId` · `toast`.
+- **deps**: `sendFriendReq(uid, name, msg)` → `{ok, reason}` · `resultView(res, name)` → `{kind, text}`(둘 다 좌석 친구 신청 `seat-friend-req.js` 와 같은 한 벌 — 앞단 검사 · 안내 문구) · `friendNet()`(데이터 provider — `isFriendRequestAlive(toId, myId)` 로 내가 보낸 요청이 살아 있나 · 좌석 친구 신청과 같은 모양) · `friends()`(읽는 함수 — 받은 목록 · 못 받았으면 null) · `friendsForCheck()`(판정용 목록 — friends-sub · 못 읽으면 null) · `getMyUserId` · `toast`.
 - **내놓는 것**: `refresh(viewUid, name)` — `myhome-visit.js` `_mhApplyVisitUI` 가 부른다(내 홈 · 미리보기면 `null`) · `openDialog(uid, name)`. 순수 함수 `cleanReason` · `REASON_MAX` 도 내놓는다(검사용).
 - **함정**
-  - «살아 있나» 를 묻는 동안 다른 홈으로 넘어가면 늦은 답을 버린다 — 안 버리면 다음 화면에 단추가 켜진다. 확인을 못 하면 숨긴다(이미 보낸 요청을 또 보내지 않게).
+  - «살아 있나» 를 묻는 동안 다른 홈으로 넘어가면 늦은 답을 버린다 — 안 버리면 다음 화면에 단추가 켜진다. 보낸 요청 · 친구 목록을 못 읽으면 숨기지도 «신청» 을 열지도 않고 «⟳ 친구 신청 다시 확인» 단추를 보인다(누르면 다시 묻는다 · 보내지 않는다 — 모름을 «있음» · «없음» 으로 치지 않는다). 보낼 때 친구 목록을 못 읽으면(`quiet`) 창 · 적은 사유를 그대로 둔다.
   - 관람 화면 하나를 여는 동안 `_mhApplyVisitUI` 가 여러 번 불린다 — 같은 uid 면 다시 묻지 않는다. 내 홈으로 오면(`refresh(null)`) 기억을 비운다.
   - 사유 · 이름은 `textContent` 로만 넣는다. 받는 쪽(`friend-manage.js`)도 목록은 `textContent`, 👋 팝업은 `escHtml` 이다.
   - 사유 길이 100자는 서버(`POST /v2/me/friend-requests` 의 `message` · UTF-16 100자)와 규칙 `friendRequests/$toId/$fromId/msg` 와 같다 — 한쪽만 바꾸지 말 것. 사유 칸은 `TwServerFeatures.on('friendReqMsg')` 가 켠다.

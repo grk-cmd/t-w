@@ -5,7 +5,7 @@
 
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
      바뀐 것은 이름을 읽는 방법뿐이다.
-       · _myFriendRequests → _myFriendRequests() · _myHomeFriends → _myHomeFriends() · myHomeOpen → myHomeOpen()
+       · _myFriendRequests → _myFriendRequests() · myHomeOpen → myHomeOpen() · 친구 목록은 friendsForCheck(받은 목록 · 모르면 null)
          app.js 가 나중에 다시 대입하는 let 이라(요청 구독 · 친구 목록 구독 · 마이홈 열고 닫기) 값이 아니라 읽는 함수로 받는다.
        · _inboxTimeStr 의 typeof 가드는 글자 그대로 두었다(받은 것이 함수라 늘 통과한다 — 예전에도 늘 정의돼 있던 이름이다).
    ★ 밖으로 내놓는 이름은 createFriendManage 의 반환값이다 — app.js 의 부르는 곳(🖥️ 구역의 요청 구독 · 마이홈 열기 ·
@@ -26,7 +26,6 @@ const _giftStat = deps.giftStat;                 // 🎁 서브탭 줄 오른쪽
 const renderGiftBox = deps.renderGiftBox;        // 🎁 선물함 서브탭 — app.js(같은 칸 #mhFmList 를 돌려 쓴다)
 const _inboxTimeStr = deps.inboxTimeStr;
 const myHomeOpen = deps.myHomeOpen;              // 🏠 마이홈이 열려 있는가 — 읽는 함수(주인은 launcher/launcher-state.js · 다시 대입된다)
-const _myHomeFriends = deps.myHomeFriends;       // 👥 친구 목록 캐시 — app.js 의 let(구독마다 다시 대입된다)
 const _myFriendRequests = deps.myFriendRequests; // 👋 나에게 온 친구 요청 — app.js 의 let(구독마다 다시 대입된다)
 const FRIEND_MAX = deps.friendMax;               // 👥 친구 상한 — app.js 한 곳(다섯 곳이 이 값 하나를 본다)
 const requests = deps.requests;                  // 👋 친구 요청 포트(friends/friend-requests-port.js) — 읽는 함수(app.js 가 이 모듈보다 뒤에 만든다)
@@ -171,7 +170,11 @@ function _fmReqVisible(){
   return !!(on && on.dataset.tab === 'friend' && _fmTab === 'req');
 }
 // 남은 친구 자리. ⚠️ 숫자를 다시 박지 말 것 — 상한은 FRIEND_MAX 한 곳에서만 나온다.
-function _fmSeatsLeft(){ return FRIEND_MAX - Object.keys(_myHomeFriends() || {}).length; }
+/* 수락 판정용 남은 자리 — 받은 목록(friendsForCheck)으로 센다. 못 읽으면 null(모름 — 빈 목록 {} 으로 치면 자리가 FRIEND_MAX 로 보여 상한을 넘는다 · 토스트는 friends-sub 한 곳) */
+async function _fmSeatsLeftChecked(){
+  const fr = await friendsForCheck();
+  return fr ? FRIEND_MAX - Object.keys(fr).length : null;
+}
 
 function renderFriendManage(){
   if(_fmTab !== 'gift') _giftStat('');
@@ -282,7 +285,7 @@ function _fmSyncSentCount(){
 
 /* 수락 한 건 — **단건과 일괄이 같은 함수를 쓴다.** 자리 판정과 문구가 두 벌이 되면 한쪽만
    고쳐진다(친구 상한을 50→100 으로 올릴 때 겪은 종류).
-   ⚠️ seats 를 호출자가 세어 넘기는 것이 핵심이다. 서버 왕복 뒤에도 _myHomeFriends 는
+   ⚠️ seats 를 호출자가 세어 넘기는 것이 핵심이다. 서버 왕복 뒤에도 친구 목록(friendsForCheck 가 읽는 구독 값)은
      구독 콜백이 와야 갱신되므로, 매 건 다시 세면 **자리가 1칸인데 3건이 전부 통과한다.** */
 async function _fmAcceptOne(fromId, seats){
   if(seats <= 0) return 'full';
@@ -372,7 +375,9 @@ function renderFriendRequests(){
 
     okBtn.onclick = async ()=>{
       lock();
-      const r = await _fmAcceptOne(fromId, _fmSeatsLeft());
+      const left = await _fmSeatsLeftChecked();
+      if(left == null){ unlock(); return; }   // 친구 목록을 모른다 — 요청은 그대로 두고 아무것도 안 보낸다
+      const r = await _fmAcceptOne(fromId, left);
       if(r === 'ok'){ toast(TwPersonName.shown(req.name) + ' 님과 친구가 됐어요'); _fmPicked.delete(fromId); return; }
       // 자리가 없으면 요청은 **남겨둔다** — 지우면 상대가 다시 보내야 한다
       if(r === 'full') toast('친구는 최대 ' + FRIEND_MAX + '명까지만 추가할 수 있어요');
@@ -404,7 +409,8 @@ async function _fmBulkAccept(){
   /* ⚠️ 한 줄에 몰아 선언하지 말 것 — 검사 6(const 재대입)은 `let a, b, c` 의 **첫 이름만**
      let 으로 등록한다. ok/full/err 는 app.js 어딘가에 const 로도 있어서, 몰아 쓰면
      `err++` 가 const 재대입으로 잡힌다(실제로 걸렸다). */
-  let seats = _fmSeatsLeft();
+  let seats = await _fmSeatsLeftChecked();
+  if(seats == null) return;   // 친구 목록을 모른다 — 하나도 수락하지 않고 요청은 그대로(토스트는 friends-sub)
   let ok = 0;
   let full = 0;
   let err = 0;
@@ -470,7 +476,7 @@ return {
   tab: ()=>_fmTab,
   picked: _fmPicked,                               // 체크된 요청 fromId(같은 Set) — 전체 선택 체크박스
   acceptOne: _fmAcceptOne,                         // 검사용(sim-friend-manage — 자리 계산)
-  seatsLeft: _fmSeatsLeft,                         // 검사용
+  seatsLeft: _fmSeatsLeftChecked,                  // 검사용
 };
 }
 

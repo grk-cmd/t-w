@@ -92,11 +92,11 @@ chk(direct.length === 0, '★ 직접 대입 ' + direct.length + '곳 (선언 제
 const setCalls = (SRC.match(/_setPremium\(/g) || []).length - 1;
 chk(setCalls === 1, '_setPremium 을 부르는 곳은 app.js 에서 서버 확인을 반영하는 모듈에 잇는 줄 하나뿐 (' + setCalls + '곳 — 로컬 키로 미리 켜기 · 활성화 · 해제가 직접 부르던 길은 0.13 에서 걷음)');
 const setSrc = grabFn('_setPremium') || '';
-chk(/if\(isPremium\(\) === v\) return;/.test(PASRC || ''), '같은 값이면 다시 그리지 않는다(첫 확인도 마찬가지 — 접기는 카탈로그 locked 가 정한다)');
+chk(/if\(wasKnown && isPremium\(\) === v\) return;/.test(PASRC || ''), '같은 값이면 다시 그리지 않는다(첫 확인만 한 번 알린다 — «확인 중» 을 지운다 · 접기는 카탈로그 locked 가 정한다)');
 chk(/_premiumChanged\(\)/.test(setSrc) && /^onPremiumChanged\(_refreshPremiumGatedUI\);/m.test(SRC), '바뀌면 _refreshPremiumGatedUI 가 돈다(계정 핵심 상태의 «프리미엄이 바뀌었다» 알림에 초대 게이트가 건다 — 모듈 순환 끊기 5)');
 chk(!grabFn('_applyTransferSnapshot'), '계정 이전 복원(키만 저장하던 통로)은 0.13 에서 걷었다 — isPremium 을 바꾸는 통로는 서버 확인 하나');
 const LP = ['license-premium.js', 'parts/account/license-premium.js', 'app/parts/account/license-premium.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';
-chk(!!LP && /setPremium\(me\.premium === true\)/.test(LP), '서버가 «아님» 이라고 해도(회수된 키 → 내 책상도 기본으로) 같은 통로로 알린다 — 판정은 sim-license-premium 이 돌려 본다');
+chk(!!LP && /if\(typeof me\.premium !== 'boolean'\)\{/.test(LP) && /setPremium\(me\.premium\);/.test(LP), '서버가 «아님» 이라고 해도(회수된 키 → 내 책상도 기본으로) 같은 통로로 알린다 · 판정이 없는 답은 «모름» 그대로 — 판정은 sim-license-premium 이 돌려 본다');
 
 /* ── 3. 다시 그리기 ── */
 say('── 3. 바뀌면 내 좌석을 다시 그린다');

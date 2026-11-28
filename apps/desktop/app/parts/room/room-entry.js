@@ -117,8 +117,12 @@ function makeRoomProvider(create){
 const ROOM_CONNECTING_TOAST_MS = 1000;   // 이만큼 지나도 못 붙었으면 «연결 중» 을 보인다(바로 붙으면 안 띄운다)
 /* 입장 실패 코드(room-rt join · 서버 규약 7장) → 안내 문구. 판정 거절만 문구 · 그 밖은 null(E-ROOM-08) */
 function _roomJoinMessage(code, isSecret){
-  if(code === 'full') return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
-                                      : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)');
+  if(code === 'full'){
+    const cap = maxPeople();   // 모르면 숫자를 적지 않는다(판정은 서버가 했다)
+    if(cap == null) return isSecret ? '이 방은 손님 자리가 다 찼어요' : '이 방은 이미 가득 찼어요';
+    return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(cap-1)+'명)')
+                    : ('이 방은 이미 가득 찼어요(최대 '+cap+'명)');
+  }
   if(code === 'channelFull'){
     const ch = window._pendingRoomChannel || (_myRoomLicensed() ? 'togetherroom' : 'workingroom');
     return _channelFullMsg(ch);
@@ -284,9 +288,12 @@ function _applyRemoteRides(){
 }
 /* 부르는 곳(provider 변경 · app.js 친구 복원)은 이것을 부른다 — 본문은 그대로 두고 걸린 시간만 잰다 */
 const syncFriendSeatsTimed = runCost.timed('sync', syncFriendSeats);
+/* 상대 레벨(방에 실린 값) — 1 이상 정수만, 아니면 null(모름 · 구버전). 1 로 대신하지 않는다(이름표는 이름만) */
+function _remoteLevel(v){ return (typeof v === 'number' && Number.isInteger(v) && v >= 1) ? v : null; }
 function syncFriendSeats(friends){
   friends=friends||{};
-  const ids=Object.keys(friends).slice(0, maxPeople()-1);   // 친구는 최대 9(나 제외)
+  const _cap=maxPeople();
+  const ids=_cap == null ? Object.keys(friends) : Object.keys(friends).slice(0, _cap-1);   // 친구는 정원-1(나 제외) · 정원을 모르면 자르지 않는다(방에 누가 있는지는 방 서버가 정했다)
   const have={}; seats.filter(s=>s.remote).forEach(s=>{ have[s.friendId]=s; });
   Object.keys(have).forEach(id=>{ if(!friends[id]){ const s=have[id]; scene.remove(s.group); removeSeatLabels(s); const ix=seats.indexOf(s); if(ix>=0)seats.splice(ix,1); } });
   ids.forEach(id=>{ let s=have[id];
@@ -361,7 +368,7 @@ function syncFriendSeats(friends){
     s.remoteAwayImg=awayPicMod()._awayUrlOk(friends[id].awayImg) ? friends[id].awayImg : null;   // 🫧 자리비움 그림(Storage URL 만)
     s.remoteAwaySz=awayPicMod()._awaySzOk(friends[id].awaySz) ? friends[id].awaySz : null;          // 📏 그 그림의 화면 크기(없으면 기본 · 구버전)
     s.remoteNoise=(typeof friends[id].noise === 'string' && /^(pencil|keyboard|page)$/.test(friends[id].noise)) ? friends[id].noise : null;   // 🌙 백색소음 종류 — 모르는 값은 버린다(parts/noise.js 가 읽는다)
-    s.friendLevel=friends[id].level||1;
+    s.friendLevel=_remoteLevel(friends[id].level);   // 모르는 값(구버전 · 빈 칸)은 null — Lv.1 로 치지 않는다
     s.friendStar=focusLevelMod().starFromRemote(friends[id]);   // 🌟 회차 · 이번 바퀴 레벨 · 색(모르는 값은 버린다 · 옛 판은 null)
     /* ⭐ 상대 경험치 진행도(0~12칸). 구버전 상대는 이 필드가 없어서 undefined → null로 두고 바를 안 그린다.
        0으로 채우면 상대가 "방금 레벨업했다"로 잘못 읽힌다. */
@@ -671,12 +678,13 @@ function roomLimitOf(channel){ return _rcStore().roomLimitOf(channel); }
 /* 꽉 찼을 때 문구 — 서버 channelFull(방 만들기 · 빈 방 열기)이 쓴다. */
 function _channelFullMsg(channel){
   const limit = roomLimitOf(channel), name = CHANNEL_NAMES[channel] || '방';
-  return `${name}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`;
+  return `${name}이 지금 꽉 찼어요${limit != null ? `(${limit}/${limit})` : ''} — 잠시 후 다시 시도해 주세요`;   // 상한을 모르면 숫자 없이(판정은 서버 channelFull)
 }
-/* 설정이 바뀌면 «최대 N명» 자리만 고친다(읽기 없음). */
+/* 설정이 바뀌면 «(최대 N명)» 자리만 고친다(읽기 없음). 정원을 모르면 비운다(«최대 10명» 으로 짐작하지 않는다). */
 function _paintMaxPeople(){
-  const n = String(maxPeople());
-  document.querySelectorAll('[data-tw-max-people]').forEach(el=>{ el.textContent = n; });
+  const n = maxPeople();
+  const t = n == null ? '' : '(최대 ' + n + '명)';
+  document.querySelectorAll('[data-tw-max-people]').forEach(el=>{ el.textContent = t; });
 }
 (function _watchRemoteRoomConfig(){
   const s = _rcStore(); if(!s) return;

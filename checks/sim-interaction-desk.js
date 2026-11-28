@@ -21,7 +21,7 @@ const FN_DEPS = ["toast"];
 const VAL_DEPS = ["accountStore","CIRCUS_ARM_DROP","CIRCUS_LEG_LIFT","CIRCUS_LEG_STAND","RIDE_MAX_STACK","RIDE_SNAP_DIST","_rideTmp","_rideWP","rideBenchMod","seats","tricksMod"];
 const GET_DEPS = ["Presence","focusLevelMod","isAdmin"];
 const SET_DEPS = [];
-const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","unlockGate","unlockLevelUnknown","tellUnlockLevelUnknown","applyUnlocks","levelText","lockedToast","setActiveInteractionDeskId","startMyDance"];
+const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","unlockGate","unlockLevelUnknown","tellUnlockLevelUnknown","applyUnlocks","levelText","lockedToast","lockedText","setActiveInteractionDeskId","startMyDance"];
 const MOVED = ["INTERACTION_DESKS","IDESK_ENABLED","DANCE_MOVES","TRICK_IN_S","TRICK_SPIN_S","TRICK_OUT_S","TRICK_TURNS","TRICK_TURBO_STYLE","TRICK_TURBO_MULT","_trickTurns","TRICK_LEG_SIDE","TRICK_ARM_LIFT","TRICK_ARM_SPREAD","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_danceByCmd","_parseDanceCmdChain","_danceCmdCooldownAt","isDanceUnlocked","_pickUnlockedDance","_lowestDanceReq","startMyDance","_deskDefById","isDeskUnlocked","ACTIVE_IDESK_KEY","getActiveInteractionDeskId","setActiveInteractionDeskId","_rideDenyToastAt","findRideTarget"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  accountStore: accountStoreMod,","  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,","  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,","  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,","  Presence: ()=>Presence,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_SNAP_DIST: RIDE_SNAP_DIST,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  focusLevelMod: ()=>focusLevelMod,","  isAdmin: ()=>isAdmin,","  rideBenchMod: rideBenchMod,","  seats: seats,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
 
@@ -98,8 +98,8 @@ function unlockBehave(mod){
   /* focus-level.js 의 약속 그대로 — 모르면 null · levelGate 는 'unknown'(sim-focus-level 이 본다) */
   const d = build(mod, { isAdmin: () => st.admin, focusLevelMod: () => ({ getFocusLevel: () => st.lv, levelGate: (min) => (st.lv == null ? 'unknown' : st.lv >= min ? 'ok' : 'low') }) });
   const dance = (cmd) => d.DANCE_MOVES.find((m) => m.cmd === cmd), desk = d.INTERACTION_DESKS[0];
-  const txt = (v) => [d.lockedToast(v, '달성 시 사용할 수 있어요'), d.levelText(v)].join('|');
-  const unknown = txt(null) === '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요|Lv.?' && d._lowestDanceReq() === null && !/Infinity|null|undefined|NaN/.test(txt(d._lowestDanceReq()) + txt(desk.reqLevel));
+  const txt = (v) => [d.lockedToast(v, '달성 시 사용할 수 있어요'), d.lockedText(v, '달성 시 해금'), d.levelText(v)].join('|');
+  const unknown = txt(null) === '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요|🔒 해금 정보를 받는 중이에요|Lv.?' && d.lockedText(50, '달성 시 해금') === '🔒 Lv.50 달성 시 해금' && d._lowestDanceReq() === null && !/Infinity|null|undefined|NaN/.test(txt(d._lowestDanceReq()) + txt(desk.reqLevel));
   const before = unknown && d.isDanceUnlocked(dance('80')) === false && d.isDeskUnlocked(desk) === false && d._pickUnlockedDance(() => 0) === null;
   st.admin = true; const adm = d.isDanceUnlocked(dance('80')) === true; st.admin = false;
   d.applyUnlocks({ DANCE: { '80': { level: 90 }, '150': { level: 200 } }, INTERACTION_DESK: { bench2: { level: 60 } } });
@@ -124,8 +124,10 @@ function unlockBehave(mod){
   chk(!badU.unk, 'mutation test — 레벨 모름을 low(잠김)로 뭉개면 빨강');
   const bad = unlockBehave(MOD.replace("  if(def.reqLevel == null) return focusLevelMod().getFocusLevel() == null ? 'unknown' : 'low';   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다\n", "").replace("levelGate(def.reqLevel);", "levelGate(def.reqLevel || 1);"));
   chk(!bad.before, 'mutation test — 받기 전에 열려 있으면 빨강');
-  const bad2 = unlockBehave(MOD.replace("return (level == null) ? '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;", "return '🔒 Lv.' + level + ' ' + tail;"));
+  const bad2 = unlockBehave(MOD.replace("return (level == null) ? LOCKED_UNKNOWN_TEXT + ' — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;", "return '🔒 Lv.' + level + ' ' + tail;"));
   chk(!bad2.before, 'mutation test — 모를 때 레벨 글자를 지어내면(Lv.null) 빨강');
+  const bad2b = unlockBehave(MOD.replace("  return (level == null) ? LOCKED_UNKNOWN_TEXT : '🔒 Lv.' + level + ' ' + tail;", "  return '🔒 Lv.' + level + ' ' + tail;"));
+  chk(!bad2b.before, 'mutation test — 꼬리 없는 말(lockedText · 동물 카드 띠)이 모를 때 Lv.null 을 지어내면 빨강');
   const bad3 = unlockBehave(MOD.replace("d.reqLevel == null ? m : (m == null ? d.reqLevel : Math.min(m, d.reqLevel)), null);", "d.reqLevel == null ? m : Math.min(m, d.reqLevel), Infinity);"));
   chk(!bad3.before, 'mutation test — 못 받았을 때 Infinity 를 돌려주면 빨강');
 }

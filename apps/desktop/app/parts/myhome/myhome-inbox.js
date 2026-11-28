@@ -225,9 +225,9 @@ function renderMyHomeFriendList(){
        ★ 색은 starFromRemote 가 **팔레트 안의 값으로만** 돌려준다. 그래도 속성값이라 escHtml 을 한 겹 더 건다(audit 검사 19). */
     const st = starFromRemote(f);
     if(st) return '<span class="mh-flv ' + escHtml(lvStarBadgeClass()) + '" style="--pre-c:' + escHtml(st.color) + '"><i class="pre">' + escHtml(lvStarStr(st.cyc)) + '</i>' + escHtml(st.lv) + '</span>';
-    // 레벨 정보가 없는 친구(구버전 접속 상태)는 배지를 표시하지 않는다 — Lv.1로 오해되지 않게.
-    if(lv == null) return '';
-    const n = Math.max(1, parseInt(lv,10) || 1);
+    // 레벨을 모르는 친구(없음 · 0 · 글자 — 구버전 접속 상태 등)는 배지를 표시하지 않는다 — Lv.1로 오해되지 않게.
+    const n = parseInt(lv,10);
+    if(!(n >= 1)) return '';
     /* ★ 접두사를 <i class="lvp"> 로 분리한다 — 숫자만 Consolas(등폭)로 찍고 'Lv' 는 본문 폰트로
        두어서, 3/8 을 갈라내면서도 배지 폭은 예전과 같게 유지한다(.mh-flv 주석 참고).
        마침표도 뺐다 — 등폭에서 점 하나가 숫자 한 칸을 통째로 먹는다. */
