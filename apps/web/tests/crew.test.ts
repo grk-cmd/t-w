@@ -4,10 +4,12 @@ import {
   BOP_PX,
   BUBBLE_EDGE,
   FLY_TAPS,
+  FUSE_TAPS,
   TAIL_IN,
   TAP_WINDOW_MS,
   bopFrames,
   bubbleShift,
+  launchFrames,
   nextTap,
 } from '@/pages/home/model/crew';
 
@@ -37,6 +39,57 @@ describe('nextTap — 연타면 날아간다', () => {
     const edge = [0, 1, 2, 3, TAP_WINDOW_MS];
     expect(run(edge)).toEqual([false, false, false, false, false]);
     expect(run([0, 1, 2, 3, TAP_WINDOW_MS - 1])).toEqual([false, false, false, false, true]);
+  });
+});
+
+describe('nextTap — 셋째부터 💣 예고 (시안 운영진 날리기)', () => {
+  it('시안 값 그대로 — 1.6초 안에 다섯 번 · 셋째부터 예고', () => {
+    expect(TAP_WINDOW_MS).toBe(1600);
+    expect(FLY_TAPS).toBe(5);
+    expect(FUSE_TAPS).toBe(3);
+  });
+  it('첫째 · 둘째는 예고 없음 · 셋째 · 넷째는 예고 · 다섯째는 날기(예고 아님)', () => {
+    let taps: number[] = [];
+    const got = [0, 100, 200, 300, 400].map((t) => {
+      const r = nextTap(taps, t);
+      taps = r.taps;
+      return [r.fuse, r.fly];
+    });
+    expect(got).toEqual([
+      [false, false],
+      [false, false],
+      [true, false],
+      [true, false],
+      [false, true],
+    ]);
+  });
+  it('창 밖으로 밀린 누름은 세지 않는다 — 느린 셋째는 예고 없음', () => {
+    const r1 = nextTap([], 0);
+    const r2 = nextTap(r1.taps, 100);
+    expect(nextTap(r2.taps, TAP_WINDOW_MS).fuse).toBe(false);
+    expect(nextTap(r2.taps, TAP_WINDOW_MS - 1).fuse).toBe(true);
+  });
+});
+
+describe('launchFrames — 위로 솟으며 돌다 떨어져 찌그러진다', () => {
+  const tf = (k: Keyframe) => String(k.transform);
+  it('처음 · 끝은 제자리 · 오프셋은 차례로 늘어난다', () => {
+    const f = launchFrames(1);
+    expect(tf(f[0]!)).toBe('translate(0, 0) rotate(0deg)');
+    expect(tf(f[f.length - 1]!)).toBe('translate(0, 0)');
+    const offs = f.map((k) => k.offset).filter((o): o is number => typeof o === 'number');
+    expect(offs).toEqual([0.08, 0.45, 0.46, 0.7, 0.9, 0.95]);
+  });
+  it('가장 높은 곳은 그림 높이 4.2배 위 · 방향(side)대로 옆으로 돌며 솟는다', () => {
+    expect(tf(launchFrames(1)[2]!)).toBe('translate(60%, -420%) rotate(900deg)');
+    expect(tf(launchFrames(-1)[2]!)).toBe('translate(-60%, -420%) rotate(-900deg)');
+    expect(launchFrames(1)[2]!.easing).toBe('ease-in');
+  });
+  it('꼭대기에서 바로 서서 떨어지고 · 땅에서 찌그러졌다 튄다', () => {
+    const f = launchFrames(-1);
+    expect(tf(f[3]!)).toBe('translate(0, -420%) rotate(0deg)');
+    expect(tf(f[5]!)).toBe('translate(0, 0) scale(1.1, 0.85)');
+    expect(tf(f[6]!)).toBe('translate(0, -8%) scale(0.95, 1.05)');
   });
 });
 
