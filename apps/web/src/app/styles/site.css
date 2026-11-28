@@ -285,7 +285,7 @@ h3 {
   padding-block: 36px 40px;
   overflow: hidden;
 }
-/* 왼쪽 소개 글 · 오른쪽 📰 소식 창 — 좁으면 위아래. 소식 창은 위에 붙인다(그 아래 자리를 비워 둔다) */
+/* 왼쪽 소개 글 · 오른쪽 📰 소식 창 — 좁으면 위아래. 소식 창은 위에 붙인다(그 아래는 사람 도트 그림 — .hero-side) */
 .hero .wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
