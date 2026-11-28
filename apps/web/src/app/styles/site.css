@@ -445,36 +445,61 @@ h3 {
     no-repeat;
   background-size: 15px 15px;
 }
-/* 연타 — 빙글 돌며 날아갔다가 제자리로(길이는 CrewMate 가 FLY_MS 로 넘긴다) */
-.crew-btn.fly {
-  animation: crew-fly var(--fly-ms) ease-in-out;
-}
-@keyframes crew-fly {
-  0% {
-    transform: none;
-  }
-  35% {
-    transform: translate(140px, -240px) rotate(540deg);
-    opacity: 1;
-  }
-  45% {
-    opacity: 0;
-  }
-  70% {
-    transform: translate(0, -30px);
-    opacity: 0;
-  }
-  100% {
-    transform: none;
-    opacity: 1;
-  }
-}
-.crew-boom {
+/* 💣 펑 효과(시안 그대로) — 머리 위 자리(left 는 CrewMate 가 headX 로 넣는다) · 누름을 가로채지 않게 */
+.crew-fx {
   position: absolute;
-  top: 40%;
+  top: 0;
   left: 50%;
-  font-size: 32px;
-  transform: translate(-50%, -50%);
+  height: 60%;
+  pointer-events: none;
+  z-index: 3;
+}
+.crew-fx span {
+  position: absolute;
+  left: 0;
+  transform: translateX(-50%);
+}
+/* 셋째 누름부터 머리 위에서 치익 — 곧 터진다는 예고 */
+.crew-fx .bomb {
+  top: -6%;
+  font-size: 26px;
+  animation: crew-fuse 0.25s ease-in-out infinite alternate;
+}
+.crew-fx .boom {
+  top: 10%;
+  font-size: 44px;
+  animation: crew-boom 0.5s ease-out forwards;
+}
+.crew-fx .dz {
+  top: -2%;
+  font-size: 24px;
+  animation: crew-spin 1s linear infinite;
+}
+@keyframes crew-fuse {
+  from {
+    transform: translateX(-50%) rotate(-12deg);
+  }
+  to {
+    transform: translateX(-50%) rotate(12deg) scale(1.1);
+  }
+}
+@keyframes crew-boom {
+  from {
+    transform: translateX(-50%) scale(0.4);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-50%) scale(1.6);
+    opacity: 0;
+  }
+}
+@keyframes crew-spin {
+  from {
+    transform: translateX(-50%) rotate(0deg);
+  }
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
 }
 .news .body {
   padding: 6px;
@@ -629,22 +654,9 @@ h3 {
     transition: none;
   }
   .land:hover .land-ic,
-  .land-bar .blink {
+  .land-bar .blink,
+  .crew-fx span {
     animation: none;
-  }
-  /* 연타 반응은 남긴다 — 돌며 날아가는 대신 제자리에서 사라졌다 돌아온다(길이 · 속도는 위 .crew-btn.fly 그대로) */
-  .crew-btn.fly {
-    animation-name: crew-fade;
-  }
-}
-@keyframes crew-fade {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  30%,
-  70% {
-    opacity: 0;
   }
 }
 .eyebrow {
@@ -1097,7 +1109,6 @@ h3 {
 /* 내려받기 */
 .end {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 14px;
 }
 .spec {
@@ -1137,8 +1148,7 @@ h3 {
 @media (max-width: 900px) {
   .hero .wrap,
   .maker-body,
-  .feat .body,
-  .end {
+  .feat .body {
     grid-template-columns: 1fr;
   }
   .nav {

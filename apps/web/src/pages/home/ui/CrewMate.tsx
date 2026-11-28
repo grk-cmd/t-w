@@ -1,9 +1,21 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { BOP_MS, bopFrames, bubbleShift, nextTap } from '../model/crew';
+import { useI18n } from '@/shared/i18n';
+import {
+  BOOM_MS,
+  BOP_MS,
+  DIZZY_MS,
+  LAUNCH_MS,
+  REDUCED_LAND_MS,
+  TAP_WINDOW_MS,
+  bopFrames,
+  bubbleShift,
+  launchFrames,
+  nextTap,
+} from '../model/crew';
 
-/** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS 애니메이션 길이도 이 값 — --fly-ms) */
+/** 말풍선이 떠 있는 시간 */
 const SAY_MS = 2500;
-const FLY_MS = 1800;
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 interface Props {
   name: string;
@@ -16,21 +28,27 @@ interface Props {
   headX: number;
 }
 
-/** 사람 그림 하나 — 한 번 누르면 말풍선(누를 때마다 다음 대사) · 연타하면 💣 와 함께 날아갔다 돌아온다 · 아래에 이름표 */
+/** 사람 그림 하나 — 한 번 누르면 통통 · 말풍선(누를 때마다 다음 대사) · 셋째부터 머리 위 💣 치익 · 연타(5번)면 💥 펑 날아갔다 떨어져 💫 어질어질 ·
+    아래에 이름표. 💣 동작은 시안 docs/prototypes/main-site(main.js 운영진 날리기) 그대로 */
 export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
-  const [say, setSay] = useState<number | null>(null);
+  const { m } = useI18n();
+  /** 말풍선 글(대사 · «으아아~!» · «어질어질…») — 없으면 말풍선 없음 */
+  const [say, setSay] = useState<string | null>(null);
+  /** 날아가는 중 · 떨어져 어지러운 중엔 누름을 받지 않는다 */
   const [flying, setFlying] = useState(false);
+  const [fuse, setFuse] = useState(false);
+  const [boom, setBoom] = useState(false);
+  const [dizzy, setDizzy] = useState(false);
   const taps = useRef<number[]>([]);
   // 다음에 보일 대사 — 말풍선이 사라져도 이어진다(천천히 눌러도 다음 대사)
   const nextLine = useRef(0);
   const bubble = useRef<HTMLSpanElement>(null);
   const live = useRef<HTMLSpanElement>(null);
-  const btn = useRef<HTMLButtonElement>(null);
+  const fx = useRef<HTMLSpanElement>(null);
   // ⚠️ 홈페이지 CSP 는 style-src 'self' — 마크업의 style="" 속성은 막힌다(미리 그린 HTML · 하이드레이션 모두).
-  //    자리 · 날기 길이는 스크립트(CSSOM)로 넣는다 — 말풍선보다 먼저(아래 효과가 이 자리를 잰다)
+  //    머리 위 자리는 스크립트(CSSOM)로 넣는다 — 말풍선보다 먼저(아래 효과가 이 자리를 잰다)
   useLayoutEffect(() => {
-    if (live.current) live.current.style.left = `${headX * 100}%`;
-    btn.current?.style.setProperty('--fly-ms', `${FLY_MS}ms`);
+    for (const el of [live.current, fx.current]) if (el) el.style.left = `${headX * 100}%`;
   }, [headX]);
   // 도트 테두리(border-image 아홉 조각)는 반 픽셀에 앉으면 조각이 안 맞아 흐려진다 — 앱(_bubSnapTransform)처럼 정수 px 로 맞춘다
   useLayoutEffect(() => {
@@ -67,28 +85,64 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
   const bop = () => {
     const el = body.current;
     stopBop();
-    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!el || reduced()) return;
     el.animate(bopFrames(), { duration: BOP_MS, easing: 'linear' });
   };
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  /** 말풍선 · 💣 예고 · 💥 · 땅에 떨어진 뒤 — 이름마다 하나씩, 새로 걸면 앞 것을 지운다 · 사라질 때 모두 지운다 */
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const later = (key: string, ms: number, fn: () => void) => {
+    clearTimeout(timers.current.get(key));
+    timers.current.set(key, setTimeout(fn, ms));
+  };
+  useEffect(() => {
+    const all = timers.current;
+    const el = body.current;
+    // 날던 중에 사라지면 onfinish(land)가 정리 뒤에 타이머를 다시 걸지 않게 날기도 멈춘다
+    return () => {
+      all.forEach((t) => clearTimeout(t));
+      for (const a of el?.getAnimations() ?? []) a.cancel();
+    };
+  }, []);
+
+  /** 떨어진 뒤 — 💫 어질어질 · 끝나면 다시 누를 수 있다 */
+  const land = () => {
+    setSay(m.crewDizzy);
+    setDizzy(true);
+    later('say', DIZZY_MS, () => {
+      setDizzy(false);
+      setSay(null);
+      setFlying(false);
+    });
+  };
+  /** 💣 펑 — 💥 · «으아아~!» · 좌우 무작위로 날아갔다 떨어진다(줄이기 설정이면 날지 않고 곧 어질어질) */
+  const launch = () => {
+    stopBop();
+    setFlying(true);
+    setFuse(false);
+    setBoom(true);
+    later('boom', BOOM_MS, () => setBoom(false));
+    setSay(m.crewYell);
+    clearTimeout(timers.current.get('say'));
+    const el = body.current;
+    if (!el || reduced()) return later('land', REDUCED_LAND_MS, land);
+    const side = Math.random() < 0.5 ? -1 : 1;
+    el.animate(launchFrames(side), { duration: LAUNCH_MS }).onfinish = land;
+  };
 
   const tap = () => {
     if (flying) return;
     const r = nextTap(taps.current, Date.now());
     taps.current = r.taps;
-    clearTimeout(timer.current);
-    if (r.fly) {
-      stopBop();
-      setSay(null);
-      setFlying(true);
-      timer.current = setTimeout(() => setFlying(false), FLY_MS);
-      return;
-    }
+    if (r.fly) return launch();
     bop();
-    setSay(nextLine.current);
+    // 시안처럼 💣 는 처음 뜬 때부터 TAP_WINDOW_MS 뒤 사라진다 — 넷째 누름이 시간을 다시 세지 않는다
+    if (r.fuse && !fuse) {
+      setFuse(true);
+      later('fuse', TAP_WINDOW_MS, () => setFuse(false));
+    }
+    setSay(lines[nextLine.current] ?? null);
     nextLine.current = (nextLine.current + 1) % lines.length;
-    timer.current = setTimeout(() => setSay(null), SAY_MS);
+    later('say', SAY_MS, () => setSay(null));
   };
 
   return (
@@ -97,27 +151,21 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
       <span ref={live} className="crew-live" aria-live="polite">
         {say !== null && (
           <span ref={bubble} className="crew-say">
-            {lines[say]}
+            {say}
           </span>
         )}
       </span>
-      <button
-        type="button"
-        ref={btn}
-        className={flying ? 'crew-btn fly' : 'crew-btn'}
-        onClick={tap}
-        aria-label={`${role} ${name}`}
-      >
-        {flying && (
-          <span className="crew-boom" aria-hidden="true">
-            💣
-          </span>
-        )}
-        {/* 튀기는 이 칸 · 숨쉬기는 그림 · 날기는 단추 — 셋이 다른 요소라 겹쳐도 덮어쓰지 않는다 */}
+      <button type="button" className="crew-btn" onClick={tap} aria-label={`${role} ${name}`}>
+        {/* 통통 · 날기는 이 칸(Web Animations) · 숨쉬기는 그림(CSS) — 다른 요소라 겹쳐도 덮어쓰지 않는다 */}
         <span ref={body} className="crew-body">
           <img className="crew" src={src} width={w} height={h} alt="" />
         </span>
       </button>
+      <span ref={fx} className="crew-fx" aria-hidden="true">
+        {fuse && <span className="bomb">💣</span>}
+        {boom && <span className="boom">💥</span>}
+        {dizzy && <span className="dz">💫</span>}
+      </span>
       <figcaption className="crew-tag">
         <span className="crew-role">{role}</span> <span className="crew-name">{name}</span>
       </figcaption>
