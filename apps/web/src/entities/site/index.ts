@@ -10,4 +10,4 @@ export {
   type SiteDownload,
   type SiteNews,
 } from './model/site';
-export { useSite, type SiteState } from './model/use-site';
+export { createSiteStore, useSite, type SiteState, type SiteStore } from './model/use-site';
