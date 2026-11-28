@@ -1,12 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { nextTap } from '../model/crew';
+import { bubbleShift, nextTap } from '../model/crew';
 
 /** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS 애니메이션 길이도 이 값 — --fly-ms) */
 const SAY_MS = 2500;
 const FLY_MS = 1800;
-/** 말풍선이 화면 끝에서 띄울 거리 · 꼬리가 몸통 끝에서 떨어질 거리(테두리 9px + 꼬리 반 폭) */
-const EDGE = 8;
-const TAIL_IN = 17;
 
 interface Props {
   name: string;
@@ -38,10 +35,13 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     el.style.transform = `translateX(${-Math.round(w / 2)}px)`;
     const r = el.getBoundingClientRect();
     // 머리 위가 화면 끝에 가까우면(폰) 몸통만 안으로 밀고 꼬리는 머리를 가리킨 채 둔다 — 꼬리는 몸통 안쪽까지만
-    const vw = document.documentElement.clientWidth;
-    const push = Math.min(0, vw - EDGE - Math.round(r.right)) || Math.max(0, EDGE - Math.round(r.left));
-    const tail = Math.max(-(w / 2 - TAIL_IN), Math.min(w / 2 - TAIL_IN, -push));
-    el.style.setProperty('--tail-dx', `${Math.round(tail)}px`);
+    const { push, tail } = bubbleShift(
+      Math.round(r.left),
+      Math.round(r.right),
+      w,
+      document.documentElement.clientWidth,
+    );
+    el.style.setProperty('--tail-dx', `${tail}px`);
     el.style.transform = `translate(${-Math.round(w / 2) + push + Math.round(r.left) - r.left}px, ${Math.round(r.top) - r.top}px)`;
   }, [say]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);

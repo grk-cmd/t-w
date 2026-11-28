@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FLY_TAPS, TAP_WINDOW_MS, nextTap } from '@/pages/home/model/crew';
+import { BUBBLE_EDGE, FLY_TAPS, TAIL_IN, TAP_WINDOW_MS, bubbleShift, nextTap } from '@/pages/home/model/crew';
 
 /** 연타 판정 — 한 번씩은 말풍선, 짧은 시간에 FLY_TAPS 번이면 날아간다 */
 function run(times: number[]) {
@@ -27,5 +27,30 @@ describe('nextTap — 연타면 날아간다', () => {
     const edge = [0, 1, 2, 3, TAP_WINDOW_MS];
     expect(run(edge)).toEqual([false, false, false, false, false]);
     expect(run([0, 1, 2, 3, TAP_WINDOW_MS - 1])).toEqual([false, false, false, false, true]);
+  });
+});
+
+describe('bubbleShift — 화면 끝에선 몸통만 밀고 꼬리는 머리를 가리킨다', () => {
+  const vw = 360;
+  it('화면 안이면 그대로', () => {
+    expect(bubbleShift(100, 250, 150, vw)).toEqual({ push: 0, tail: 0 });
+  });
+  it('끝 여백에 딱 맞으면 그대로 · 1px 넘으면 1px 민다', () => {
+    expect(bubbleShift(BUBBLE_EDGE, 200, 150, vw)).toEqual({ push: 0, tail: 0 });
+    expect(bubbleShift(200, vw - BUBBLE_EDGE, 150, vw)).toEqual({ push: 0, tail: 0 });
+    expect(bubbleShift(200, vw - BUBBLE_EDGE + 1, 150, vw)).toEqual({ push: -1, tail: 1 });
+    expect(bubbleShift(BUBBLE_EDGE - 1, 200, 150, vw)).toEqual({ push: 1, tail: -1 });
+  });
+  it('오른쪽으로 넘으면 왼쪽으로 밀고 꼬리는 그만큼 오른쪽(머리 자리 그대로)', () => {
+    expect(bubbleShift(212, 362, 150, vw)).toEqual({ push: -10, tail: 10 });
+  });
+  it('꼬리는 몸통 안쪽까지만 — 짧은 말풍선을 많이 밀어도 몸통 끝 TAIL_IN 안', () => {
+    const r = bubbleShift(300, 385, 85, vw);
+    expect(r.push).toBe(-33);
+    expect(r.tail).toBe(42 - TAIL_IN);
+  });
+  it('양쪽 다 넘으면 왼쪽을 맞춘다 · 몸통이 꼬리보다 좁아도 꼬리는 가운데', () => {
+    expect(bubbleShift(-5, 400, 405, vw).push).toBe(BUBBLE_EDGE + 5);
+    expect(bubbleShift(-5, 20, 25, vw)).toEqual({ push: BUBBLE_EDGE + 5, tail: 0 });
   });
 });

@@ -15,3 +15,23 @@ export function nextTap(taps: readonly number[], now: number): { taps: number[];
   const recent = [...taps.filter((t) => now - t < TAP_WINDOW_MS), now];
   return recent.length >= FLY_TAPS ? { taps: [], fly: true } : { taps: recent, fly: false };
 }
+
+/** 말풍선이 화면 끝에서 띄울 거리 · 꼬리가 몸통 끝에서 떨어질 거리(테두리 9px + 꼬리 반 폭) */
+export const BUBBLE_EDGE = 8;
+export const TAIL_IN = 17;
+
+/** 머리 위에 놓은 말풍선(왼쪽 · 오른쪽 · 폭, 정수 px)이 화면(폭 vw) 끝을 넘으면 몸통을 밀 거리(push) ·
+    꼬리를 몸통 가운데에서 옮길 거리(tail — 머리를 계속 가리키게, 몸통 안쪽까지만). 양쪽 다 넘으면 왼쪽을 맞춘다(글 첫머리가 보이게) */
+export function bubbleShift(
+  left: number,
+  right: number,
+  w: number,
+  vw: number,
+): { push: number; tail: number } {
+  let push = 0;
+  if (left < BUBBLE_EDGE) push = BUBBLE_EDGE - left;
+  else if (right > vw - BUBBLE_EDGE) push = vw - BUBBLE_EDGE - right;
+  const lim = Math.max(0, Math.floor(w / 2) - TAIL_IN);
+  // + 0: -push · -lim 이 -0 이 되는 것을 0 으로(스타일 글에 «-0px» 가 안 남게)
+  return { push, tail: Math.max(-lim, Math.min(lim, -push)) + 0 };
+}
