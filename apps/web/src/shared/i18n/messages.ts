@@ -161,9 +161,13 @@ export const ko: Messages = {
   crew: {
     admin: {
       role: '관리자',
-      lines: ['오늘도 같이 힘내요!', '버그 제보는 언제나 환영이에요', '마라카스 소리 들려요?'],
+      lines: [
+        '투게더워킹에 오신 것을 환영합니다!',
+        '이상하다 분명 취미였는데...',
+        '개발자님은 정말 최고입니다.',
+      ],
     },
-    dev: { role: '개발자', lines: ['지금 고치는 중이에요…', '커피 한 잔만 더…', '새 기능 곧 나와요!'] },
+    dev: { role: '개발자', lines: ['문제가 생기면 맡겨주세요!', '이게 왜이러지', '으아아아'] },
   },
   newsEmpty: '소식을 준비하고 있어요.',
   creator: {
@@ -334,11 +338,15 @@ export const en: Messages = {
   crew: {
     admin: {
       role: 'Admin',
-      lines: ['Let’s do our best today!', 'Bug reports are always welcome', 'Can you hear the maracas?'],
+      lines: [
+        'Welcome to Together Working!',
+        'Weird… this was supposed to be a hobby…',
+        'Our developer is simply the best.',
+      ],
     },
     dev: {
       role: 'Developer',
-      lines: ['Fixing it right now…', 'Just one more coffee…', 'New features coming soon!'],
+      lines: ['Leave any problems to me!', 'Why is this doing that…', 'Aaaaaagh'],
     },
   },
   newsEmpty: 'News is on its way.',
@@ -511,9 +519,13 @@ export const ja: Messages = {
   crew: {
     admin: {
       role: '管理者',
-      lines: ['今日も一緒にがんばろう！', 'バグ報告はいつでも大歓迎', 'マラカスの音、聞こえる？'],
+      lines: [
+        'トゥゲザーワーキングへようこそ！',
+        'おかしいな、趣味のはずだったのに…',
+        '開発者さんは本当に最高です。',
+      ],
     },
-    dev: { role: '開発者', lines: ['いま直してるところ…', 'コーヒーもう一杯だけ…', '新機能、もうすぐ！'] },
+    dev: { role: '開発者', lines: ['困ったときはお任せください！', 'なんでこうなるの', 'うわあああ'] },
   },
   newsEmpty: 'お知らせを準備しています。',
   creator: {
