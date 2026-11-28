@@ -72,7 +72,7 @@ function mkHub(){
   };
   return h;
 }
-const rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE, isDeviceOff: globalThis.TwRtHub.isDeviceOff });
+const rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE, isDeviceOff: globalThis.TwRtHub.isDeviceOff, noticeMs: globalThis.TwRtHub.RECONNECT_NOTICE_MS });
 globalThis.getMyUserId = () => 'u_test';
 
 const D = t => 'data:image/png;base64,' + t + 'A'.repeat(200);
