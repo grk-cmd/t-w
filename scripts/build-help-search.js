@@ -19,8 +19,8 @@ const OUT = HELP + '/search.json';
 const FAQ_PAGE = HELP + '/faq.html';
 const WORDS = 'docs/help-search/words.json';
 const FAQ = 'docs/help-search/faq.json';
-// FAQ 질문 앞 꼬리표 — 어느 컴퓨터 이야기인지(«[mac] 맥에서 안 열려요»). 새 꼬리표는 여기에 더한다 · 없거나 모르는 값이면 만들 때 멈춘다
-const FAQ_TAGS = ['공통', 'Windows', 'mac'];
+// FAQ 질문 앞 꼬리표 — 어느 컴퓨터 이야기인지(«[mac] 맥에서 안 열려요») · 연동은 태블릿 · 폰 연결. 새 꼬리표는 여기에 더한다 · 없거나 모르는 값이면 만들 때 멈춘다
+const FAQ_TAGS = ['공통', 'Windows', 'mac', '연동'];
 
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
 const decode = (s) => s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, k) => ENT[k]);
@@ -57,7 +57,7 @@ function faqPage(faq, pages, chunks){
     '<link rel="stylesheet" href="/tokens.css">', '<link rel="stylesheet" href="/fonts/nanum-gothic.css">', '<link rel="stylesheet" href="/help.css">',
     '<script src="/theme.js"></script>', '<script src="/embed.js" defer></script>', '<script src="/search.js" defer></script>',
     '</head>', '<body>', header('faq'), '<main>', '<h1>자주 묻는 질문</h1>',
-    '<p class="lead">많이 물어보는 것을 모았어요. 질문을 누르면 답이 펴져요.</p>', '',
+    '<p class="lead">자주 들어오는 질문을 모았어요. 문의 없이 빠르게 해결해보세요!</p>', '',
     items, '',
     '<p class="foot">찾는 내용이 없으면 위 검색창에 물어보거나 마이홈 › 버그제보에 남겨 주세요.</p>',
     '</main>', '</body>', '</html>', ''].join('\n');

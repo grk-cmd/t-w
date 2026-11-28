@@ -103,6 +103,7 @@ details.faq > summary:focus-visible{outline:2px solid var(--focus);outline-offse
 details.faq .faq-n{flex:none;font-weight:bold;color:var(--ink-accent)}
 details.faq h2{font-size:15px;margin:0;padding:0;border:0;min-width:0}
 details.faq > p{margin-left:var(--space-6);margin-right:var(--space-2)}
+details.faq .xref{font-weight:bold}   /* 답 끝 «함께 볼 도움말» 링크 */
 /* 펼친 답만 바탕보다 한 톤 밝게 — 질문 줄은 페이지 바탕 그대로(올렸을 때만 밝아진다) */
 details.faq[open]{padding-bottom:var(--space-3);background:var(--bg-face-2)}
 details.faq[open] > summary{background:var(--bg-face)}
