@@ -115,6 +115,49 @@ describe('설치 파일 주소 — 우리 GitHub 릴리스의 판 태그 / 파�
   });
 });
 
+describe('createSiteStore — 한 번 받기 · 실패는 실패 · 다시 시도', () => {
+  const ok = () => Promise.resolve({ t: 'ok' as const, site: parseSite(raw())! });
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+
+  it('몇 곳이 ensure 해도 한 번만 받고 · 구독자 모두에게 알린다 · 구독을 풀면 빠진다', async () => {
+    const f = vi.fn(ok);
+    const st = createSiteStore(f);
+    const a = vi.fn();
+    const b = vi.fn();
+    const offA = st.subscribe(a);
+    st.subscribe(b);
+    st.ensure();
+    st.ensure();
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(st.get()).toEqual({ s: 'loading' });
+    offA();
+    await tick();
+    expect(st.get().s).toBe('ready');
+    expect(b).toHaveBeenCalled();
+    expect(a).toHaveBeenCalledTimes(1); // 풀기 전 'loading' 한 번뿐 — 'ready' 는 못 받음
+  });
+
+  it('못 받으면 failed — ready(글 없음 · 닫힘)로 바꾸지 않는다 · 다시 시도는 곧바로 loading → 받으면 ready', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let fail = true;
+    const f = vi.fn(() => (fail ? Promise.resolve({ t: 'failed' as const, why: 'HTTP 503' }) : ok()));
+    const st = createSiteStore(f);
+    st.ensure();
+    await tick();
+    expect(st.get()).toEqual({ s: 'failed' });
+    expect(warn).toHaveBeenCalled();
+    st.ensure(); // 실패 뒤에도 몰래 다시 받지 않는다
+    expect(f).toHaveBeenCalledTimes(1);
+    fail = false;
+    st.retry();
+    expect(st.get()).toEqual({ s: 'loading' });
+    await tick();
+    expect(st.get().s).toBe('ready');
+    expect(f).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+});
+
 describe('newsFor · downloadReady', () => {
   const at = (iso: string) => Date.parse(iso);
   const n = (id: string, pinned: boolean, iso: string, ja = 'x') => ({
