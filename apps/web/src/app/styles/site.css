@@ -8,7 +8,7 @@
   src: url('galmuri/dist/Galmuri11-Bold.woff2') format('woff2');
   font-display: swap;
 }
-/* 같은 글꼴의 보통 굵기 — 제목(굵은 파일을 400 으로 쓴다)에 끼지 않게 이름을 따로 둔다. 첫 화면 사람 말풍선만 */
+/* 같은 글꼴의 보통 굵기 — 제목(굵은 파일을 400 으로 쓴다)에 끼지 않게 이름을 따로 둔다. 첫 화면 사람 말풍선 · 이름표 닉네임 */
 @font-face {
   font-family: 'Galmuri11 Regular';
   src: url('galmuri/dist/Galmuri11.woff2') format('woff2');
@@ -346,7 +346,7 @@ h3 {
   outline: 1px dotted var(--on-desk);
   outline-offset: 2px;
 }
-/* 이름표 — 앱 좌석 이름표(.seat-nameplate)와 같은 모양(바탕 없이 흰 글자 + 8방향 검은 외곽선) · 굵은 도트 글꼴로 두 줄(위 역할 · 아래 닉네임).
+/* 이름표 — 앱 좌석 이름표(.seat-nameplate)와 같은 모양(바탕 없이 흰 글자 + 8방향 검은 외곽선) · 도트 글꼴 두 줄(위 역할은 굵게 · 아래 닉네임은 얇게).
    두 span 사이 빈칸은 글로 읽힐 때 «관리자 고로케» 가 되게 둔다 */
 .crew-tag {
   color: var(--plate-ink);
@@ -366,6 +366,9 @@ h3 {
 .crew-role,
 .crew-name {
   display: block;
+}
+.crew-name {
+  font-family: var(--font-cute-thin);
 }
 .crew-live {
   position: absolute;
