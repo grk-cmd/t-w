@@ -464,6 +464,38 @@ h3 {
 .news-empty p {
   margin: 0;
 }
+/* 소식 목록 — 창 높이를 넘으면 안에서 스크롤(첫 화면이 길어지지 않게) · 본문은 관리자가 친 줄바꿈 그대로 */
+.news-list {
+  margin: 0;
+  padding: 4px 8px;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.news-list li + li {
+  border-top: 1px dotted var(--ink-soft);
+}
+.news-list li {
+  padding: 6px 0;
+}
+.news-head {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.news-head time {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.news-body {
+  margin: 4px 0 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
 .hero-copy .logo {
   display: block;
   width: 192px;
