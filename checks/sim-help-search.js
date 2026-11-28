@@ -95,6 +95,19 @@ chk(/\[data-embed\] \.bar\{display:none\}/.test(fs.readFileSync(path.join(DIR, '
   chk(broken !== SRC && openRun(broken, '#f3').boxOf.f3.open === false, '  mutation test — 펴는 줄을 지우면 닫힌 채로 남는다');
 }
 
+/* 편에 손으로 적은 FAQ 자리 링크(/faq#fN) — 질문 순서를 바꾸면 번호가 바뀐다. 링크 글의 질문이 그 번호의 질문과 같아야 한다 */
+{
+  const bad = [];
+  for (const f of fs.readdirSync(DIR).filter(n => /^\d+-\d+\.html$/.test(n))) {
+    const t = fs.readFileSync(path.join(DIR, f), 'utf8');
+    for (const m of t.matchAll(/href="\/faq#f(\d+)">🔗 FAQ — ([^<]+)<\/a>/g)) {
+      const q = IX.faq[Number(m[1]) - 1];
+      if (!q || !q.h.endsWith('] ' + m[2].replace(/&amp;/g, '&').trim())) bad.push(f + ' → #f' + m[1] + ' «' + m[2] + '»');
+    }
+  }
+  chk(!bad.length, '편 안의 FAQ 자리 링크(/faq#fN)가 같은 질문을 가리킨다' + (bad.length ? ' — ' + bad.join(' · ') : ''));
+}
+
 say('── 2. 질문 → 답');
 const verAnchor = '';   // 버전 FAQ 는 5-5 편 머리(정보 탭 — 프로그램 정보)로 간다
 const CASES = [
