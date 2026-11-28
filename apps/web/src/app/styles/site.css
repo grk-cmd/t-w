@@ -303,12 +303,19 @@ h3 {
   gap: 16px;
   min-width: 0;
 }
-/* 그림 파일은 두 배 크기(400px) — 선명한 화면에서도 또렷하게 절반으로 보인다 */
+/* 사람 그림 줄 — 오른쪽에 붙여 나란히 · 좁으면 줄바꿈 */
+.crew-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 12px;
+}
+/* 그림 파일은 화면의 두 배 크기 — 높이를 맞춰 절반으로 보인다 */
 .crew {
-  align-self: flex-end;
-  width: 200px;
+  height: 176px;
+  width: auto;
   max-width: 100%;
-  height: auto;
 }
 .news .body {
   padding: 6px;

@@ -27,7 +27,7 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | `src/shared/config/` | 바깥 주소 한 곳(도움말 · 자체 서버 API `API_ORIGIN` · 파츠 그림을 바로 받는 Storage `STORAGE_ORIGIN` · `STORAGE_BUCKET`(운영 버킷). API 는 홈페이지 CSP connect-src · img-src 에, Storage 는 img-src 에 같은 주소 — 우리 도메인이 아닌 것은 Storage 하나) |
 | `src/shared/lib/html-template/` | 빌드한 `index.html` 틀의 자리표 셋(`%TW_LANG%` · `<!--tw-head-->` · `<!--tw-body-->`)을 채운다 — 하나라도 빠지면 던진다 |
 | `scripts/prerender.mjs` | SSR 빌드를 불러 `dist/index.html` · `dist/en/index.html` · `dist/ja/index.html` 을 쓴다 |
-| `public/` | 아이콘(앱 것을 복사 — `apps/desktop/app/assets/icon/tw-mini.png` · `apps/desktop/build/icon.iconset/icon_256x256.png`) · 글꼴 라이선스 · 첫 화면 사람 그림 `crew/`(사용자가 준 그림을 400px 폭 webp 로 줄인 것 — 화면은 절반 200px) · 소개 칸 앱 화면 `features/`(도움말 캡처 `firebase/hosting/help/img` 의 사본 — 도움말 캡처를 다시 찍으면 여기도 바꾸고 `pages/home/model/feature-shots.ts` 의 크기도 맞춘다 · 순서는 문구 `features` 와 같다) |
+| `public/` | 아이콘(앱 것을 복사 — `apps/desktop/app/assets/icon/tw-mini.png` · `apps/desktop/build/icon.iconset/icon_256x256.png`) · 글꼴 라이선스 · 첫 화면 사람 그림 `crew/`(사용자가 준 관리자 · 개발자 그림 — 둘레 빛번짐을 잘라 화면 두 배 크기 webp 로 · 차례 · 크기는 `pages/home/model/crew.ts`) · 소개 칸 앱 화면 `features/`(도움말 캡처 `firebase/hosting/help/img` 의 사본 — 도움말 캡처를 다시 찍으면 여기도 바꾸고 `pages/home/model/feature-shots.ts` 의 크기도 맞춘다 · 순서는 문구 `features` 와 같다) |
 
 - **색**은 디자인 시스템 원본(`docs/design-system/project/tokens.json`)에서 빌드 때 만든다(`vite.config.ts` 의 `virtual:tw-tokens.css` — 도움말 사이트와 같은 변환기 `scripts/build-design-tokens.js`). 사본을 커밋하지 않는다. 페이지는 `<html data-theme="classic">`.
 - **몸 모델 · 피부 그림**은 앱 원본(`apps/desktop/app/parts/base-glb.js` · `skin-data.js`)에서 빌드 때 꺼내 파일로 낸다(`virtual:tw-char-assets` — 사본 커밋 없음). 설치 파일에도 든 공개 자산이라 웹에 둬도 된다(#430 4절).

@@ -112,8 +112,8 @@ export interface Messages {
   landSound: string;
   landOk: string;
   newsTitle: string;
-  /** 소식 창 아래 그림 — 개발자 */
-  crewDevAlt: string;
+  /** 소식 창 아래 사람 그림의 대체 글 */
+  crewAlt: { admin: string; dev: string };
   newsEmpty: string;
   creator: CreatorMessages;
   aboutTitle: string;
@@ -158,7 +158,7 @@ export const ko: Messages = {
   landSound: '어딘가에서 새로운 땅을 짓는 소리가 들려요…',
   landOk: '확인',
   newsTitle: '📰 소식 · 업데이트',
-  crewDevAlt: '개발자',
+  crewAlt: { admin: '관리자', dev: '개발자' },
   newsEmpty: '소식을 준비하고 있어요.',
   creator: {
     loading: '캐릭터를 불러오는 중…',
@@ -325,7 +325,7 @@ export const en: Messages = {
   landSound: 'You can hear something new being built somewhere…',
   landOk: 'OK',
   newsTitle: '📰 News · Updates',
-  crewDevAlt: 'Developer',
+  crewAlt: { admin: 'Admin', dev: 'Developer' },
   newsEmpty: 'News is on its way.',
   creator: {
     loading: 'Loading the character…',
@@ -493,7 +493,7 @@ export const ja: Messages = {
   landSound: 'どこかで新しい土地をつくる音が聞こえる…',
   landOk: 'OK',
   newsTitle: '📰 お知らせ・アップデート',
-  crewDevAlt: '開発者',
+  crewAlt: { admin: '管理者', dev: '開発者' },
   newsEmpty: 'お知らせを準備しています。',
   creator: {
     loading: 'キャラクターを読み込み中…',

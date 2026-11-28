@@ -1,4 +1,5 @@
 import { useI18n } from '@/shared/i18n';
+import { CREW } from '../model/crew';
 import { NewsSlot } from './NewsSlot';
 import { TogetherLand } from './TogetherLand';
 
@@ -27,7 +28,11 @@ export function Hero() {
         </div>
         <div className="hero-side">
           <NewsSlot />
-          <img className="crew" src="/crew/dev.webp" width={400} height={351} alt={m.crewDevAlt} />
+          <div className="crew-row">
+            {CREW.map((c) => (
+              <img key={c.key} className="crew" src={c.src} width={c.w} height={c.h} alt={m.crewAlt[c.key]} />
+            ))}
+          </div>
         </div>
       </div>
     </section>
