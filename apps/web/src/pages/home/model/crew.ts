@@ -35,3 +35,27 @@ export function bubbleShift(
   // + 0: -push · -lim 이 -0 이 되는 것을 0 으로(스타일 글에 «-0px» 가 안 남게)
   return { push, tail: Math.max(-lim, Math.min(lim, -push)) + 0 };
 }
+
+/** 눌렀을 때 통통 튀기 — 앱 쓰다듬기(frame-loop · sin(t·0.016)·e^(−t·0.0026))와 같은 박자 · 줄어듦.
+    그림은 바닥(책상)을 뚫으면 안 돼서 위로만 튄다(|sin|) · 땅에 닿을 때 살짝 납작 */
+export const BOP_MS = 1100;
+export const BOP_PX = 12;
+const BOP_FREQ = 0.016;
+const BOP_DECAY = 0.0026;
+const BOP_SQUASH = 0.06;
+
+/** 튀기 한 번의 키프레임(Web Animations) — 처음 · 끝은 제자리 */
+export function bopFrames(samples = 24): Keyframe[] {
+  return Array.from({ length: samples + 1 }, (_, i) => {
+    const t = (i / samples) * BOP_MS;
+    const d = Math.exp(-t * BOP_DECAY);
+    const hop = Math.abs(Math.sin(t * BOP_FREQ));
+    const last = i === samples;
+    const y = last ? 0 : Math.round(-BOP_PX * hop * d * 10) / 10;
+    const s = last ? 0 : Math.round(BOP_SQUASH * d * (1 - hop) * 1000) / 1000;
+    return {
+      offset: i / samples,
+      transform: `translateY(${y}px) scale(${1 + s}, ${1 - s})`,
+    };
+  });
+}

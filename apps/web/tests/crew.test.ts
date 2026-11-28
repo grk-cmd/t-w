@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { BUBBLE_EDGE, FLY_TAPS, TAIL_IN, TAP_WINDOW_MS, bubbleShift, nextTap } from '@/pages/home/model/crew';
+import {
+  BOP_MS,
+  BOP_PX,
+  BUBBLE_EDGE,
+  FLY_TAPS,
+  TAIL_IN,
+  TAP_WINDOW_MS,
+  bopFrames,
+  bubbleShift,
+  nextTap,
+} from '@/pages/home/model/crew';
 
 /** 연타 판정 — 한 번씩은 말풍선, 짧은 시간에 FLY_TAPS 번이면 날아간다 */
 function run(times: number[]) {
@@ -52,5 +62,30 @@ describe('bubbleShift — 화면 끝에선 몸통만 밀고 꼬리는 머리를 
   it('양쪽 다 넘으면 왼쪽을 맞춘다 · 몸통이 꼬리보다 좁아도 꼬리는 가운데', () => {
     expect(bubbleShift(-5, 400, 405, vw).push).toBe(BUBBLE_EDGE + 5);
     expect(bubbleShift(-5, 20, 25, vw)).toEqual({ push: BUBBLE_EDGE + 5, tail: 0 });
+  });
+});
+
+describe('bopFrames — 눌렀을 때 통통(앱 쓰다듬기 박자)', () => {
+  const ys = (f: Keyframe[]) =>
+    f.map((k) => Number(/translateY\((-?[\d.]+)px\)/.exec(String(k.transform))![1]));
+  it('처음 · 끝은 제자리 · offset 은 0 → 1 순서', () => {
+    const f = bopFrames();
+    expect(f[0]!.offset).toBe(0);
+    expect(f.at(-1)!.offset).toBe(1);
+    expect(f.at(-1)!.transform).toBe('translateY(0px) scale(1, 1)');
+    expect(f.every((k, i) => i === 0 || (k.offset as number) > (f[i - 1]!.offset as number))).toBe(true);
+  });
+  it('위로만 튄다(바닥을 뚫지 않음) · 높이는 BOP_PX 를 넘지 않고 점점 낮아진다', () => {
+    const y = ys(bopFrames(220));
+    expect(Math.max(...y)).toBeLessThanOrEqual(0);
+    expect(Math.min(...y)).toBeGreaterThanOrEqual(-BOP_PX);
+    const half = y.length / 2;
+    expect(Math.min(...y.slice(0, half))).toBeLessThan(Math.min(...y.slice(half)) - 2); // 앞쪽 튐이 뒤쪽보다 높다
+  });
+  it('여러 번 튄다(통통) — 높은 점이 셋 이상', () => {
+    const y = ys(bopFrames(220));
+    const peaks = y.filter((v, i) => i > 0 && i < y.length - 1 && v < y[i - 1]! && v <= y[i + 1]! && v < -1);
+    expect(peaks.length).toBeGreaterThanOrEqual(3);
+    expect(BOP_MS).toBeGreaterThan(0);
   });
 });
