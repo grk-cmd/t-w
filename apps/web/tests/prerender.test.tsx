@@ -41,7 +41,9 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(`<h2 id="about-title">${m.aboutTitle}</h2></div>`); // 소개 · 내려받기 머리엔 설명 줄이 없다
       expect(html).toContain(`<h2 id="dl-title">${m.dlTitle}</h2></div>`);
       expect(html).toContain(m.newsTitle); // 📰 소식 창 자리 — 글은 아직 빈 안내
-      expect(html).toContain(m.newsEmpty);
+      // 소식은 브라우저에서 서버로 받는다 — 미리 그린 페이지는 «불러오는 중»(글 없음으로 보이지 않게)
+      expect(html).toContain(m.newsLoading);
+      expect(html).not.toContain(m.newsEmpty);
       // 소식 창 아래 사람 그림 — 표(crew.ts)마다 그림 단추 · 이름표(역할 + 이름) · 말풍선은 누르기 전엔 비어 있다
       for (const c of CREW) {
         const role = m.crew[c.key].role;
@@ -120,10 +122,12 @@ describe('미리 그린 페이지', () => {
       });
   });
 
-  it('내려받기 단추는 주소가 생기기 전까지 눌리지 않는다', () => {
+  it('내려받기 단추는 서버 답을 받기 전엔 눌리지 않는다 — 미리 그린 페이지는 «확인하는 중»', () => {
     const { body } = renderPage('ko');
     const m = messagesFor('ko');
     for (const label of [m.dlWindows, m.dlMac])
       expect(body).toMatch(new RegExp(`<button[^>]*disabled[^>]*><svg class="ico"[^]*?</svg>${label}<`));
+    expect(body).toContain(m.dlChecking);
+    expect(body).not.toContain('releases/download/');
   });
 });
