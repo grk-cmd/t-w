@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { nextTap } from '../model/crew';
 
-/** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS crew-fly 와 같은 길이) */
+/** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS 애니메이션 길이도 이 값 — --fly-ms) */
 const SAY_MS = 2500;
 const FLY_MS = 1800;
 
@@ -45,6 +45,7 @@ export function CrewMate({ name, role, lines, src, w, h }: Props) {
       <button
         type="button"
         className={flying ? 'crew-btn fly' : 'crew-btn'}
+        style={{ '--fly-ms': `${FLY_MS}ms` } as CSSProperties}
         onClick={tap}
         aria-label={`${role} ${name}`}
       >

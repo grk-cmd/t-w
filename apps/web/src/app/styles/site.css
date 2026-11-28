@@ -343,8 +343,8 @@ h3 {
 .crew-tag {
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  color: var(--on-desk);
+  background: var(--plate-outline);
+  color: var(--plate-ink);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -362,11 +362,13 @@ h3 {
   transform: translateX(-50%);
   padding: 6px 10px;
   border: 2px solid var(--ink);
-  background: #ffffff;
+  background: var(--bg-field);
   color: var(--ink);
   font-size: 13px;
   white-space: nowrap;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-toast);
+  /* 단추 위를 살짝 덮어도 누름은 그림이 받게(연타가 끊기지 않게) */
+  pointer-events: none;
 }
 .crew-say::after {
   content: '';
@@ -377,9 +379,9 @@ h3 {
   border: 6px solid transparent;
   border-top-color: var(--ink);
 }
-/* 연타 — 빙글 돌며 날아갔다가 제자리로(길이는 CrewMate FLY_MS 와 같다) */
+/* 연타 — 빙글 돌며 날아갔다가 제자리로(길이는 CrewMate 가 FLY_MS 로 넘긴다) */
 .crew-btn.fly {
-  animation: crew-fly 1.8s ease-in-out;
+  animation: crew-fly var(--fly-ms) ease-in-out;
 }
 @keyframes crew-fly {
   0% {
