@@ -136,7 +136,8 @@ function mkEnv(opt){
       chatFlyRefreshUI: L('chatFlyRefreshUI'),
       flySizeOk: (s) => (s === 's' || s === 'm' || s === 'l' ? s : 'l'),
       FLY_COLOR_LEVEL: 200,
-      getFocusLevel: () => env.level,
+      levelGate: (min) => (env.level == null ? 'unknown' : env.level >= min ? 'ok' : 'low'),   // focus-level.js levelGate 와 같은 약속(sim-focus-level 이 본다)
+      tellLevelUnknown: () => { env.log.push(['tellLevelUnknown']); },
       shownFocusLevel: () => env.level,
       isAdmin: () => env.admin,
       chatOffToggleClick: L('chatOffToggleClick'),
@@ -350,6 +351,11 @@ async function behave(src){
     chk(JSON.stringify(e.log) === '[["setChatFlyColor",""],["chatFlyRefreshUI"]]', '  Lv.200 이면 고른다 · 값이 없으면 흰 글씨(\'\')');
     e.clear(); e.els.chatFlySwatches.fire('click', { target: tgt({}) });
     chk(!e.log.length && !e.toasts.length, '  색 칸이 아닌 곳은 무시');
+    e.clear(); e.level = null; e.els.chatFlySwatches.fire('click', sw('rainbow'));
+    chk(JSON.stringify(e.log) === '[["tellLevelUnknown"]]' && !e.toasts.length, '★ 색 — 레벨을 모르면 «Lv.200 필요» 가 아니라 «레벨을 불러오지 못함» 안내(B-1128-2) · 색은 안 바꾼다');
+    e.clear(); e.admin = true; e.els.chatFlySwatches.fire('click', sw('rainbow'));
+    chk(JSON.stringify(e.log) === '[["setChatFlyColor","rainbow"],["chatFlyRefreshUI"]]', '  관리자는 레벨을 몰라도 고른다');
+    e.admin = false;
   }
 
   say('── 7. 잠금 · 기록 삭제 · 이모티콘 · 주사위');
@@ -403,6 +409,8 @@ async function behave(src){
     chk(!e.log.length && e.toasts[0] === '🏢 회사원 모드에서는 쓸 수 없어요', '  🏢 회사원 모드면 안내만(officeMode 는 부를 때 읽음)');
     e.office = false; e.level = 99; e.clear(); bomb();
     chk(!e.log.length && e.toasts[0] === '💣 는 레벨 100부터 쓸 수 있어요 (지금 레벨 99)', '  레벨 100 미만이면 안내(지금 레벨 함께)');
+    e.level = null; e.clear(); bomb();
+    chk(JSON.stringify(e.log) === '[["tellLevelUnknown"]]' && !e.toasts.length, '★ 💣 — 레벨을 모르면 «레벨 100부터» 가 아니라 «레벨을 불러오지 못함» 안내(B-1128-2) · 조준 안 켬');
     e.level = 100; e.seats[1].remote = false; e.clear(); bomb();
     chk(!e.log.length && e.toasts[0] === '방에 다른 분이 있어야 해요', '  방에 혼자면 안내');
     e.seats[1].remote = true; e.clear(); const ev = bomb();
@@ -477,7 +485,7 @@ await sec('── 9. app.js 배선', () => {
     ['saveChatLog', '_saveChatLog'], ['chatClearNow', '_chatClearNow'], ['chatClearUndo', '_chatClearUndo'],
     ['clampChatOpacity', '_clampChatOpacity'], ['setChatOpacity', '_setChatOpacity'], ['applyChatOpacity', '_applyChatOpacity'], ['setChatFontSize', '_setChatFontSize'], ['applyChatFontSize', '_applyChatFontSize'],
     ['chatSfxOn', '_chatSfxOn'], ['setChatSfxOn', '_setChatSfxOn'], ['setChatSfxId', '_setChatSfxId'], ['chatSfxPreview', '_chatSfxPreview'], ['applyChatSfxUI', '_applyChatSfxUI'], ['chatSfxOfficeLock', '_chatSfxOfficeLock'],
-    ['chatFlyRefreshUI', '_chatFlyRefreshUI'], ['flySizeOk', '_flySizeOk'], ['getFocusLevel', 'getFocusLevel'], ['shownFocusLevel', 'shownFocusLevel'],
+    ['chatFlyRefreshUI', '_chatFlyRefreshUI'], ['flySizeOk', '_flySizeOk'], ['levelGate', 'levelGate'], ['tellLevelUnknown', 'tellLevelUnknown'], ['shownFocusLevel', 'shownFocusLevel'],
     ['chatOffToggleClick', '_chatOffToggleClick'], ['chatDelOpen', '_chatDelOpen'], ['chatDelClose', '_chatDelClose'], ['chatDelRun', '_chatDelRun'],
     ['toggleEmojiPanel', '_toggleEmojiPanel'], ['onEmojiSlotClick', '_onEmojiSlotClick'], ['onEmojiFilePicked', '_onEmojiFilePicked'], ['deleteEmoji', '_deleteEmoji'],
     ['rollDice', '_rollDice'], ['setFlyAiming', 'setFlyAiming'], ['purikura', '_purikura']];
@@ -488,7 +496,7 @@ await sec('── 9. app.js 배선', () => {
   ['FLY_COLOR_LEVEL', 'EMOJI_SLOTS', 'FLY_MIN_LEVEL', 'seats', 'purikuraUi'].forEach(k => { want[k] = k + ': ' + k + ','; });
   const got = {}; deps.forEach(d => { got[d.split(':')[0]] = d; });
   const bad = Object.keys(want).filter(k => got[k] !== want[k]).concat(Object.keys(got).filter(k => !(k in want)));
-  chk(deps.length === 50 && Object.keys(want).length === 50 && !bad.length, 'deps 50개 — 함수 38 은 화살표 · 세션 변수 셋은 쓰는 함수 · let 넷은 읽는 함수 · 값 다섯 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === 51 && Object.keys(want).length === 51 && !bad.length, 'deps 51개 — 함수 39 는 화살표 · 세션 변수 셋은 쓰는 함수 · let 넷은 읽는 함수 · 값 다섯 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const declAt = (re) => { const m = re.exec(APP); return m ? m.index : -1; };
   const after = ['let isAdmin = false;', 'let officeMode = '].map(s => APP.indexOf(s));
   chk(after.every(i => i > iMk), '  isAdmin · officeMode 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ(그래서 읽는 함수)');
@@ -499,7 +507,7 @@ await sec('── 9. app.js 배선', () => {
     '  _flyAiming · _emojiCache · isAdmin 은 다시 대입되는 let — 그래서 읽는 함수');
   const m = strip(MOD);
   chk(/if\(officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(m) && !/if\(officeMode\)/.test(m) && /setFlyAiming\(!_flyAiming\(\)\)/.test(m)
-    && /!isAdmin\(\)\)\{/.test(m) && /_emojiCache\(\)\[i\]&&_emojiCache\(\)\[i\]\.url/.test(m), '모듈은 officeMode · _flyAiming · isAdmin · _emojiCache 를 부를 때마다 읽는다');
+    && /const gate = isAdmin\(\) \? 'ok' : levelGate\(FLY_COLOR_LEVEL\);/.test(m) && /_emojiCache\(\)\[i\]&&_emojiCache\(\)\[i\]\.url/.test(m), '모듈은 officeMode · _flyAiming · isAdmin · _emojiCache 를 부를 때마다 읽는다');
   chk(!/[^.\w](_chatFly(On|Size|Color)|officeMode|_flyAiming|isAdmin|_emojiCache)\s*=[^=>]/.test(m.replace(/const (officeMode|_flyAiming|isAdmin|_emojiCache) = deps\.\w+;/g, '')), '  모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로만)');
   const off = (APP.match(/const CHAT_WINDOW_OFF = (\{[^\n]*?\});/) || [])[1];
   chk(!/\bCHAT_WINDOW_OFF\b/.test(APP), '빈 껍데기 CHAT_WINDOW_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
@@ -531,11 +539,13 @@ await sec('── 10. mutation test — 이 검사가 헛돌지 않는가', asyn
     ['조합 중 Enter 도 보냄', s => s.replace('if(e.isComposing || e.keyCode === 229) return;', '')],
     ['날리기 체크를 반대로', s => s.replace('_setChatFlyOn(!!fchk.checked);', '_setChatFlyOn(!fchk.checked);')],
     ['크기 flySizeOk 안 거침', s => s.replace("_setChatFlySize(_flySizeOk(b.getAttribute('data-flysize')));", "_setChatFlySize(b.getAttribute('data-flysize'));")],
-    ['색 레벨 문턱 빠짐', s => s.replace('if(lv < FLY_COLOR_LEVEL && !isAdmin()', 'if(false && !isAdmin()')],
-    ['관리자를 값으로', s => s.replace("!isAdmin()){", '!isAdmin){')],
+    ['색 레벨 문턱 빠짐', s => s.replace("    if(gate === 'low'){\n      toast('🔒 Lv.'", "    if(false){\n      toast('🔒 Lv.'")],
+    ['관리자를 값으로', s => s.replace("const gate = isAdmin() ? 'ok'", "const gate = isAdmin ? 'ok'")],
+    ['★ 색 — 레벨 모름을 «Lv.200 필요» 로', s => s.replace("    if(gate === 'unknown'){ tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.200 필요» 가 아니다(B-1128-2)\n    if(gate === 'low'){", "    if(gate !== 'ok'){")],
+    ['★ 💣 — 레벨 모름을 «레벨 N 부터» 로', s => s.replace("    if(gate === 'unknown'){ tellLevelUnknown(); return; }   // 레벨을 모른다 — «레벨 N 부터» 가 아니다(B-1128-2)\n    if(gate === 'low'){", "    if(gate !== 'ok'){")],
     ['삭제 창 안쪽 전파 안 끊음', s => s.replace('if(cdWin) cdWin.onclick=(e)=>{ e.stopPropagation(); };', '')],
     ['꺼진 확인 단추로도 지움', s => s.replace('if(!cdOk.disabled) _chatDelRun();', '_chatDelRun();')],
-    ['💣 회사원 모드 값으로', s => s.replace(/if\(officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}\n    const lv/, "if(officeMode){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }\n    const lv")],
+    ['💣 회사원 모드 값으로', s => s.replace(/if\(officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}\n    const gate/, "if(officeMode){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }\n    const gate")],
     ['💣 혼자여도 조준', s => s.replace("if(!seats.some(s=>s.remote)){ toast('방에 다른 분이 있어야 해요'); return; }", '')],
     ['조준 상태를 값으로', s => s.replace('setFlyAiming(!_flyAiming());', 'setFlyAiming(!_flyAiming);')],
     ['📷 busy 안 되돌림', s => s.replace("finally{ cam.dataset.busy = '0'; }", "cam.dataset.busy = '0';")],

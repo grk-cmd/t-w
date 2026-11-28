@@ -25,8 +25,6 @@ const HELD_TTL_MS = 15 * 1000;
    clientGiveUpMs : 방 안에서 끊긴 뒤 이만큼 못 돌아오면 그 방은 포기한다(onLost 'unreachable'). 서버 규약 1장 «방 안 90초».
      hooks.keepOnUnreachable 이 참인 방(시크릿룸)은 포기하지 않고 다시 붙기를 기다린다. */
 const TIMING_DEFAULTS = Object.freeze({ joinWaitMs: 10 * 1000, clientGiveUpMs: 90 * 1000 });
-// 방 안에서 끊긴 채 이만큼 지나면 «다시 연결 중» 을 알린다 — 짧은 끊김은 조용히 이어 붙는다
-const RECONNECT_NOTICE_MS = 15 * 1000;
 
 // 서버가 받는 멤버 칸(서버 규약 3장). 모르는 칸이 하나라도 있으면 patch 통째로 거절되므로 여기서 거른다.
 // name · level 은 서버가 계정에서 채운다(pv 4) — 실으면 badRequest 라 여기 넣지 않는다. 받는 멤버 · patch 의 name 은 문자열 | null(이름 없음).
@@ -157,11 +155,14 @@ function memberFrom(view){
 /** @param {{ hub: { onMessage: Function, onState: Function, send: Function, request: Function, state: () => string, isReady: () => boolean, userCode: () => (string|null) },
  *   STATE: { READY: string, OFF: string, SESSION_LOST: string, UPDATE: string, AUTH_FAILED: string },
  *   isDeviceOff: (s: string) => boolean,   // 서버가 이 PC 연결을 끝냄(rt-hub isDeviceOff — 판정 한 곳)
+ *   noticeMs: number,   // 끊긴 채 이만큼 지나면 «다시 연결 중» 알림(rt-hub RECONNECT_NOTICE_MS — 런처 띠와 같은 값 한 곳)
  *   timing?: () => ({ joinWaitMs?: number, clientGiveUpMs?: number } | null),
  *   now?: () => number, setTimeout?: Function, clearTimeout?: Function, setInterval?: Function, clearInterval?: Function, log?: { warn: Function } }} deps */
 function createRoomRt(deps){
   const hub = deps.hub;
   const S = deps.STATE;
+  const noticeMs = deps.noticeMs;
+  if(!(noticeMs > 0)) throw new Error('[room-rt] noticeMs(rt-hub RECONNECT_NOTICE_MS)가 없다');
   const tSet = deps.setTimeout || ((f, ms) => setTimeout(f, ms));
   const tClear = deps.clearTimeout || ((h) => clearTimeout(h));
   const iSet = deps.setInterval || ((f, ms) => setInterval(f, ms));
@@ -235,7 +236,7 @@ function createRoomRt(deps){
       }, left);
     }
     if(!noticeTimer && !P.noticed && P.hooks.onReconnecting){
-      const left = Math.max(0, RECONNECT_NOTICE_MS - (now() - downSince));
+      const left = Math.max(0, noticeMs - (now() - downSince));
       noticeTimer = tSet(() => {
         noticeTimer = null;
         if(active !== P || !P.inRoom || ready_()) return;
@@ -753,14 +754,14 @@ function createRoomRt(deps){
   };
 }
 
-const api = { JOIN_TIMEOUT_MS, REQ_TIMEOUT_MS, LEAVE_WAIT_MS, TIMING_DEFAULTS, RECONNECT_NOTICE_MS, MEMBER_FIELDS, CHAT_FIELDS, CHANNELS,
+const api = { JOIN_TIMEOUT_MS, REQ_TIMEOUT_MS, LEAVE_WAIT_MS, TIMING_DEFAULTS, MEMBER_FIELDS, CHAT_FIELDS, CHANNELS,
   TAB_WIRE, GENERAL_WIRE, ROOM_MSGS, ROOM_REFS,
   tabToWire, tabFromWire, historyTabOf, isRoomWidePoke, splitRoomPayload, chatFromWire, metaFromWire, metaMatches, musicToWire, memberFrom,
   createRoomRt };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — realtime 연결 하나(TwRtHub.store) 위. 시간 두 칸은 원격 설정(room.timing · remote-config.js 가 먼저 실린다). */
   api.store = createRoomRt({
-    hub: window.TwRtHub.store, STATE: window.TwRtHub.STATE, isDeviceOff: window.TwRtHub.isDeviceOff,
+    hub: window.TwRtHub.store, STATE: window.TwRtHub.STATE, isDeviceOff: window.TwRtHub.isDeviceOff, noticeMs: window.TwRtHub.RECONNECT_NOTICE_MS,
     timing: () => window.TwRemoteConfig.store.roomServerTiming(),
   });
   window.TwRoomRt = api;

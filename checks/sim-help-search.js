@@ -63,11 +63,37 @@ const carryOf = (search) => { const a = {}; new Function('document', 'location',
 chk(carryOf('?theme=bubble&embed=1') === 'theme=bubble&embed=1' && carryOf('') === undefined && carryOf('?theme=evil') === undefined, '  theme.js 가 링크에 붙이는 것을 data-carry 로 남긴다(검색 결과 링크도 같은 것 · 모르는 테마는 안 실음)');
 
 /* 화면 쪽을 가짜 문서로 한 번 돌린다 — 앱 칸 안(data-embed)이면 검색창을 만들러 띠를 찾지도 않는다 */
-const mountRun = (embed) => { const asked = []; new Function('module', 'window', 'document', SRC)(undefined, {}, {
+const mountRun = (embed) => { const asked = []; new Function('module', 'window', 'document', SRC)(undefined, { location: { hash: '' }, addEventListener(){} }, {
   readyState: 'complete', documentElement: { hasAttribute: (k) => k === 'data-embed' && embed, getAttribute: () => null },
   querySelector: (sel) => { asked.push(sel); return null; }, addEventListener(){} }); return asked; };
 chk(mountRun(true).length === 0 && mountRun(false).includes('.bar'), '앱 칸 안(?embed=1)에서는 검색창을 안 만든다 · 웹에서는 위 띠에 단다');
 chk(/\[data-embed\] \.bar\{display:none\}/.test(fs.readFileSync(path.join(DIR, 'help.css'), 'utf8')), '  앱 칸 안에서는 위 띠([도움말] [FAQ] 탭)를 숨긴다');
+
+/* FAQ 서랍 — 질문마다 닫힌 details 하나 · Q번호 · #fN 으로 오면 그 서랍만 편다(가짜 문서로 search.js 를 돌려 본다) */
+{
+  const FQ = fs.readFileSync(path.join(DIR, 'faq.html'), 'utf8');
+  const boxes = FQ.match(/<details class="faq">\n<summary><span class="faq-n">Q\d+\.<\/span><h2 id="f\d+">[^<]+<\/h2><\/summary>\n[\s\S]*?<\/details>/g) || [];
+  chk(boxes.length === IX.faq.length && boxes.every((b, i) => b.includes('>Q' + (i + 1) + '.</span><h2 id="f' + (i + 1) + '">') && /<\/summary>\n<p>/.test(b)) && !/<details[^>]* open/.test(FQ),
+    'FAQ 서랍 — 질문 ' + boxes.length + '개가 닫힌 서랍 하나씩 · Q1 부터 차례 번호 · 답은 서랍 안');
+  const openRun = (src, hash) => {
+    const boxOf = { f3: { open: false }, f5: { open: false } };
+    const win = { location: { hash }, on: {}, addEventListener(k, fn){ this.on[k] = fn; } };
+    let scrolled = 0;
+    new Function('module', 'window', 'document', src)(undefined, win, {
+      readyState: 'complete', documentElement: { hasAttribute: () => true, getAttribute: () => null }, querySelector: () => null, addEventListener(){},
+      getElementById: (id) => (boxOf[id] ? { closest: (sel) => (sel === 'details' ? boxOf[id] : null), scrollIntoView(){ scrolled++; } } : null) });
+    return { boxOf, win, scrolled: () => scrolled };
+  };
+  const r1 = openRun(SRC, '#f3');
+  chk(r1.boxOf.f3.open === true && r1.boxOf.f5.open === false && r1.scrolled() === 1, '  #f3 으로 열면 그 서랍만 펴고 그 자리로 간다');
+  r1.win.location.hash = '#f5'; r1.win.on.hashchange();
+  chk(r1.boxOf.f5.open === true, '  열린 채 #f5 로 옮겨도(검색 결과 누름) 편다');
+  const r0 = openRun(SRC, '');
+  const rX = openRun(SRC, '#none');
+  chk(!r0.boxOf.f3.open && !rX.boxOf.f3.open && r0.scrolled() === 0, '  # 없음 · 없는 자리면 아무것도 안 편다');
+  const broken = SRC.replace('d.open = true;', '');
+  chk(broken !== SRC && openRun(broken, '#f3').boxOf.f3.open === false, '  mutation test — 펴는 줄을 지우면 닫힌 채로 남는다');
+}
 
 say('── 2. 질문 → 답');
 const verAnchor = '';   // 버전 FAQ 는 5-5 편 머리(정보 탭 — 프로그램 정보)로 간다
@@ -164,7 +190,7 @@ const noJoin = load(SRC.replace('if(i + 1 < ts.length && graph[ts[i] + ts[i + 1]
 chk(noJoin.joinSpaced(P.graph, C.terms('첫 화면')).join() !== '첫화면', '  띄어쓰기 합치기를 끄면 3절이 잡는다');
 const SRC_SAVED = SRC;
 const embedOpen = SRC.replace("if(document.documentElement.hasAttribute('data-embed')) return;", '');
-chk(embedOpen !== SRC_SAVED && (() => { const asked = []; new Function('module', 'window', 'document', embedOpen)(undefined, {}, { readyState: 'complete', documentElement: { hasAttribute: () => true, getAttribute: () => null }, querySelector: (q) => { asked.push(q); return null; }, addEventListener(){} }); return asked.includes('.bar'); })(), '  칸 안 막기를 빼면 앱에 검색창이 생긴다(위 검사가 잡는다)');
+chk(embedOpen !== SRC_SAVED && (() => { const asked = []; new Function('module', 'window', 'document', embedOpen)(undefined, { location: { hash: '' }, addEventListener(){} }, { readyState: 'complete', documentElement: { hasAttribute: () => true, getAttribute: () => null }, querySelector: (q) => { asked.push(q); return null; }, addEventListener(){} }); return asked.includes('.bar'); })(), '  칸 안 막기를 빼면 앱에 검색창이 생긴다(위 검사가 잡는다)');
 const noExact = load(SRC.replace('var exact = !!graph[t];', 'var exact = false;'));
 chk(noExact.expand(P.graph, '올라타기').some(e => e.w === '레벨업'), '  꼭 맞는 마디 우선을 빼면 4절이 잡는다');
 const noOne = load(SRC.replace("ts = ts.filter(function(t){ return !(t.length === 1 && /[0-9a-z]/.test(t)); });", ''));

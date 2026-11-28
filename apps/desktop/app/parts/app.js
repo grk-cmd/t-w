@@ -253,7 +253,10 @@ const accountJsonStoreMod = TwJsonStore.createJsonStore({ storage: ()=>accountSt
 /* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
-  try{ localStorage.setItem(MY_USER_ID_KEY, uid); return localStorage.getItem(MY_USER_ID_KEY) === uid; }catch(e){ return false; }
+  let ok = false, why = '읽어 보니 다름';
+  try{ localStorage.setItem(MY_USER_ID_KEY, uid); ok = localStorage.getItem(MY_USER_ID_KEY) === uid; }catch(e){ why = (e && /^[A-Za-z]{1,40}$/.test(e.name)) ? e.name : '던짐'; }
+  if(!ok){ if(window.companion && companion.diagNote) companion.diagNote('[계정] 이 PC 계정 코드를 못 적음 — ' + why); }   // 코드 값은 적지 않는다
+  return ok;
 }
 /* 🔗 친구 코드는 서버가 가입 때 정하고, 로그인 때 이 PC 에 적는다(account.js _enterAccount — GET /v2/me 의 friendCode 가 원본).
    앱은 코드를 뽑지 · 등록하지 · Firebase 의 코드 노드와 맞춰 보지 않는다. */
@@ -567,6 +570,8 @@ const rideBenchMod = TwRideBench.createRideBench({
   diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
+  unlockGate: (...a)=>iDeskMod.unlockGate(...a),
+  tellLevelUnknown: (...a)=>iDeskMod.tellUnlockLevelUnknown(...a),
   levelText: (...a)=>iDeskMod.levelText(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
   isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),
@@ -812,6 +817,8 @@ const statusChipMod = TwStatusChip.createStatusChip({
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
+  levelUnknown: (...a)=>iDeskMod.unlockLevelUnknown(...a),
+  tellLevelUnknown: (...a)=>iDeskMod.tellUnlockLevelUnknown(...a),
   _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
   _officeHidden: ()=>officeModeMod._officeHidden(),
   _seatHidden: (...a)=>hiddenSeatsMod._seatHidden(...a),
@@ -1917,6 +1924,7 @@ const chatUiMod = TwChatUi.createChatUi({
   myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isDanceUnlocked: (...a)=>iDeskMod.isDanceUnlocked(...a),
+  unlockGate: (...a)=>iDeskMod.unlockGate(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
   officeMode: ()=>officeModeMod.officeMode(),
   seats: seats,
@@ -2101,7 +2109,8 @@ const chatWindowMod = TwChatWindow.createChatWindow({
   chatFlyRefreshUI: (...a)=>chatUiMod._chatFlyRefreshUI(...a),
   flySizeOk: (...a)=>chatUiMod._flySizeOk(...a),
   FLY_COLOR_LEVEL: chatUiMod.FLY_COLOR_LEVEL,
-  getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  levelGate: (...a)=>focusLevelMod.levelGate(...a),
+  tellLevelUnknown: (...a)=>focusLevelMod.tellLevelUnknown(...a),
   shownFocusLevel: (...a)=>focusLevelMod.shownFocusLevel(...a),
   isAdmin: ()=>isAdmin,
   // 🔇 채팅 잠금 · 🗑 기록 삭제
@@ -3065,7 +3074,7 @@ const appVersionSyncMod = TwAppVersionSync.createAppVersionSync({
 });
 /* 🛰 realtime 끊김 화면(realtime/rt-status-ui.js) — 다시 연결 중 띠 · 로그인 풀림 · 계정 로그아웃 · 업데이트 강제 · 점검 · 모르는 닫힘 */
 TwRtStatusUi.createRtStatusUi({
-  rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document),
+  rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document), noticeMs: TwRtHub.RECONNECT_NOTICE_MS,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // 다시 켜면 게이트가 로그인 화면
   withdrawing: ()=>accountMod.withdrawing(),
@@ -4700,6 +4709,9 @@ const focusProgressMod = TwFocusProgress.createFocusProgress({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   setServerDay: (t)=>focusTotalMod.setServerDay(t),
   addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
+  note: (m)=>{ if(window.companion && companion.diagNote) companion.diagNote(m); },   // 🩺 [집중] 진단 줄 — 브라우저 미리보기 · 검사엔 companion 이 없다
+  health: TwApi.health,   // 🔁 API 복귀 알림(shared/api-health.js) — 못 받았으면 한 번 다시 받는다
+  createLoadState: TwLoadState.createLoadState,
 });
 const focusLevelMod = TwFocusLevel.createFocusLevel({
   onFocusAdded: (sec)=>roomFocusSync.add(sec),
@@ -5060,6 +5072,10 @@ const appBoot = TwAppBoot.createAppBoot({
   whenPainted: ()=>closetSettled(),
   idle: ()=>TwApi.authed.whenIdle(),
   holdToast: (msg)=>toastMod.hold(msg),
+  note: (m)=>{ if(window.companion && companion.diagNote) companion.diagNote(m); },   // 🩺 [app-boot] 진단 줄
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  onNotStarted: ()=>focusProgressMod.blockStart(()=>TwErrorCodes.notify('E-ACC-07')),   // 계정 기능을 못 시작함 — 레벨은 «못 불러옴» · [다시 시도] 는 같은 번호를 다시
+  localCode: ()=>getMyUserId(),
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
     catalog: (code, me, session)=>catalogSyncMod.start(session),   // 🧩 카탈로그 서버 한 벌 받기 — 로그인 뒤(서버가 이 사람의 locked 를 정한다) · 세션이 끝나면 풀고 비운다

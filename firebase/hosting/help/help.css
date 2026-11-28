@@ -91,3 +91,18 @@ details[open]{padding-bottom:var(--space-2)}
 summary{cursor:pointer;padding:var(--space-3) 0;font-weight:bold}
 figure.shot[hidden]{display:none}
 [data-embed] details,[data-embed] .warn,[data-embed] .tip,[data-embed] .sub{font-size:12px}
+/* FAQ 서랍 — 질문 줄(Q번호 · 질문 · 여닫기 표시)을 누르면 답이 펴진다 */
+details.faq{margin:0;padding:0;background:none;border:0;border-top:1px solid var(--line);font-size:inherit}
+details.faq:last-of-type{border-bottom:1px solid var(--line)}
+details.faq > summary{font-weight:normal;display:flex;align-items:baseline;gap:var(--space-3);padding:var(--space-4) var(--space-2);cursor:pointer;list-style:none}
+details.faq > summary::-webkit-details-marker{display:none}
+details.faq > summary::after{content:'▾';margin-left:auto;color:var(--ink-soft);flex:none}
+details.faq[open] > summary::after{content:'▴'}
+details.faq > summary:hover{background:var(--bg-face-2)}
+details.faq > summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+details.faq .faq-n{flex:none;font-weight:bold;color:var(--ink-accent)}
+details.faq h2{font-size:15px;margin:0;padding:0;border:0;min-width:0}
+details.faq > p{margin-left:var(--space-6);margin-right:var(--space-2)}
+details.faq[open]{padding-bottom:var(--space-3)}
+[data-embed] details.faq{font-size:inherit}
+[data-embed] details.faq h2{font-size:13px;margin:0}

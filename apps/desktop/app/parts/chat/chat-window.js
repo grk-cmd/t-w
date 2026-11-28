@@ -6,7 +6,7 @@
        · 읽는 함수 — officeMode → officeMode()(두 줄) · _flyAiming → _flyAiming() · isAdmin → isAdmin() · _emojiCache → _emojiCache()
        · 쓰는 함수 — _chatFlyOn = x → _setChatFlyOn(x) · _chatFlySize = x → _setChatFlySize(x) · _chatFlyColor = x → _setChatFlyColor(x)
      모두 app.js 가 다시 대입하는 let 이다. officeMode · isAdmin 은 이 모듈을 만드는 줄보다 뒤에 선언되므로 값으로 넘기면 TDZ 에 걸린다.
-   ★ 함수는 app.js 가 화살표로 넘긴다. 본문의 typeof 가드(typeof getFocusLevel · typeof _rollDice · typeof toast · typeof isAdmin)는
+   ★ 함수는 app.js 가 화살표로 넘긴다. 본문의 typeof 가드(typeof _rollDice · typeof toast · typeof isAdmin)는
      예전처럼 늘 통과한다. #chatCloseBtn 의 onclick 은 closeChatWindow 를 부르는 화살표가 된다(부르는 일은 같다).
    ★ 값으로 받는 것 — FLY_COLOR_LEVEL · FLY_MIN_LEVEL · EMOJI_SLOTS(상수) · seats(다시 대입되지 않는 배열) ·
      purikuraUi(만드는 줄보다 앞에서 만들어지는 const).
@@ -55,7 +55,8 @@ const _setChatFlyColor = deps.setChatFlyColor;         // 쓰는 함수 — app.
 const _chatFlyRefreshUI = deps.chatFlyRefreshUI;
 const _flySizeOk = deps.flySizeOk;
 const FLY_COLOR_LEVEL = deps.FLY_COLOR_LEVEL;          // 🎨 색 해금 레벨(상수)
-const getFocusLevel = deps.getFocusLevel;
+const levelGate = deps.levelGate;               // 🔓 레벨 문(focus-level.js) — 'ok' · 'low' · 'unknown'(서버 레벨을 모름 — 모자람이 아니다)
+const tellLevelUnknown = deps.tellLevelUnknown; // 레벨을 몰라 못 열 때 안내(못 받았으면 [다시 시도])
 const shownFocusLevel = deps.shownFocusLevel;   // 안내에 쓰는 내 레벨 — 못 받았으면 null
 const isAdmin = deps.isAdmin;                          // 읽는 함수 — app.js 의 let(로그인할 때 다시 대입 · 이 줄보다 뒤에 선언)
 // 🔇 채팅 잠금 · 🗑 기록 삭제
@@ -316,8 +317,9 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
   if(fsw) fsw.addEventListener('click', e=>{
     e.stopPropagation();
     const b=e.target.closest('.fsw'); if(!b) return;
-    const lv=getFocusLevel();
-    if(lv < FLY_COLOR_LEVEL && !isAdmin()){
+    const gate = isAdmin() ? 'ok' : levelGate(FLY_COLOR_LEVEL);
+    if(gate === 'unknown'){ tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.200 필요» 가 아니다(B-1128-2)
+    if(gate === 'low'){
       toast('🔒 Lv.'+FLY_COLOR_LEVEL+' 달성 시 색을 고를 수 있어요');
       return;
     }
@@ -363,8 +365,9 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
          내 화면이 반응하면 안 되는 것이고, 이건 내가 방금 누른 버튼이라 아무 응답이 없으면
          고장으로 읽힌다. 바로 위 채널·레벨 게이트가 이미 같은 방식으로 안내한다. */
     if(officeMode()){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
-    const lv = getFocusLevel();
-    if(lv < FLY_MIN_LEVEL){ const shown = shownFocusLevel(); toast('💣 는 레벨 ' + FLY_MIN_LEVEL + '부터 쓸 수 있어요' + (shown != null ? ' (지금 레벨 ' + shown + ')' : '')); return; }
+    const gate = levelGate(FLY_MIN_LEVEL);
+    if(gate === 'unknown'){ tellLevelUnknown(); return; }   // 레벨을 모른다 — «레벨 N 부터» 가 아니다(B-1128-2)
+    if(gate === 'low'){ const shown = shownFocusLevel(); toast('💣 는 레벨 ' + FLY_MIN_LEVEL + '부터 쓸 수 있어요' + (shown != null ? ' (지금 레벨 ' + shown + ')' : '')); return; }
     if(!seats.some(s=>s.remote)){ toast('방에 다른 분이 있어야 해요'); return; }
     setFlyAiming(!_flyAiming());
   };

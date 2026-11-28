@@ -355,7 +355,7 @@
   },
   "app/parts/shared/api-client.js": {
     "tw/no-timer": {
-      "count": 3
+      "count": 4
     }
   },
   "app/parts/shared/async-prompt.js": {

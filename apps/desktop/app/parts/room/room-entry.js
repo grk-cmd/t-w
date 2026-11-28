@@ -110,7 +110,7 @@ function makeRoomProvider(create){
     },
     /* 🔒 시크릿룸은 오래 끊겨도(절전 · 인터넷 끊김) 방을 놓지 않는다 — 다시 붙으면 같은 방으로 들어간다. 지인끼리 쓰는 방이라 자리 선점 문제가 없다(자리비움 자동 퇴장 예외와 같은 까닭) */
     keepOnUnreachable: (room)=>roomState.isSecretCode(room),
-    // 끊긴 지 15초가 넘었다(true) · 다시 붙었다(false) — room-rt.js RECONNECT_NOTICE_MS
+    // 끊긴 지 rt-hub RECONNECT_NOTICE_MS 가 넘었다(true) · 다시 붙었다(false)
     onReconnecting: (on)=>{ toast(on ? '📡 서버 연결이 끊겨 다시 연결하는 중이에요…' : '서버에 다시 연결됐어요'); },
   }, { create });
 }

@@ -69,6 +69,8 @@ const charLiftWorld = deps.charLiftWorld;
 const diagNote = deps.diagNote;   // 진단 기록(tw-mouse-diag.log) 한 줄 — 설치본은 콘솔을 못 보니 제보 때 이 파일로 높이 값을 본다
 const getActiveInteractionDeskId = deps.getActiveInteractionDeskId;
 const isDeskUnlocked = deps.isDeskUnlocked;
+const unlockGate = deps.unlockGate;   // 🔓 책상 문 — 'ok' · 'low' · 'unknown'(내 레벨을 모름 · room/interaction-desk.js)
+const tellLevelUnknown = deps.tellLevelUnknown;   // 레벨을 몰라 못 열 때 안내(못 받았으면 [다시 시도])
 const levelText = deps.levelText;   // 카드 레벨 글자(room/interaction-desk.js)
 const lockedToast = deps.lockedToast;   // 잠긴 안내 글
 const isPartByRigOrName = deps.isPartByRigOrName;
@@ -1026,7 +1028,9 @@ function equipInteractionDesk(deskId){
   const def = _deskDefById(deskId);
   const me = seats.find(s=>s.isMe);
   if(!def || !me) return false;
-  if(!isDeskUnlocked(def)){ toast(lockedToast(def.reqLevel, '달성 시 해금돼요')); return false; }
+  const gate = unlockGate(def);
+  if(gate === 'unknown'){ tellLevelUnknown(); return false; }   // 레벨을 모른다 — «Lv.N 필요» 가 아니다(B-1128-2)
+  if(gate !== 'ok'){ toast(lockedToast(def.reqLevel, '달성 시 해금돼요')); return false; }
   attachBenchToSeat(me, def.seats, def.id);
   setActiveInteractionDeskId(def.id);
   try{ broadcastRide(); }catch(_){}
@@ -1102,6 +1106,7 @@ function restoreInteractionDesk(){
     const id = getActiveInteractionDeskId();
     if(!id){ _ideskRestored = true; return; }
     const def = _deskDefById(id);
+    if(def && (def.reqLevel == null || unlockGate(def) === 'unknown')) return;   // 해금 표 · 내 레벨을 아직 모른다 — 저장값을 지우지 않고 다음 호출 때 다시 본다(B-1128-2)
     if(def && isDeskUnlocked(def)){
       attachBenchToSeat(me, def.seats, def.id);
       try{ broadcastRide(); }catch(_){}
@@ -1123,7 +1128,7 @@ function renderIdeskInventory(){
   const activeId = getActiveInteractionDeskId();
   grid.innerHTML = '';
   INTERACTION_DESKS().forEach(def=>{
-    const unlocked = isDeskUnlocked(def);
+    const gate = unlockGate(def), unlocked = gate === 'ok';   // 'unknown' = 내 레벨을 모름 — 잠긴 칸으로 그리되 누르면 «불러오지 못함» 안내(B-1128-2)
     const cell = document.createElement('div');
     cell.className = 'idesk-cell' + (unlocked?'':' locked') + (activeId===def.id?' active':'');
     // 썸네일: 번들 PNG(thumb)가 있으면 이미지, 없으면 이모지 플레이스홀더
@@ -1139,6 +1144,7 @@ function renderIdeskInventory(){
       const req=document.createElement('div'); req.className='idesk-req'; req.textContent=levelText(def.reqLevel); cell.appendChild(req);
     }
     cell.onclick = ()=>{
+      if(gate === 'unknown'){ tellLevelUnknown(); return; }
       if(!unlocked){ toast(lockedToast(def.reqLevel, '달성 시 해금돼요')); return; }
       if(activeId===def.id){ unequipInteractionDesk(); }   // 이미 쓰는 걸 다시 누르면 기본으로
       else equipInteractionDesk(def.id);

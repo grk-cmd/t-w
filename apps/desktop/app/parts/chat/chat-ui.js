@@ -47,6 +47,7 @@ const chatHistory = deps.chatHistory;   // 읽는 함수 — 💬 대화 기록(
 const myCode = deps.myCode;   // 연결의 나(room-rt.js myCode) — 줄의 글쓴이(userCode)와 견준다
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isDanceUnlocked = deps.isDanceUnlocked;
+const unlockGate = deps.unlockGate;   // 🔓 춤 문 — 'ok' · 'low' · 'unknown'(내 레벨을 모름 · room/interaction-desk.js)
 const lockedToast = deps.lockedToast;   // 잠긴 안내 글(room/interaction-desk.js — 레벨을 모르면 «해금 정보를 받는 중»)
 const officeMode = deps.officeMode;   // 읽는 함수
 const seats = deps.seats;
@@ -222,12 +223,13 @@ function _chatFlyRefreshUI(){
     b.classList.toggle('sel', (b.getAttribute('data-flysize')||'l') === _chatFlySize);
   });
   // 🎨 Lv.200 — 미달이면 색 고르개를 **자리째** 뺀다(자물쇠를 보여주지 않는다).
-  const lv = (typeof focusLevelMod().getFocusLevel === 'function') ? focusLevelMod().getFocusLevel() : 1;
+  const gate = focusLevelMod().levelGate(FLY_COLOR_LEVEL);
   const sw = document.getElementById('chatFlySwatches');
   if(sw){
-    const okLv = (lv >= FLY_COLOR_LEVEL) || (typeof isAdmin() !== 'undefined' && isAdmin());
+    const admin = (typeof isAdmin() !== 'undefined' && isAdmin());
+    const okLv = gate === 'ok' || admin;
     sw.classList.toggle('on', okLv);
-    if(!okLv) _chatFlyColor = '';   // 레벨이 내려갔는데 색만 남는 일이 없게
+    if(gate === 'low' && !admin) _chatFlyColor = '';   // 레벨이 내려갔는데 색만 남는 일이 없게 — 레벨을 모를 때(unknown)는 고른 색을 지우지 않는다(B-1128-2)
     sw.querySelectorAll('.fsw').forEach(b=>{
       b.classList.toggle('sel', (b.getAttribute('data-flycolor')||'') === _chatFlyColor);
     });
@@ -244,7 +246,7 @@ function sendMyChat(text, fly, flyColor, flySize, tab){
   if(!text) return;
   const mySeat = findMySeat();
   if(fly){
-    const lv = (typeof focusLevelMod().getFocusLevel === 'function') ? focusLevelMod().getFocusLevel() : 1;
+    const lv = focusLevelMod().getFocusLevel();   // 모르면 null — 색 없이 보낸다(_flyColorOk 가 문턱 아래로 본다)
     const col = _flyColorOk(flyColor, lv);
     const sz  = _flySizeOk(flySize);
     if(mySeat) showFlyText(mySeat, text, col, sz);
@@ -1158,7 +1160,8 @@ function _sendChatWindowMsg(){
     const hit = _parseDanceCmdChain(text);
     if(hit){
       const def = hit.def;
-      if(isDanceUnlocked(def)){
+      const gate = unlockGate(def);
+      if(gate === 'ok'){
         // ⏳ 춤 명령 쿨다운 5초(개인) — 남발 방지. 남이 건 춤(수신)은 쿨다운과 무관하게 언제든 교체됨(댄스배틀).
         //   이어쓰기는 전송 한 번이라 쿨다운도 한 번만 먹는다.
         const nowMs = Date.now();
@@ -1169,6 +1172,7 @@ function _sendChatWindowMsg(){
         setDanceCmdCooldownAt(nowMs);
         startMyDance(def, { cmd: hit.cmd, repeat: hit.repeat });
       }
+      else if(gate === 'unknown') focusLevelMod().tellLevelUnknown();   // 레벨을 모른다 — «Lv.N 필요» 가 아니다(B-1128-2)
       else toast(lockedToast(def.reqLevel, '달성 시 사용할 수 있어요'));
       return;   // 명령은 대화 기록/전송에 싣지 않음
     }
