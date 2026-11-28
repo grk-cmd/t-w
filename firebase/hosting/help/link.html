@@ -11,7 +11,7 @@
      폰은 로그인이 없다 → 서버 POST /v2/focus/mobile-link/state 에 머리 X-Mobile-Key(연결 키) + 본문 { on, app } 을 보낸다.
      서버가 키로 계정을 찾아 PC 로 넘긴다(0.13 · 계정 칸 u 는 안 쓴다 — 옛 QR 의 u 는 있어도 없어도 된다). -->
 <style>
-  :root{ --face:#c0c0c0; --face2:#d4d0c8; --hi:#fff; --lo:#808080; --lo2:#000; --ta:#000080; --tb:#1084d0; --ink:#111; --soft:#444; --ok:#2a7a3f; --err:#b5624a; }
+  :root{ --face:#c0c0c0; --face2:#d4d0c8; --hi:#fff; --lo:#808080; --lo2:#000; --ta:#000080; --tb:#1084d0; --ink:#111; --soft:#444; --ok:#2a7a3f; --err:#b5624a; --warn:#8f3a26; }
   *{box-sizing:border-box}
   html,body{margin:0;background:#008080;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--ink);}
   body{padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);}
@@ -56,10 +56,8 @@
   details.note[open] summary{margin-bottom:4px}
   details .note{margin:6px 0}
   .bad{padding:14px;font-size:14px;line-height:1.6}
-  .warn{margin:8px 0;padding:7px 9px;font-size:13px;line-height:1.55;background:#fff;border:2px solid var(--err);border-left-width:5px}
-  .warn > b:first-child{color:var(--err)}
-  details.note.warn{border:2px solid var(--err);border-left-width:5px}
-  details.note.warn summary{color:var(--err)}
+  .warn{margin:8px 0;padding:7px 9px;font-size:13px;line-height:1.55;background:var(--hi);border:2px solid var(--warn);border-left-width:5px}
+  .warn > b:first-child,details.note.warn summary{color:var(--warn)}
 </style>
 </head>
 <body>
