@@ -8,6 +8,7 @@ import {
   useApi,
   wireArray,
   wireBool,
+  wireError,
   wireNullableString,
   wireNumber,
   wireObject,
@@ -44,11 +45,18 @@ function siteText(v: unknown, what: string): SiteText {
   return out;
 }
 
+/** 글 id — 빈 글이면 고치기 · 지우기 주소가 `/news/` 가 된다 */
+function newsId(v: unknown, what: string): string {
+  const id = wireString(v, what);
+  if (!id) throw wireError(what, '빈 글이 아닌 id');
+  return id;
+}
+
 /** 소식 한 건 — 모양이 틀리면 던진다(몰래 빼거나 1970년으로 채우지 않는다) */
 export function siteNewsFromWire(v: unknown, what = '소식'): SiteNews {
   const o = wireObject(v, what);
   return {
-    id: wireString(o.id, `${what}.id`),
+    id: newsId(o.id, `${what}.id`),
     pinned: wireBool(o.pinned, `${what}.pinned`),
     title: siteText(o.title, `${what}.title`),
     body: siteText(o.body, `${what}.body`),

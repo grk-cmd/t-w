@@ -68,6 +68,7 @@ describe('홈페이지 소식 — 서버 응답을 엄격하게 읽는다', () =
 
   it('글 하나라도 모양이 틀리면 던진다 — 몰래 빼거나 1970년 · 빈 값으로 채우지 않는다', () => {
     for (const bad of [
+      item({ id: '' }),
       item({ id: 1 }),
       item({ pinned: 'yes' }),
       item({ version: '3' }),
@@ -146,6 +147,13 @@ describe('홈페이지 내려받기 — 모양 · 저장 확인', () => {
       ok: true,
       next: { open: false, version: '0.9.0', rev: 7 },
     });
+    // 닫혀 있고 저장된 판이 목록 밖이어도 같은 판으로 다시 열 수 있다(서버가 정식 판인지 다시 본다)
+    expect(checkDownload({ ...old, open: false }, { open: true, version: '0.9.0' }, vs)).toEqual({
+      ok: true,
+      next: { open: true, version: '0.9.0', rev: 7 },
+    });
+    // 목록 밖의 다른 판을 새로 여는 것은 안 된다
+    expect(checkDownload({ ...old, open: false }, { open: true, version: '0.8.0' }, vs).ok).toBe(false);
     expect(versionChoices(vs, '0.9.0')).toEqual([...vs, '0.9.0']);
     expect(versionChoices(vs, '0.14.0')).toEqual(vs);
     expect(versionChoices(null, '0.9.0')).toEqual(['0.9.0']);
