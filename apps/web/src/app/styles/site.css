@@ -351,21 +351,27 @@ h3 {
 .crew-tag b {
   color: var(--title-pop);
 }
-.crew-say:empty {
-  display: none;
-}
-.crew-say {
+.crew-live {
   position: absolute;
   bottom: calc(100% - 4px);
   left: 50%;
   z-index: 2;
+}
+/* 폰에서 첫 화면 밖으로 나가지 않게 폭을 묶고 줄을 바꾼다(관리자 그림은 138px 로 좁다) */
+.crew-say {
+  position: absolute;
+  bottom: 0;
+  left: 0;
   transform: translateX(-50%);
+  width: max-content;
+  max-width: 160px;
+  text-align: center;
+  word-break: keep-all;
   padding: 6px 10px;
   border: 2px solid var(--ink);
   background: var(--bg-field);
   color: var(--ink);
   font-size: 13px;
-  white-space: nowrap;
   box-shadow: var(--shadow-toast);
   /* 단추 위를 살짝 덮어도 누름은 그림이 받게(연타가 끊기지 않게) */
   pointer-events: none;

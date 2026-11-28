@@ -19,6 +19,8 @@ export function CrewMate({ name, role, lines, src, w, h }: Props) {
   const [say, setSay] = useState<number | null>(null);
   const [flying, setFlying] = useState(false);
   const taps = useRef<number[]>([]);
+  // 다음에 보일 대사 — 말풍선이 사라져도 이어진다(천천히 눌러도 다음 대사)
+  const nextLine = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -33,14 +35,16 @@ export function CrewMate({ name, role, lines, src, w, h }: Props) {
       timer.current = setTimeout(() => setFlying(false), FLY_MS);
       return;
     }
-    setSay((p) => (p === null ? 0 : (p + 1) % lines.length));
+    setSay(nextLine.current);
+    nextLine.current = (nextLine.current + 1) % lines.length;
     timer.current = setTimeout(() => setSay(null), SAY_MS);
   };
 
   return (
     <figure className="crew-mate">
-      <span className="crew-say" aria-live="polite">
-        {say !== null && lines[say]}
+      {/* 알리는 칸은 늘 있어야 화면 낭독기가 새 대사를 읽는다 — 말풍선 모양은 안쪽에만 */}
+      <span className="crew-live" aria-live="polite">
+        {say !== null && <span className="crew-say">{lines[say]}</span>}
       </span>
       <button
         type="button"
