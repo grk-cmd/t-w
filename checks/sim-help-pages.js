@@ -143,16 +143,16 @@ for (const f of fs.readdirSync(DIR)) if (f.endsWith('.html')) allPages[f] = fs.r
 const drift = linkDrift(allPages);
 chk(drift.length === 0, '모든 페이지 ' + Object.keys(allPages).length + '개 — 예전 단계 없음 · 5-7 · /link 의 iOS · 안드로이드 묶음마다 X-Mobile-Key · 두 페이지 OS 별 단계가 같다' + (drift.length ? '\n      ' + drift.slice(0, 8).join('\n      ') : ''));
 const driftBreaks = [
-  ['5-7 에 방법 PUT 이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('방법 <b>POST</b></li>', '방법 <b>PUT</b></li>'); }],
+  ['5-7 에 방법 PUT 이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('방법 <b>POST</b></span></li>', '방법 <b>PUT</b></span></li>'); }],
   ['5-7 에 요청 본문 파일이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('</ol>', '<li>요청 본문 <b>파일</b> → 위 «텍스트»</li></ol>'); }],
   ['FAQ 에 «텍스트» · «URL 콘텐츠 가져오기» 두 개가 되살아남', (a) => { a['faq.html'] += '<p>동작이 «텍스트» · «URL 콘텐츠 가져오기» 두 개뿐인지 봐 주세요.</p>'; }],
   ['/link 에서 X-Mobile-Key 가 빠짐', (a) => { a['link.html'] = a['link.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
   ['5-7 에서 X-Mobile-Key 가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
   ['5-7 안드로이드 헤더 단계를 지움', (a) => { a['5-7.html'] = a['5-7.html'].replace(/\s*<li><b>헤더<\/b>에 이름[^\n]*<\/li>/, ''); }],
   ['/link 안드로이드에서만 X-Mobile-Key 가 빠짐(iOS 에는 남음)', (a) => { const s = a['link.html'], i = s.indexOf('<div data-os="and" class="hide">'); a['link.html'] = s.slice(0, i) + s.slice(i).replace(/X-Mobile-Key/g, 'X-Key'); }],
-  ['5-7 iOS 에 태그 없는 «방법 PUT»', (a) => { a['5-7.html'] = a['5-7.html'].replace('· 방법 <b>POST</b></li>', '· 방법 PUT</li>'); }],
+  ['5-7 iOS 에 태그 없는 «방법 PUT»', (a) => { a['5-7.html'] = a['5-7.html'].replace('· 방법 <b>POST</b></span></li>', '· 방법 PUT</span></li>'); }],
   ['5-7 iOS 에 «텍스트» 동작이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('<li><b>새로운 빈 자동화</b>', '<li>동작 «텍스트» 추가 → [열림 본문 복사] 한 것</li>\n  <li><b>새로운 빈 자동화</b>'); }],
-  ['5-7 iOS 에서 불리언 안내가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace('종류 <b>불리언</b> · 키 <b>on</b>', '키 <b>on</b>'); }],
+  ['5-7 iOS 에서 불리언 안내가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace('종류 <b>불리언</b> · 키 <code>on</code>', '키 <code>on</code>'); }],
 ];
 for (const [name, f] of driftBreaks){ const a = Object.assign({}, allPages); f(a); chk(linkDrift(a).length > 0, '  mutation test — ' + name); }
 chk(linkDrift(Object.assign({}, allPages, { 'x.html': '<p>예전 방식(방법 <b>PUT</b>)이면 POST 로 바꿔요.</p>' })).length === 0, '  «예전 …» 문장 안의 PUT 은 둔다(바꾸라는 안내)');
