@@ -1,5 +1,6 @@
 import { useI18n } from '@/shared/i18n';
 import { CREW } from '../model/crew';
+import { CrewMate } from './CrewMate';
 import { NewsSlot } from './NewsSlot';
 import { TogetherLand } from './TogetherLand';
 
@@ -30,7 +31,15 @@ export function Hero() {
           <NewsSlot />
           <div className="crew-row">
             {CREW.map((c) => (
-              <img key={c.key} className="crew" src={c.src} width={c.w} height={c.h} alt={m.crewAlt[c.key]} />
+              <CrewMate
+                key={c.key}
+                name={c.name}
+                role={m.crew[c.key].role}
+                lines={m.crew[c.key].lines}
+                src={c.src}
+                w={c.w}
+                h={c.h}
+              />
             ))}
           </div>
         </div>

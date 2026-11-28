@@ -313,9 +313,100 @@ h3 {
 }
 /* 그림 파일은 화면의 두 배 크기 — 높이를 맞춰 절반으로 보인다 */
 .crew {
+  display: block;
   height: 176px;
   width: auto;
   max-width: 100%;
+}
+/* 사람 하나: 그림 단추 · 위 말풍선 · 아래 이름표 */
+.crew-mate {
+  position: relative;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.crew-btn {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.crew-btn:focus-visible {
+  outline: 1px dotted var(--on-desk);
+  outline-offset: 2px;
+}
+/* 앱 머리 위 레벨 표시처럼 — 역할은 노랑 */
+.crew-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--on-desk);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.crew-tag b {
+  color: var(--title-pop);
+}
+.crew-say:empty {
+  display: none;
+}
+.crew-say {
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border: 2px solid var(--ink);
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+.crew-say::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--ink);
+}
+/* 연타 — 빙글 돌며 날아갔다가 제자리로(길이는 CrewMate FLY_MS 와 같다) */
+.crew-btn.fly {
+  animation: crew-fly 1.8s ease-in-out;
+}
+@keyframes crew-fly {
+  0% {
+    transform: none;
+  }
+  35% {
+    transform: translate(140px, -240px) rotate(540deg);
+    opacity: 1;
+  }
+  45% {
+    opacity: 0;
+  }
+  70% {
+    transform: translate(0, -30px);
+    opacity: 0;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.crew-boom {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  font-size: 32px;
+  transform: translate(-50%, -50%);
 }
 .news .body {
   padding: 6px;
@@ -438,7 +529,8 @@ h3 {
     transition: none;
   }
   .land:hover .land-ic,
-  .land-bar .blink {
+  .land-bar .blink,
+  .crew-btn.fly {
     animation: none;
   }
 }

@@ -42,11 +42,14 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(`<h2 id="dl-title">${m.dlTitle}</h2></div>`);
       expect(html).toContain(m.newsTitle); // 📰 소식 창 자리 — 글은 아직 빈 안내
       expect(html).toContain(m.newsEmpty);
-      // 소식 창 아래 사람 그림 — 표(crew.ts) 차례대로 · 파일 크기 그대로(화면 크기는 CSS) · 언어별 대체 글
-      for (const c of CREW)
-        expect(html).toContain(
-          `<img class="crew" src="${c.src}" width="${c.w}" height="${c.h}" alt="${m.crewAlt[c.key]}"/>`,
-        );
+      // 소식 창 아래 사람 그림 — 표(crew.ts)마다 그림 단추 · 이름표(역할 + 이름) · 말풍선은 누르기 전엔 비어 있다
+      for (const c of CREW) {
+        const role = m.crew[c.key].role;
+        expect(html).toContain(`aria-label="${role} ${c.name}"`);
+        expect(html).toContain(`<img class="crew" src="${c.src}" width="${c.w}" height="${c.h}" alt=""/>`);
+        expect(html).toContain(`<figcaption class="crew-tag"><b>${role}</b> <!-- -->${c.name}</figcaption>`);
+      }
+      expect(html).toContain('<span class="crew-say" aria-live="polite"></span>');
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
       expect(html).not.toMatch(/%TW_LANG%|<!--tw-head-->|<!--tw-body-->/);
     }
