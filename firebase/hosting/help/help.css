@@ -74,10 +74,27 @@ h2:target,h3:target{background:var(--bg-select)}
 [data-embed] .note,[data-embed] table{font-size:12px}
 [data-embed] .path{font-size:12px}
 [data-embed] .pn{margin-top:var(--space-7);font-size:12px}
+/* 단계 안내(5-7 폰 연결) — 한 단계 = «어디» 한 줄 + «칸 → 넣을 값» 표 + 짧은 덧말. 값은 고정폭 글자로 */
+.steps > li{margin:var(--space-5) 0}
+.steps .do,.steps .sub,.sub{display:block}
+.sub{font-size:13px;color:var(--ink-soft);font-weight:normal;margin-top:var(--space-1)}
+.steps .kv{margin:var(--space-3) 0}
+.kv th{width:1%;white-space:nowrap}
+main code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;padding:0 var(--space-2);background:var(--bg-field);border:1px solid var(--line);word-break:break-all}
+.os{margin-top:var(--space-7);padding-left:var(--space-3);border-left:3px solid var(--ink-accent)}
+.tip{font-size:14px;color:var(--ink-soft)}
+/* 따라 하지 않으면 고장 나는 안내만 — 다 빨갛게 하면 눈에 안 띈다 */
+.warn{background:var(--bg-select);border:1px solid var(--ink-danger);border-left-width:4px;padding:var(--space-3) var(--space-5);font-size:14px}
+.warn > b:first-child{color:var(--ink-danger)}
+details{margin:var(--space-3) 0;padding:0 var(--space-5);background:var(--bg-face-2);border:1px solid var(--line);font-size:14px}
+details[open]{padding-bottom:var(--space-2)}
+summary{cursor:pointer;padding:var(--space-3) 0;font-weight:bold}
+figure.shot[hidden]{display:none}
+[data-embed] details,[data-embed] .warn,[data-embed] .tip,[data-embed] .sub{font-size:12px}
 /* FAQ 서랍 — 질문 줄(Q번호 · 질문 · 여닫기 표시)을 누르면 답이 펴진다 */
-details.faq{border-top:1px solid var(--line)}
+details.faq{margin:0;padding:0;background:none;border:0;border-top:1px solid var(--line);font-size:inherit}
 details.faq:last-of-type{border-bottom:1px solid var(--line)}
-details.faq > summary{display:flex;align-items:baseline;gap:var(--space-3);padding:var(--space-4) var(--space-2);cursor:pointer;list-style:none}
+details.faq > summary{font-weight:normal;display:flex;align-items:baseline;gap:var(--space-3);padding:var(--space-4) var(--space-2);cursor:pointer;list-style:none}
 details.faq > summary::-webkit-details-marker{display:none}
 details.faq > summary::after{content:'▾';margin-left:auto;color:var(--ink-soft);flex:none}
 details.faq[open] > summary::after{content:'▴'}
@@ -87,4 +104,5 @@ details.faq .faq-n{flex:none;font-weight:bold;color:var(--ink-accent)}
 details.faq h2{font-size:15px;margin:0;padding:0;border:0;min-width:0}
 details.faq > p{margin-left:var(--space-6);margin-right:var(--space-2)}
 details.faq[open]{padding-bottom:var(--space-3)}
+[data-embed] details.faq{font-size:inherit}
 [data-embed] details.faq h2{font-size:13px;margin:0}

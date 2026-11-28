@@ -277,7 +277,7 @@
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
 | **sim-frame-budget.js** | 242 | **177259a0664e** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
-| **sim-help-pages.js** | 249 | **41227cb39ede** |
+| **sim-help-pages.js** | 253 | **b205f3c01969** |
 | **sim-help-deploy-guard.js** | 119 | **db7ad2627cbf** |
 | **sim-help-search.js** | 224 | **4918686ad8f5** |
 | **sim-help-tab.js** | 215 | **776d0178e83c** |
