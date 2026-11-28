@@ -25,6 +25,7 @@ export {
   SITE_LANG_LABEL,
   SITE_LANGS,
   SITE_TITLE_MAX,
+  versionChoices,
   type SiteDownload,
   type SiteLang,
   type SiteNews,

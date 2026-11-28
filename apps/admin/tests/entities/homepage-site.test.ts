@@ -19,6 +19,7 @@ import {
   siteNewsFromWire,
   siteNewsListFromWire,
   updateSiteNews,
+  versionChoices,
   type SiteDownload,
 } from '@/entities/homepage/site';
 import { ApiError, isPortError, NO_API_TEXT, PortError } from '@/shared/api';
@@ -136,6 +137,19 @@ describe('홈페이지 내려받기 — 모양 · 저장 확인', () => {
       next: { open: true, version: '0.14.0', rev: 7 },
     });
     expect(checkDownload(saved, { open: true, version: '0.14.0' }, null).ok).toBe(true); // 목록을 못 받았으면 서버가 다시 본다
+  });
+
+  it('열어 둔 판이 최근 목록 밖으로 밀려나도 닫을 수 있고 · 보기에 그 판이 남는다', () => {
+    const old = { ...saved, open: true, version: '0.9.0' };
+    const vs = ['0.14.0', '0.13.1', '0.13.0', '0.12.4', '0.12.3'];
+    expect(checkDownload(old, { open: false, version: '0.9.0' }, vs)).toEqual({
+      ok: true,
+      next: { open: false, version: '0.9.0', rev: 7 },
+    });
+    expect(versionChoices(vs, '0.9.0')).toEqual([...vs, '0.9.0']);
+    expect(versionChoices(vs, '0.14.0')).toEqual(vs);
+    expect(versionChoices(null, '0.9.0')).toEqual(['0.9.0']);
+    expect(versionChoices(null, null)).toEqual([]);
   });
 });
 

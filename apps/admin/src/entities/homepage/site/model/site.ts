@@ -77,18 +77,32 @@ export function sameNews(a: SiteNewsDraft, b: SiteNewsDraft): boolean {
   );
 }
 
-/** 내려받기 저장값 — 열려면 판을 골라야 한다 · 고를 수 있는 판은 정식 릴리스 목록(versions) 안에서만 */
+/** 내려받기 저장값 — 열려면 판을 골라야 하고, 새로 여는 판은 정식 릴리스 목록(versions) 안에서만.
+    닫기는 판을 따지지 않는다(열어 둔 판이 최근 목록 밖으로 밀려나도 닫을 수 있게) · 목록을 못 받았으면(null) 판 이름은 서버가 다시 본다 */
 export function checkDownload(
   saved: SiteDownload,
   draft: { open: boolean; version: string | null },
   versions: readonly string[] | null,
 ): Check<{ open: boolean; version: string | null; rev: number }> {
   if (draft.open && !draft.version) return { ok: false, error: '열려면 내보일 판을 골라 주세요' };
-  if (draft.version && versions && !versions.includes(draft.version))
+  if (
+    draft.open &&
+    draft.version &&
+    draft.version !== saved.version &&
+    versions &&
+    !versions.includes(draft.version)
+  )
     return { ok: false, error: '정식 릴리스 목록에 없는 판이에요' };
   if (draft.open === saved.open && draft.version === saved.version)
     return { ok: false, error: '지금 값과 같음' };
   return { ok: true, next: { open: draft.open, version: draft.version, rev: saved.rev } };
+}
+
+/** 판 고르기 보기 — 정식 릴리스 최근 순 + 지금 저장된 판(목록 밖으로 밀려났어도 보이게 · 맨 끝) */
+export function versionChoices(versions: readonly string[] | null, saved: string | null): string[] {
+  const list = [...(versions ?? [])];
+  if (saved && !list.includes(saved)) list.push(saved);
+  return list;
 }
 
 export function downloadConfirmText(next: { open: boolean; version: string | null }): string {

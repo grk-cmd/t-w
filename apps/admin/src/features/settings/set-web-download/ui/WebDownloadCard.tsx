@@ -49,7 +49,8 @@ export function WebDownloadCard() {
     });
   };
 
-  const choices = versions ?? (form.version ? [form.version] : []);
+  // 지금 저장된 판은 최근 목록 밖으로 밀려났어도 보기에 넣는다 — 화면이 «고르기» 로 보이며 상태와 어긋나지 않게
+  const choices = versionChoices(versions, saved?.version ?? null);
   return (
     <section className="card">
       <h2>💾 홈페이지 내려받기</h2>
