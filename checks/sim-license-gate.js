@@ -142,6 +142,7 @@ async function gateRun(src, o){
   await new Promise(r => setTimeout(r, 0));
   const out = { ev: () => ev.join(','), settled: () => settled, ret: () => ret, msg, card, ov, btn, title, desc };
   if(o.click){ for(let i = 0; i < o.click; i++){ await btn.onclick(); await new Promise(r => setTimeout(r, 0)); } }
+  if(o.back && waitCb){ const cb = waitCb; waitCb = null; cb(o.back); await new Promise(r => setTimeout(r, 0)); }   // login-flow 가 realtime ready · 4004 로 다시 물어 닿은 때(누르지 않음) — sim-login-flow 3절이 그 쪽을 본다
   if(!settled && o.click === undefined && o.state !== 'local') await p;
   return out;
 }
@@ -167,6 +168,9 @@ async function gateRows(src){
   t(/요청이 많아요/.test(x.msg.textContent), '  ↳ 429(limited)는 문구로 알린다');
   x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'in', me: { userCode: 'u1' } }], click: 1 });
   t(x.settled() && x.ret() === true && x.ev() === 'wait,retry,enter,entered:accountEntered:u1' && x.card.style.display === 'none' && x.ov.style.display === 'none', '  ↳ [다시 시도] 가 닿으면 화면을 닫고 평소 켜기 차례(맞추기 → 들어감 알림 한 번)');
+  x = await gateRun(src, { state: 'local', uid: 'u1', back: { state: 'in', me: { userCode: 'u1' } } });
+  t(x.settled() && x.ret() === true && x.ev() === 'wait,enter,entered:accountEntered:u1' && x.card.style.display === 'none' && x.ov.style.display === 'none',
+    '★ 켤 때 서버 못 닿음 → 누르지 않고 서버가 돌아옴(realtime ready → 기다림 콜백) → 화면을 닫고 맞추기 → «계정에 들어감» 한 번(app-boot begin) — B-1128-2 확인');
   x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'in', me: { userCode: 'u2' } }], click: 1, enter: { ok: true, switched: true } });
   t(x.settled() && has(x, 'relaunch') && !x.ev().includes('entered'), '  ↳ 닿았는데 계정이 바뀌었으면 다시 켜기(들어감 알림 없음)');
   x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'signup' }], click: 1 });

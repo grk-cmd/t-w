@@ -251,9 +251,13 @@ const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorag
 /* 🗂️ JSON 칸 읽기 · 쓰기(shared/json-store.js)를 계정 칸 위에 얹은 한 벌 — 책상 · 동물 프리셋이 쓴다(닫혀 있으면 읽기 null · 쓰기는 «저장 못 함» 결과). animal.js 는 이 전역 이름으로 받는다. */
 const accountJsonStoreMod = TwJsonStore.createJsonStore({ storage: ()=>accountStoreMod.asStorage() });
 /* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
+let _myUserIdWriteFailed = false;   // 이 실행에서 계정 코드 쓰기가 실패했다 — 진단에만(app-boot 의 «계정 칸 못 엶» 줄)
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
-  try{ localStorage.setItem(MY_USER_ID_KEY, uid); return localStorage.getItem(MY_USER_ID_KEY) === uid; }catch(e){ return false; }
+  let ok = false, why = '읽어 보니 다름';
+  try{ localStorage.setItem(MY_USER_ID_KEY, uid); ok = localStorage.getItem(MY_USER_ID_KEY) === uid; }catch(e){ why = (e && /^[A-Za-z]{1,40}$/.test(e.name)) ? e.name : '던짐'; }
+  if(!ok){ _myUserIdWriteFailed = true; if(window.companion && companion.diagNote) companion.diagNote('[계정] 이 PC 계정 코드를 못 적음 — ' + why); }   // 코드 값은 적지 않는다
+  return ok;
 }
 /* 🔗 친구 코드는 서버가 가입 때 정하고, 로그인 때 이 PC 에 적는다(account.js _enterAccount — GET /v2/me 의 friendCode 가 원본).
    앱은 코드를 뽑지 · 등록하지 · Firebase 의 코드 노드와 맞춰 보지 않는다. */
@@ -567,6 +571,8 @@ const rideBenchMod = TwRideBench.createRideBench({
   diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
+  unlockGate: (...a)=>iDeskMod.unlockGate(...a),
+  tellLevelUnknown: (...a)=>focusLevelMod.tellLevelUnknown(...a),
   levelText: (...a)=>iDeskMod.levelText(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
   isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),
@@ -812,6 +818,8 @@ const statusChipMod = TwStatusChip.createStatusChip({
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
+  getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  tellLevelUnknown: (...a)=>focusLevelMod.tellLevelUnknown(...a),
   _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
   _officeHidden: ()=>officeModeMod._officeHidden(),
   _seatHidden: (...a)=>hiddenSeatsMod._seatHidden(...a),
@@ -1917,6 +1925,7 @@ const chatUiMod = TwChatUi.createChatUi({
   myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isDanceUnlocked: (...a)=>iDeskMod.isDanceUnlocked(...a),
+  unlockGate: (...a)=>iDeskMod.unlockGate(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
   officeMode: ()=>officeModeMod.officeMode(),
   seats: seats,
@@ -2101,7 +2110,8 @@ const chatWindowMod = TwChatWindow.createChatWindow({
   chatFlyRefreshUI: (...a)=>chatUiMod._chatFlyRefreshUI(...a),
   flySizeOk: (...a)=>chatUiMod._flySizeOk(...a),
   FLY_COLOR_LEVEL: chatUiMod.FLY_COLOR_LEVEL,
-  getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  levelGate: (...a)=>focusLevelMod.levelGate(...a),
+  tellLevelUnknown: (...a)=>focusLevelMod.tellLevelUnknown(...a),
   shownFocusLevel: (...a)=>focusLevelMod.shownFocusLevel(...a),
   isAdmin: ()=>isAdmin,
   // 🔇 채팅 잠금 · 🗑 기록 삭제
@@ -4700,6 +4710,7 @@ const focusProgressMod = TwFocusProgress.createFocusProgress({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   setServerDay: (t)=>focusTotalMod.setServerDay(t),
   addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
+  note: (m)=>{ if(window.companion && companion.diagNote) companion.diagNote(m); },   // 🩺 [집중] 진단 줄 — 브라우저 미리보기 · 검사엔 companion 이 없다
 });
 const focusLevelMod = TwFocusLevel.createFocusLevel({
   onFocusAdded: (sec)=>roomFocusSync.add(sec),
@@ -5060,6 +5071,11 @@ const appBoot = TwAppBoot.createAppBoot({
   whenPainted: ()=>closetSettled(),
   idle: ()=>TwApi.authed.whenIdle(),
   holdToast: (msg)=>toastMod.hold(msg),
+  note: (m)=>{ if(window.companion && companion.diagNote) companion.diagNote(m); },   // 🩺 [app-boot] 진단 줄
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  onNotStarted: ()=>focusProgressMod.blockStart(()=>TwErrorCodes.notify('E-ACC-07')),   // 계정 기능을 못 시작함 — 레벨은 «못 불러옴» · [다시 시도] 는 같은 번호를 다시
+  localCode: ()=>getMyUserId(),
+  codeWriteFailed: ()=>_myUserIdWriteFailed,
   starts: {
     userLocal: (code, me, session)=>userLocalMod.start(session),
     catalog: (code, me, session)=>catalogSyncMod.start(session),   // 🧩 카탈로그 서버 한 벌 받기 — 로그인 뒤(서버가 이 사람의 locked 를 정한다) · 세션이 끝나면 풀고 비운다

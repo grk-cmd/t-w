@@ -13,7 +13,10 @@
    기능 모듈은 «만들기» 와 «시작» 을 나눠 내놓는다. 만들 때 요청 · 구독 · 타이머 · 계정 칸 읽기를 하지 않고, 시작은 여기서만 부른다.
    ★ 이 모듈이 로그인 세션(shared/session.js)을 만들어 들고 있다(getSession) — 계정 칸 열기는 세션이 하고, 시작 함수는 세 번째 인자로 받는다. 받아 쓰는 기능: focusLevel(startFocus — onReset).
    ★ 시작 함수는 한 번만 부른다 — begin 을 두 번 부르면 두 번째는 아무것도 안 하고 false(콘솔 경고).
-   ★ 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 account.js 에 한 곳으로 있다 — 이 모듈은 건드리지 않는다. */
+   ★ 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 account.js 에 한 곳으로 있다 — 이 모듈은 건드리지 않는다.
+   🩺 진단(note — `[app-boot]` 한 줄 · 200자 안): 시작 들어옴 · 건너뛴 까닭 · 계정 칸 열기 결과(PC 코드 있음/없음 · 서버 코드와 같음/다름 · 코드 쓰기 실패 기록 — 코드 값은 적지 않는다) ·
+     등록 결과 · 칸이 던진 오류(이름 · code 만). 레벨 요청이 아예 안 나간 PC 를 제보 때 가른다(B-1128-2).
+   계정 칸을 못 열면 기능을 시작하지 않고 E-ACC-07 을 한 번 알린다(다시 켜기 · 다시 로그인 안내) — onNotStarted() 로 기능 쪽(레벨)이 «못 불러옴» 을 보이게 한다. 칸을 몰래 고쳐 쓰지 않는다. */
 (function(){
 'use strict';
 
@@ -69,6 +72,11 @@ const CONNECTING_TEXT = '접속 중…';
  *   idle: () => Promise<unknown>,                              // 지금 나간 API 요청이 다 끝났다(api-client.js whenIdle)
  *   holdToast: (msg: string) => () => void,                    // 내릴 때까지 떠 있는 토스트(shared/toast.js hold) — 돌려준 함수로 내린다
  *   starts: Record<string, (code: string, me: object, session: object) => unknown>,   // STEPS 이름마다 하나 — 계정 기능의 시작 함수(없거나 남으면 만들 때 던진다)
+ *   note: (line: string) => unknown,                           // 진단 기록 한 줄(companion.diagNote)
+ *   notifyError: (code: string, err?: any) => unknown,         // TwErrorCodes.notify
+ *   onNotStarted: () => unknown,                               // 계정 기능을 시작하지 못했다(E-ACC-07) — 레벨이 «못 불러옴» 을 보이게(focus-progress.js blockStart)
+ *   localCode: () => (string|null),                            // 이 PC 에 적힌 계정 코드(app.js getMyUserId) — 진단에 있음/없음 · 같음/다름만 적는다
+ *   codeWriteFailed: () => boolean,                            // 이 실행에서 계정 코드 쓰기(_setMyUserId)가 실패한 적이 있나
  * }} deps */
 function createAppBoot(deps){
 const twNav = deps.twNav;
@@ -82,6 +90,11 @@ const whenPainted = deps.whenPainted;
 const idle = deps.idle;
 const holdToast = deps.holdToast;
 const starts = deps.starts;
+const note = deps.note;
+const notifyError = deps.notifyError;
+const onNotStarted = deps.onNotStarted;
+const localCode = deps.localCode;
+const codeWriteFailed = deps.codeWriteFailed;
 const NAMES = STEPS.map((s) => s[0]);
 const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
 
@@ -98,10 +111,15 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
   let ready = false;    // 업데이트 확인을 통과했다 — OPEN 칸은 그 뒤에만 시작한다
   const ran = new Set();      // 이번 세션에 시작한 칸
   const asked = new Set();    // 통과 전에 열어 달라고 한 OPEN 칸 — 통과하면 시작한다
-  /* 한 칸이 던져도 다음 칸은 돈다(기능끼리 서로 몰랐던 때와 같다) — 돌려준 약속은 실패해도 경고만 */
+  const ERR_CODE = /^[A-Za-z0-9_/-]{1,40}$/, ERR_NAME = /^[A-Za-z]{1,40}$/;
+  function diag(line){ try{ note(('[app-boot] ' + line).slice(0, 200)); }catch(_){} }
+  /* 오류 모양만 — 이름 · code(모양이 맞을 때). 글 · 값은 적지 않는다 */
+  const errTag = (e) => 'name=' + (e && typeof e.name === 'string' && ERR_NAME.test(e.name) ? e.name : '-') + ' code=' + (e && typeof e.code === 'string' && ERR_CODE.test(e.code) ? e.code : '-');
+  function failed(label, e){ console.warn('[app-boot] ' + label + ' 실패', e); diag(label + ' 실패 ' + errTag(e)); }
+  /* 한 칸이 던져도 다음 칸은 돈다(기능끼리 서로 몰랐던 때와 같다) — 돌려준 약속은 실패해도 경고 · 진단 한 줄 */
   function guard(label, fn){
-    try{ return Promise.resolve(fn()).catch((e)=>console.warn('[app-boot] ' + label + ' 실패', e)); }
-    catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); return Promise.resolve(); }
+    try{ return Promise.resolve(fn()).catch((e)=>failed(label, e)); }
+    catch(e){ failed(label, e); return Promise.resolve(); }
   }
   function run(name){
     if(ran.has(name)) return Promise.resolve();
@@ -131,24 +149,32 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
   /* 서버가 계정을 돌려주고 이 PC 를 맞춘 뒤(_enterAccount ok · switched 아님) 게이트가 알리면 한 번 — 옛 값 옮기기 → 계정 칸 → 업데이트 확인 통과 → 등록 → 첫 화면 읽기(FIRST) → realtime → 나머지.
      @return Promise — 돌렸으면 true · 계정 없음(me 비었음) · 이미 돌았음 · 등록 취소 · 강제 업데이트면 false */
   async function begin(me){
-    if(!me || !me.userCode) return false;
-    if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }
+    if(!me || !me.userCode){ diag('시작 건너뜀 — 계정 없음'); return false; }
+    if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); diag('시작 건너뜀 — 이미 시작함'); return false; }
     began = true;
+    diag('시작');
     code = me.userCode; myMe = me;
     guard('옛 값 옮기기', () => migrateLegacy(code));
     let opened = false;   // 옮긴 뒤에야 연다 — 먼저 쓴 값이 옛 값을 가리지 않게. 못 열면(코드가 어긋남 — 정상 흐름에선 없다) 기능을 시작하지 않는다
     try{ session = newSession(me); opened = session.openStore() === true; }catch(e){ console.warn('[app-boot] 계정 칸 열기 실패', e); }
     if(!opened){
       console.warn('[app-boot] 계정 칸을 열지 못해 계정 기능을 시작하지 않아요');
+      let pc = null; try{ pc = localCode(); }catch(_){}
+      let wf = false; try{ wf = codeWriteFailed() === true; }catch(_){}
+      diag('계정 칸 못 엶 — PC 코드 ' + (pc ? '있음' : '없음') + ' · 서버 코드와 ' + (pc === code ? '같음' : '다름') + ' · 코드 쓰기 실패 ' + (wf ? '있음' : '없음'));
       if(session){ session.dispose(); session = null; }
+      notifyError('E-ACC-07');   // 조용히 넘기지 않는다 — 한 번(begin 은 한 번만 돈다) · 칸을 몰래 고쳐 쓰지 않는다
+      guard('못 시작 알림', () => onNotStarted());
       return false;
     }
     const s = session;
     let go = false;
     try{ go = (await updateGate()) === true; }catch(e){ console.warn('[app-boot] 업데이트 확인 실패', e); }
-    if(!go || !s.alive()){ console.warn('[app-boot] 업데이트 확인을 통과하지 못해 계정 기능을 시작하지 않아요'); return false; }   // 강제 업데이트 — 등록(서버 쓰기)도 하지 않는다
+    if(!go || !s.alive()){ console.warn('[app-boot] 업데이트 확인을 통과하지 못해 계정 기능을 시작하지 않아요'); diag('시작 멈춤 — 업데이트 확인 ' + (go ? '세션 끝남' : '통과 못 함')); return false; }   // 강제 업데이트 — 등록(서버 쓰기)도 하지 않는다
+    diag('업데이트 확인 통과 — 이 PC 등록');   // 이 줄이 없으면 업데이트 확인을 기다리다 멈춘 것
     let reg = 'failed';
-    try{ reg = await registerDevice(); }catch(e){ console.warn('[app-boot] 이 PC 등록 실패', e); }
+    try{ reg = await registerDevice(); }catch(e){ failed('이 PC 등록', e); }
+    diag('이 PC 등록 ' + reg);   // failed 의 번호(E-ACC-04)는 등록 쪽이 이미 알렸다 — 여기서 또 알리지 않는다
     if(reg === 'canceled'){
       session.dispose(); session = null;
       guard('로그인 화면', () => toLogin());

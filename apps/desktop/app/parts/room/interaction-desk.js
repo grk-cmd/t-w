@@ -6,7 +6,7 @@
      Presence · focusLevelMod · isAdmin 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · setActiveInteractionDeskId · startMyDance — app.js 는 iDeskMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · unlockGate · setActiveInteractionDeskId · startMyDance — app.js 는 iDeskMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwInteractionDesk — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-interaction-desk.js */
@@ -133,13 +133,14 @@ function _parseDanceCmdChain(text){
   return def ? { def, cmd: parts[0], repeat: parts.length } : null;
 }
 let _danceCmdCooldownAt = 0;   // ⏳ 춤 명령 개인 쿨다운(10초) 타임스탬프
-function isDanceUnlocked(def){
-  if(!def) return false;
-  if(typeof isAdmin()!=='undefined' && isAdmin()) return true;
-  if(def.reqLevel == null) return false;   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다
-  const lv=(typeof focusLevelMod().getFocusLevel==='function')?focusLevelMod().getFocusLevel():1;
-  return lv >= def.reqLevel;
+/* 🔓 춤 · 상호작용 책상의 문 — 'ok' · 'low'(레벨이 모자람 · 서버 해금 표를 아직 못 받음 — lockedToast 가 가른다) · 'unknown'(내 서버 레벨을 모름 — tellLevelUnknown · B-1128-2) */
+function unlockGate(def){
+  if(!def) return 'low';
+  if(typeof isAdmin()!=='undefined' && isAdmin()) return 'ok';
+  if(def.reqLevel == null) return focusLevelMod().getFocusLevel() == null ? 'unknown' : 'low';   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다
+  return focusLevelMod().levelGate(def.reqLevel);
 }
+function isDanceUnlocked(def){ return unlockGate(def) === 'ok'; }
 /* 서버 해금 표({ 종류: { 열쇠: { level } } })를 춤 · 상호작용 책상의 reqLevel 에 앉힌다 — 코드에 박힌 레벨은 없다(원본은 서버 한 곳).
    표에 없는 줄은 앉히지 않고 알린다(그 항목은 잠긴 채다). 한 벌이 바뀔 때마다 다시 앉는다. */
 function applyUnlocks(unlocks){
@@ -214,13 +215,7 @@ function startMyDance(def, opts){
 }
 function _deskDefById(id){ return INTERACTION_DESKS.find(d=>d.id===id) || null; }
 // 이 책상이 해금됐나 — 레벨 충족 or 관리자.
-function isDeskUnlocked(def){
-  if(!def) return false;
-  if(typeof isAdmin()!=='undefined' && isAdmin()) return true;
-  if(def.reqLevel == null) return false;   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다
-  const lv = (typeof focusLevelMod().getFocusLevel==='function') ? focusLevelMod().getFocusLevel() : 1;
-  return lv >= def.reqLevel;
-}
+function isDeskUnlocked(def){ return unlockGate(def) === 'ok'; }
 // 현재 내가 쓰는 상호작용 책상 id(교체 방식) — 계정 칸 보관.
 const ACTIVE_IDESK_KEY = 'tw.activeInteractionDesk';
 function getActiveInteractionDeskId(){ try{ return accountStore.get(ACTIVE_IDESK_KEY) || null; }catch(_){ return null; } }
@@ -270,6 +265,7 @@ return {
   getActiveInteractionDeskId,
   isDanceUnlocked,
   isDeskUnlocked,
+  unlockGate,
   applyUnlocks,
   levelText,
   lockedToast,
