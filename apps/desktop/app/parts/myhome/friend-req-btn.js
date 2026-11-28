@@ -2,7 +2,9 @@
    ・책임: 관람 중인 홈이 친구도 아니고 내가 보낸 요청도 없으면 이름 옆에 [친구 신청]을 보인다 · 누르면 사유(100자) 창 · [신청하기]로 보낸다.
    ・보내기와 앞단 검사(준비 · 나 · 이미 친구 · 정원)는 좌석 친구 신청과 같은 한 벌(seat-friend-req.js sendFriendReq)을 부른다 — 여기서 다시 쓰지 않는다.
    ・받는 deps — sendFriendReq(uid, name, msg) → {ok, reason} · resultView(res, name) → {kind, text}(둘 다 seat-friend-req.js 한 벌) ·
-     friendNet()(데이터 provider — isFriendRequestAlive(toId, myId) 로 내가 보낸 요청이 살아 있나 · 좌석 친구 신청과 같은 모양) · friends()(읽는 함수 — 친구 구독이 다시 대입) · getMyUserId · toast.
+     friendNet()(데이터 provider — isFriendRequestAlive(toId, myId) 로 내가 보낸 요청이 살아 있나 · 좌석 친구 신청과 같은 모양) ·
+     friends()(읽는 함수 — 받은 친구 목록 · 못 받았으면 null(모름)) · friendsForCheck()(판정용 목록 — friends-sub.js · 못 읽으면 null · 토스트는 거기서) · getMyUserId · toast.
+   ⚠️ 모르는 것을 «없음» 으로 치지 않는다 — 친구 목록 · 보낸 요청을 못 읽으면 단추를 «다시 확인» 으로 보인다(누르면 다시 묻는다 · 보내지 않는다).
    ・내놓는 것: refresh(viewUid, name) — 관람 화면을 다시 칠할 때(myhome-visit.js _mhApplyVisitUI) 부른다. viewUid 가 없으면(내 홈 · 미리보기) 숨김.
    ⚠️ 요청이 살아 있는지 묻는 동안 다른 홈으로 넘어가면 결과를 버린다(늦은 답이 다음 화면 단추를 켜지 않게).
    ⚠️ 사유는 textContent 로만 넣는다(받는 쪽도 같다) — 남이 쓴 글이 HTML 로 읽히면 안 된다.
@@ -21,7 +23,8 @@ function createFriendReqBtn(deps){
 const sendFriendReq = deps.sendFriendReq;
 const resultView = deps.resultView;   // (res, name) → {kind, text} — 좌석 친구 신청과 같은 한 벌(seat-friend-req.js)
 const friendNet = deps.friendNet;   // 읽는 함수 — 데이터 provider, 준비 전이면 없음
-const friends = deps.friends;   // 읽는 함수
+const friends = deps.friends;   // 읽는 함수 — 받은 목록 | null(모름 — 빈 {} 로 치지 않는다)
+const friendsForCheck = deps.friendsForCheck;   // 판정용 목록 → Promise<목록 | null>(friends-sub.js)
 const getMyUserId = deps.getMyUserId;
 const toast = deps.toast;
 const reasonOn = deps.reasonOn;   // 읽는 함수 — 서버가 신청 사유를 받는가(shared/server-features.js) · 아니면 사유 칸 없이 묻기만
@@ -42,24 +45,35 @@ function _closeDialog(){
 
 function _btn(){ return document.getElementById(BTN_ID); }
 function _hide(){ const b = _btn(); if(b) b.hidden = true; _shownFor = null; }
+const BTN_TEXT = '＋ 친구 신청';
+const RETRY_TEXT = '⟳ 친구 신청 다시 확인';   // 친구 목록 · 보낸 요청을 못 읽음 — 누르면 다시 묻는다
+const RETRY_TITLE = '친구인지 · 보낸 요청이 있는지 확인하지 못했어요 — 눌러서 다시 확인';
+function _isFriend(uid){ const f = friends(); return !!(f && f[uid]); }   // 모르면(null) 아직 판정하지 않는다 — 아래 묻기에서 friendsForCheck 로
 
 async function refresh(viewUid, name){
   if(_dlg && _dlg.uid !== viewUid) _closeDialog();
   _name = name || null;
   const me = getMyUserId();
   /* 내 홈 · 나 · 이미 친구는 서버를 안 읽고 숨긴다 — 같은 uid 를 다시 칠할 때도(그 사이 친구가 됐을 수 있다) */
-  if(!viewUid || !me || viewUid === me || (friends() || {})[viewUid]){ ++_seq; _askedFor = null; _hide(); return; }
+  if(!viewUid || !me || viewUid === me || _isFriend(viewUid)){ ++_seq; _askedFor = null; _hide(); return; }
   if(viewUid === _askedFor) return;
   const seq = ++_seq;
   _hide();
-  let alive = true;
   const net = friendNet();
   if(!net) return;
   _askedFor = viewUid;   // 물을 수 있을 때만 적는다 — provider 가 늦게 준비되면 다음 칠하기에서 묻는다
-  try{ alive = await net.isFriendRequestAlive(viewUid, me); }catch(_){ alive = true; }
-  if(seq !== _seq || alive) return;
+  let fr = null, alive = null;   // 못 읽으면 null(모름)
+  try{ [fr, alive] = await Promise.all([friendsForCheck(), net.isFriendRequestAlive(viewUid, me)]); }catch(_){ alive = null; }
+  if(seq !== _seq) return;
+  if(fr && fr[viewUid]) return;   // 이미 친구
   const b = _btn(); if(!b) return;
-  b.hidden = false; _shownFor = viewUid;
+  if(!fr || alive == null){   // 모름 — 숨기지도 «신청» 을 열지도 않고 다시 확인을 보인다
+    b.hidden = false; _shownFor = viewUid; b.textContent = RETRY_TEXT; b.title = RETRY_TITLE;
+    b.onclick = () => { if(_askedFor === viewUid) _askedFor = null; refresh(viewUid, _name); };
+    return;
+  }
+  if(alive) return;
+  b.hidden = false; _shownFor = viewUid; b.textContent = BTN_TEXT; b.title = '';
   b.onclick = () => openDialog(viewUid, _name || '이 사람');
 }
 
@@ -98,7 +112,8 @@ function openDialog(uid, name){
     ok.disabled = true; no.disabled = true;
     let res = null, err = null;
     try{ res = await sendFriendReq(uid, name, withReason ? cleanReason(ta.value) : ''); }catch(e){ err = e; }
-    const v = resultView(res, name);   // fail 이면 문구 대신 E-FR-06
+    const v = resultView(res, name);   // fail 이면 문구 대신 E-FR-06 · quiet(친구 목록 못 읽음 — friends-sub 가 이미 알림)면 창 · 적은 사유를 그대로 두고 다시 누를 수 있게
+    if(v.kind === 'quiet'){ ok.disabled = false; no.disabled = false; return; }
     if(v.kind === 'fail'){ TwErrorCodes.notify('E-FR-06', err || (res && (res.err || res.reason))); ok.disabled = false; no.disabled = false; return; }
     toast(v.text);
     close();

@@ -96,13 +96,15 @@ async function importCloneCode(v, p, forceSlot){
     // ★ animal.js는 IIFE로 감싸져 있어 UNLOCK_LEVEL·myLevel 등이 이 파일에서는 보이지 않는다.
     //   그래서 animal.js가 window에 노출한 판정 창구를 쓰고, 없을 때만 같은 기준으로 직접 계산한다.
     //   (typeof 가드만 두면 전부 'undefined'로 떨어져 레벨 0으로 판정 → 모두가 못 불러오게 된다)
-    const _ulv = window._animalUnlockLevel || 50;
-    const _lv  = (typeof focusLevelMod().getFocusLevel==='function') ? focusLevelMod().getFocusLevel() : 0;
+    const _ulv = (window._animalUnlockLevel == null) ? null : window._animalUnlockLevel;   // 서버 해금 표를 받기 전엔 null(모름) — 50 으로 치지 않는다
+    const _lv  = focusLevelMod().getFocusLevel();   // 못 받았으면 null(모름 — B-1128-2)
     let _ok;
     if(typeof window._animalUnlocked === 'function') _ok = window._animalUnlocked();
+    else if(_lv == null || _ulv == null) _ok = isAdmin();   // 둘 중 하나라도 모르면 레벨로는 열지 않는다
     else _ok = (_lv >= _ulv) || isAdmin();   // animal.js 가 없으면 숨김 해금 기록(계정 칸 — animal.js 가 든다)을 알 수 없다 — 레벨 · 관리자만
     const _shown = focusLevelMod().shownFocusLevel();   // 못 받았으면 null — 현재 레벨을 적지 않는다
-    if(!_ok && focusLevelMod().levelGate(_ulv) === 'unknown'){ focusLevelMod().tellLevelUnknown(); return false; }   // 레벨을 모른다 — «Lv.N 필요» 가 아니다(B-1128-2)
+    if(!_ok && _lv == null){ focusLevelMod().tellLevelUnknown(); return false; }   // 레벨을 모른다 — «Lv.N 필요» 가 아니다(B-1128-2)
+    if(!_ok && _ulv == null){ toast('🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요'); return false; }   // 해금 레벨을 아직 모른다 — 레벨 글자를 지어내지 않는다
     if(!_ok){ toast('🔒 동물 캐릭터는 Lv.'+_ulv+' 달성 후 불러올 수 있어요' + (_shown != null ? ' (현재 Lv.'+_shown+')' : '')); return false; }
   }
   // ★ 런처7: 라이선스 미발급자가 파츠 포함 캐릭터를 복제 받으면 파츠는 제거하고 저장 (파츠는 라이선스 전용).

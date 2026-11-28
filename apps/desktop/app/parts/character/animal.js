@@ -44,7 +44,7 @@ const accountJsonStoreMod = deps.accountJsonStoreMod;   // 🗂️ 계정 칸 �
 const ANIMAL_VER='v0.4.0-p6 (860x440 / preview 360)';
 console.log('[동물] animal.js '+ANIMAL_VER);
 
-let UNLOCK_LEVEL = 50;   // ★ 기본값. 관리자가 서버(catalog/gameConfig)에서 바꾸면 아래 setter로 갱신된다.
+let UNLOCK_LEVEL = null;   // ★ 서버 해금 표(catalog unlocks · catalog-sync.js)가 아래 setter 로 앉힌다. 받기 전엔 null(모름) — 50 같은 값으로 대신하지 않는다(카드는 «해금 정보를 받는 중»)
 /* 🔓 숨김 해금 — 종족 선택창에서 L키를 누른 채 동물 카드를 연속 클릭하면 레벨 제한 없이 열린다.
    한 번 해금되면 localStorage에 남아 계속 유지된다. */
 const CHEAT_KEY = 'tw.animalCheatUnlock';
@@ -63,7 +63,7 @@ const EVER_KEY = 'tw.animalEverUnlocked';
 function _everUnlocked(){ return _everOn; }
 function _unlockOk(){
   const lv = myLevel();
-  if(lv != null && lv >= UNLOCK_LEVEL){
+  if(lv != null && UNLOCK_LEVEL != null && lv >= UNLOCK_LEVEL){   // 내 레벨 · 해금 레벨 둘 다 서버 값일 때만 — 하나라도 모르면 영구 표시(EVER_KEY)를 남기지 않는다
     if(!_everOn){ _everOn=true; if(_localLoaded){ try{ accountStoreMod.set(EVER_KEY,'1'); }catch(_){} } }   // 조건 만족 시점에 표시를 남김(계정 칸이 열린 뒤에만 적는다)
     return true;
   }
@@ -134,6 +134,7 @@ let scl={x:1, y:1, all:1};
 
 function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return null; } }   // 모르면 null — 레벨 1 로 치지 않는다(B-1128-2)
 /* 잠금 안내 — 서버 레벨을 못 받았으면(shown null) «현재 Lv» 를 적지 않는다(받기 전 1 을 보여 주지 않게) */
+const UNLOCK_LOADING_TEXT = '🔒 해금 정보를 받는 중이에요';   // 해금 레벨을 아직 못 받음 — room/interaction-desk.js lockedToast 와 같은 말
 function _lockMsg(unlockLv, shown){ return '🔒 동물 캐릭터는 Lv.'+unlockLv+' 달성 보상이에요' + (shown != null ? ' (현재 Lv.'+shown+')' : ''); }
 function admin(){ try{ return !!isAdmin(); }catch(_){ return false; } }
 
@@ -182,9 +183,9 @@ function initCard(){
   const _unlocked = _unlockOk();
   if(under){
     if(_unlocked){ under.style.display='none'; }
-    else{ under.style.display=''; under.textContent='🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금'; }
+    else{ under.style.display=''; under.textContent = UNLOCK_LEVEL == null ? UNLOCK_LOADING_TEXT : ('🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금'); }
   }
-  card.title = _unlocked ? '동물 캐릭터 만들기' : ('동물 캐릭터 만들기 (Lv.'+UNLOCK_LEVEL+' 보상)');
+  card.title = _unlocked ? '동물 캐릭터 만들기' : (UNLOCK_LEVEL == null ? '동물 캐릭터 만들기 (해금 정보를 받는 중)' : ('동물 캐릭터 만들기 (Lv.'+UNLOCK_LEVEL+' 보상)'));
   card.style.cursor='pointer';
   card.onclick=()=>{
     if(!_unlockOk()){
@@ -204,7 +205,8 @@ function initCard(){
         toast('🔓 '+_cheatCount+' / '+CHEAT_CLICKS);
         return;
       }
-      if(focusLevelMod.levelGate(UNLOCK_LEVEL) === 'unknown'){ focusLevelMod.tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.N 보상» 이 아니다(B-1128-2)
+      if(focusLevelMod.getFocusLevel() == null){ focusLevelMod.tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.N 보상» 이 아니다(B-1128-2)
+      if(UNLOCK_LEVEL == null){ toast(UNLOCK_LOADING_TEXT + ' — 잠시 뒤 다시 해 주세요'); return; }   // 해금 레벨(서버 해금 표)을 아직 모른다 — 레벨 글자를 지어내지 않는다
       toast(_lockMsg(UNLOCK_LEVEL, focusLevelMod.shownFocusLevel()));
       return;
     }

@@ -266,7 +266,7 @@ function _waitSub(){
 }
 async function _fetch(){
   const id = _myId || getMyUserId();
-  if(!id) return {};
+  if(!id) return null;   // 계정을 모른다 — 빈 목록(«친구 없음»)으로 치지 않는다(부르는 쪽은 null 이면 아무것도 안 보낸다)
   const seq = _okSeq;
   _fetching = true;
   try{

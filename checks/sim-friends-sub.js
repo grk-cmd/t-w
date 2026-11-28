@@ -476,11 +476,11 @@ async function judge(S){
       '내 코드 없음 — 요청 0(구독 · 읽기 · 다시 걸기) · «친구 없음»(안내 null → 화면은 «아직 친구가 없어요»)');
   }
   {
-    /* 내 코드 없음 · 시작 전(idle)에 친구 [추가] — users/null/friends 를 읽지 않는다: 판정 요청 0 · 빈 목록 · 토스트 0 */
+    /* 내 코드 없음 · 시작 전(idle)에 친구 [추가] — users/null/friends 를 읽지 않는다: 판정 요청 0 · null(모름) · 토스트 0 */
     const E = mk({ noUid: true });
     const r0 = await E.mod.friendsForCheck();
-    chk(E.fetches.length === 0 && E.subs.length === 0 && E.toasts.length === 0 && r0 && !Object.keys(r0).length,
-      '내 코드 없음 · 시작 전 판정 — 요청 0 · 빈 목록 · 토스트 0');
+    chk(E.fetches.length === 0 && E.subs.length === 0 && E.toasts.length === 0 && r0 === null,
+      '내 코드 없음 · 시작 전 판정 — 요청 0 · null(모름 — 빈 목록 {} 로 치지 않는다 · 부르는 쪽은 아무것도 안 보냄) · 토스트 0');
   }
   /* ── 3. firebase-init.js 에 친구 읽기 · 구독이 없다(서버 한 길 — 옛 경로는 걷었다) ── */
   say('── 3. firebase-init.js — 친구 목록 · 카드 · 프로필 · 요청의 Firebase 경로가 없다');
@@ -585,6 +585,7 @@ const BREAKS = [
   ['FS', '  if(_check) return _check;\n', '', '진행 중 판정을 같이 안 기다림(읽기 여러 번)'],
   ['FS', "    if(_okSeq !== seq || _status === STATUS.READY) return current() || {};", "    if(false) return current() || {};", '늦은 읽기가 구독 값을 덮음'],
   ['FS', "    toast(NOTICE.checkFail);\n", '', '읽기 실패를 안 알림'],
+  ['FS', "  if(!id) return null;", "  if(!id) return {};", '계정을 모를 때 판정용 목록을 빈 {} 로(모름 → 친구 없음)'],
   ['FS', '  if(_status !== STATUS.READY) return;\n  if(_onFriends)', '  if(_onFriends)', '받기 전에 이름만 와도 목록을 넘김'],
   ['FS', '  if(_detailsP) return _detailsP;\n', '', '이름 받기를 겹쳐 묻음'],
   ['FS', '  if(first) _loadDetails();', '  _loadDetails();', '열린 목록을 또 열 때마다 다시 받음'],

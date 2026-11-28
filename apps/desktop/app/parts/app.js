@@ -926,6 +926,7 @@ const plMod = TwPlaylist.createPlaylist({
   myhomeAvatar: ()=>myhomeStoreMod.avatar(),
   myHomeFriends: ()=>_myHomeFriends,
   friendsRefreshPresence: (...a)=>friendsSubMod.refreshPresence(...a),
+  friendsNotice: (...a)=>friendsSubMod.notice(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   // 🪟 상태칩 팝업 · 창 겹침 · ESC
   closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
@@ -1289,6 +1290,7 @@ const mhScheduler = MhScheduler.createScheduler({
   getMyUserId: ()=>getMyUserId(),
   viewingUserId: ()=>mhStateMod._mhViewingUserId(),
   myHomeFriends: ()=>_myHomeFriends,
+  friendsNotice: (...a)=>friendsSubMod.notice(...a),
   toast: (...a)=>toast(...a),
   uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
@@ -1649,7 +1651,8 @@ const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
   sendFriendReq: (...a)=>seatFriendReqMod.sendFriendReq(...a),
   resultView: (...a)=>seatFriendReqMod.resultView(...a),
   friendNet: ()=>({ isFriendRequestAlive }),
-  friends: ()=>_myHomeFriends,
+  friends: ()=>(friendsSubMod.status() === 'ready' ? _myHomeFriends : null),   // 못 받았으면 null(모름) — 빈 {} 로 치지 않는다
+  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   reasonOn: ()=>TwServerFeatures.on('friendReqMsg'),   // 사유 칸 — 서버 POST /v2/me/friend-requests 의 message(UTF-16 100자)
@@ -2310,7 +2313,7 @@ const seatFromObject = seatPointerMod.seatFromObject;   // 옛 전역 이름
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,
-  _myHomeFriends: ()=>_myHomeFriends,
+  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),   // 이미 친구 · 정원 — 못 받은 목록을 빈 {} 로 치지 않는다
   friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a), isFriendRequestAlive }),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),

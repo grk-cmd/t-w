@@ -261,7 +261,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
        그대로 두면 한 프레임 전 값을 보게 되어, 캐릭터가 움직일 때 이름표가 바를 파고든다. */
     /* 🌟 회차면 표시 레벨은 **이번 바퀴** 레벨이고 별이 붙는다. 해금 레벨(getFocusLevel · friendLevel)은 표시에만 안 쓴다 (개정 70). */
     if(seat.remote){
-      const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
+      const st = seat.friendStar || null, lv = st ? st.lv : seat.friendLevel;   // 모르면 null — 이름표는 이름만(Lv.1 로 그리지 않는다)
       expBarMod().updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
       overheadMod.setSeatNamePlate(seat, lv, TwPersonName.shown(seat.friendName), st, !!seat.friendUserId && _djNow === seat.friendUserId);
     }

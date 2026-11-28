@@ -171,7 +171,12 @@ function _fmReqVisible(){
   return !!(on && on.dataset.tab === 'friend' && _fmTab === 'req');
 }
 // 남은 친구 자리. ⚠️ 숫자를 다시 박지 말 것 — 상한은 FRIEND_MAX 한 곳에서만 나온다.
-function _fmSeatsLeft(){ return FRIEND_MAX - Object.keys(_myHomeFriends() || {}).length; }
+function _fmSeatsLeft(){ return FRIEND_MAX - Object.keys(_myHomeFriends() || {}).length; }   // 검사용(화면 캐시로 센다) — 수락 판정은 아래 _fmSeatsLeftChecked
+/* 수락 판정용 남은 자리 — 받은 목록(friendsForCheck)으로 센다. 못 읽으면 null(모름 — 빈 목록 {} 으로 치면 자리가 FRIEND_MAX 로 보여 상한을 넘는다 · 토스트는 friends-sub 한 곳) */
+async function _fmSeatsLeftChecked(){
+  const fr = await friendsForCheck();
+  return fr ? FRIEND_MAX - Object.keys(fr).length : null;
+}
 
 function renderFriendManage(){
   if(_fmTab !== 'gift') _giftStat('');
@@ -372,7 +377,9 @@ function renderFriendRequests(){
 
     okBtn.onclick = async ()=>{
       lock();
-      const r = await _fmAcceptOne(fromId, _fmSeatsLeft());
+      const left = await _fmSeatsLeftChecked();
+      if(left == null){ unlock(); return; }   // 친구 목록을 모른다 — 요청은 그대로 두고 아무것도 안 보낸다
+      const r = await _fmAcceptOne(fromId, left);
       if(r === 'ok'){ toast(TwPersonName.shown(req.name) + ' 님과 친구가 됐어요'); _fmPicked.delete(fromId); return; }
       // 자리가 없으면 요청은 **남겨둔다** — 지우면 상대가 다시 보내야 한다
       if(r === 'full') toast('친구는 최대 ' + FRIEND_MAX + '명까지만 추가할 수 있어요');
@@ -404,7 +411,8 @@ async function _fmBulkAccept(){
   /* ⚠️ 한 줄에 몰아 선언하지 말 것 — 검사 6(const 재대입)은 `let a, b, c` 의 **첫 이름만**
      let 으로 등록한다. ok/full/err 는 app.js 어딘가에 const 로도 있어서, 몰아 쓰면
      `err++` 가 const 재대입으로 잡힌다(실제로 걸렸다). */
-  let seats = _fmSeatsLeft();
+  let seats = await _fmSeatsLeftChecked();
+  if(seats == null) return;   // 친구 목록을 모른다 — 하나도 수락하지 않고 요청은 그대로(토스트는 friends-sub)
   let ok = 0;
   let full = 0;
   let err = 0;
