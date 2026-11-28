@@ -114,6 +114,9 @@ export interface Messages {
   newsTitle: string;
   /** 소식 창 아래 사람 그림 — 이름표의 역할 · 한 번 누를 때 말풍선 대사(차례대로) */
   crew: Record<'admin' | 'dev', { role: string; lines: readonly string[] }>;
+  /** 💣 펑 — 날아갈 때 · 떨어진 뒤 말풍선 */
+  crewYell: string;
+  crewDizzy: string;
   newsEmpty: string;
   /** 소식 · 내려받기를 서버에서 받는 중 · 못 받음 · 다시 시도 단추 */
   newsLoading: string;
@@ -170,6 +173,8 @@ export const ko: Messages = {
   landSound: '어딘가에서 새로운 땅을 짓는 소리가 들려요…',
   landOk: '확인',
   newsTitle: '📰 소식 · 업데이트',
+  crewYell: '으아아~!',
+  crewDizzy: '어질어질…',
   crew: {
     admin: {
       role: '관리자',
@@ -356,6 +361,8 @@ export const en: Messages = {
   landSound: 'You can hear something new being built somewhere…',
   landOk: 'OK',
   newsTitle: '📰 News · Updates',
+  crewYell: 'Waaah~!',
+  crewDizzy: 'So dizzy…',
   crew: {
     admin: {
       role: 'Admin',
@@ -546,6 +553,8 @@ export const ja: Messages = {
   landSound: 'どこかで新しい土地をつくる音が聞こえる…',
   landOk: 'OK',
   newsTitle: '📰 お知らせ・アップデート',
+  crewYell: 'うわあ〜!',
+  crewDizzy: 'くらくら…',
   crew: {
     admin: {
       role: '管理者',

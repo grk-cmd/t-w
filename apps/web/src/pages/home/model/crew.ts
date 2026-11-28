@@ -6,14 +6,45 @@ export const CREW = [
   { key: 'admin', name: '고로케', src: '/crew/admin.webp', w: 275, h: 351, headX: 0.59 },
 ] as const;
 
-/** 이 시간 안에 FLY_TAPS 번 누르면 날아간다(연타) — 그보다 느리면 한 번씩 말풍선 */
-export const TAP_WINDOW_MS = 1200;
+/** 이 시간 안에 FLY_TAPS 번 누르면 💣 펑(연타) — 그보다 느리면 한 번씩 말풍선. FUSE_TAPS 번째부터 머리 위에 💣 가 치익(예고).
+    시안 docs/prototypes/main-site(main.js 운영진 날리기)와 같은 값 */
+export const TAP_WINDOW_MS = 1600;
 export const FLY_TAPS = 5;
+export const FUSE_TAPS = 3;
 
-/** 누른 시각들(최근 것만) + 지금 → 다음 시각들 · 날아갈지. 날면 세던 것을 비운다 */
-export function nextTap(taps: readonly number[], now: number): { taps: number[]; fly: boolean } {
+/** 누른 시각들(최근 것만) + 지금 → 다음 시각들 · 날아갈지 · 💣 예고를 띄울지. 날면 세던 것을 비운다 */
+export function nextTap(
+  taps: readonly number[],
+  now: number,
+): { taps: number[]; fly: boolean; fuse: boolean } {
   const recent = [...taps.filter((t) => now - t < TAP_WINDOW_MS), now];
-  return recent.length >= FLY_TAPS ? { taps: [], fly: true } : { taps: recent, fly: false };
+  if (recent.length >= FLY_TAPS) return { taps: [], fly: true, fuse: false };
+  return { taps: recent, fly: false, fuse: recent.length >= FUSE_TAPS };
+}
+
+/** 💣 펑 — 날아갔다 떨어지기 · 💥 · 떨어진 뒤 💫 어질어질 · 애니메이션 줄이기면 날지 않고 바로 어질어질(시안과 같은 값) */
+export const LAUNCH_MS = 2400;
+export const BOOM_MS = 600;
+export const DIZZY_MS = 2200;
+export const REDUCED_LAND_MS = 400;
+
+/** 날기 키프레임(Web Animations) — 웅크렸다가 side 쪽 위로 두 바퀴 반 돌며 날아가고, 위에서 똑바로 떨어져 쿵 · 살짝 튀어 제자리.
+    translate % 는 그림 칸 자기 크기 기준 */
+export function launchFrames(side: -1 | 1): Keyframe[] {
+  return [
+    { transform: 'translate(0, 0) rotate(0deg)' },
+    { transform: 'translate(0, 6%) scale(1.15, 0.8)', offset: 0.08 },
+    {
+      transform: `translate(${side * 60}%, -420%) rotate(${side * 900}deg)`,
+      offset: 0.45,
+      easing: 'ease-in',
+    },
+    { transform: 'translate(0, -420%) rotate(0deg)', offset: 0.46 },
+    { transform: 'translate(0, -420%) rotate(0deg)', offset: 0.7, easing: 'cubic-bezier(.5, 0, 1, 1)' },
+    { transform: 'translate(0, 0) scale(1.1, 0.85)', offset: 0.9 },
+    { transform: 'translate(0, -8%) scale(0.95, 1.05)', offset: 0.95 },
+    { transform: 'translate(0, 0)' },
+  ];
 }
 
 /** 말풍선이 화면 끝에서 띄울 거리 · 꼬리가 몸통 끝에서 떨어질 거리(테두리 9px + 꼬리 반 폭) */

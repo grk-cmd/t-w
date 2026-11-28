@@ -61,6 +61,8 @@ describe('미리 그린 페이지', () => {
         expect(c.headX).toBeLessThan(1);
       }
       expect(html).toContain('<span class="crew-live" aria-live="polite"></span>');
+      // 💣 · 💥 · 💫 자리 — 누르기 전엔 비어 있다
+      expect(html).toContain('<span class="crew-fx" aria-hidden="true"></span>');
       // 홈페이지 CSP 는 style-src 'self' — 마크업의 style="" 은 브라우저가 막는다(로컬 미리보기엔 CSP 가 없어 안 보인다)
       expect(html).not.toMatch(/\sstyle="/);
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
