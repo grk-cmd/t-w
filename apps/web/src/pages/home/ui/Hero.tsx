@@ -1,4 +1,6 @@
 import { useI18n } from '@/shared/i18n';
+import { CREW } from '../model/crew';
+import { CrewMate } from './CrewMate';
 import { NewsSlot } from './NewsSlot';
 import { TogetherLand } from './TogetherLand';
 
@@ -25,7 +27,23 @@ export function Hero() {
           </p>
           <p className="ver">{m.heroNote}</p>
         </div>
-        <NewsSlot />
+        <div className="hero-side">
+          <NewsSlot />
+          <div className="crew-row">
+            {CREW.map((c) => (
+              <CrewMate
+                key={c.key}
+                name={c.name}
+                role={m.crew[c.key].role}
+                lines={m.crew[c.key].lines}
+                src={c.src}
+                w={c.w}
+                h={c.h}
+                headX={c.headX}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );

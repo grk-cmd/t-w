@@ -112,6 +112,8 @@ export interface Messages {
   landSound: string;
   landOk: string;
   newsTitle: string;
+  /** 소식 창 아래 사람 그림 — 이름표의 역할 · 한 번 누를 때 말풍선 대사(차례대로) */
+  crew: Record<'admin' | 'dev', { role: string; lines: readonly string[] }>;
   newsEmpty: string;
   creator: CreatorMessages;
   aboutTitle: string;
@@ -156,6 +158,17 @@ export const ko: Messages = {
   landSound: '어딘가에서 새로운 땅을 짓는 소리가 들려요…',
   landOk: '확인',
   newsTitle: '📰 소식 · 업데이트',
+  crew: {
+    admin: {
+      role: '관리자',
+      lines: [
+        '투게더워킹에 오신 것을 환영합니다!',
+        '이상하다 분명 취미였는데...',
+        '개발자님은 정말 최고입니다.',
+      ],
+    },
+    dev: { role: '개발자', lines: ['문제가 생기면 맡겨주세요!', '이게 왜이러지', '으아아아'] },
+  },
   newsEmpty: '소식을 준비하고 있어요.',
   creator: {
     loading: '캐릭터를 불러오는 중…',
@@ -322,6 +335,20 @@ export const en: Messages = {
   landSound: 'You can hear something new being built somewhere…',
   landOk: 'OK',
   newsTitle: '📰 News · Updates',
+  crew: {
+    admin: {
+      role: 'Admin',
+      lines: [
+        'Welcome to Together Working!',
+        'Weird… this was supposed to be a hobby…',
+        'Our developer is simply the best.',
+      ],
+    },
+    dev: {
+      role: 'Developer',
+      lines: ['Leave any problems to me!', 'Why is this doing that…', 'Aaaaaagh'],
+    },
+  },
   newsEmpty: 'News is on its way.',
   creator: {
     loading: 'Loading the character…',
@@ -489,6 +516,17 @@ export const ja: Messages = {
   landSound: 'どこかで新しい土地をつくる音が聞こえる…',
   landOk: 'OK',
   newsTitle: '📰 お知らせ・アップデート',
+  crew: {
+    admin: {
+      role: '管理者',
+      lines: [
+        'トゥゲザーワーキングへようこそ！',
+        'おかしいな、趣味のはずだったのに…',
+        '開発者さんは本当に最高です。',
+      ],
+    },
+    dev: { role: '開発者', lines: ['困ったときはお任せください！', 'なんでこうなるの', 'うわあああ'] },
+  },
   newsEmpty: 'お知らせを準備しています。',
   creator: {
     loading: 'キャラクターを読み込み中…',
