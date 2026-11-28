@@ -38,6 +38,7 @@
 </table>
 
 <h2 id="s3">3. 자동화 만들기</h2>
+<p class="warn"><b>⚠️ 예전 안내대로 만든 자동화는 지금 신호가 가지 않아요.</b> 예전 안내의 방법 <b>PUT</b> 을 지금 서버가 받지 않아요. 방법을 <b>POST</b> 로 바꾸고 헤더 <b>X-Mobile-Key</b> 를 넣어 아래처럼 다시 만들어요. iPhone · iPad 단축어는 «텍스트» 동작을 지우고 본문을 «JSON» 으로 바꿔요.</p>
 <p>안내 페이지의 <b>[주소 복사] · [키 복사]</b>로 하나씩 복사해 붙여 넣어요. 그림 앱 이름(예: Procreate · 클립 스튜디오)은 <b>PC 에 보이는 이름</b>이에요.</p>
 <ul>
   <li><b>iPhone · iPad</b> — 앱 이름은 아래 4번의 JSON 필드 <b>app</b> 값으로 직접 적어요.</li>
@@ -67,10 +68,6 @@
     <span class="do">이번엔 <code>on</code> 값만 <b>거짓</b></span></li>
 </ol>
 <p class="tip">앱마다 «열릴 때 · 닫힐 때» 두 개씩 만들어요. 헤더 값은 직접 치지 말고 [키 복사] 한 것을 붙여 넣어요.</p>
-<details>
-  <summary>예전(PUT) 방식으로 만들었다면</summary>
-  <p>예전 방식(방법 <b>PUT</b> · «텍스트» 동작 · 요청 본문 «파일»)으로 만들었다면 방법을 <b>POST</b> 로 바꾸고, «텍스트» 동작을 지우고 위처럼 헤더 · «JSON» 으로 바꿔요. 방법이 PUT 이면 서버가 받지 않아요.</p>
-</details>
 
 <p class="os"><b>안드로이드 (MacroDroid)</b></p>
 <ol class="steps">
@@ -93,10 +90,6 @@
 <details>
   <summary>한 매크로에 같이 넣으면 왜 안 되나요?</summary>
   <p>한 매크로에 <b>실행됨</b> · <b>종료됨</b> 트리거와 열림 · 닫힘 HTTP 요청을 함께 넣으면, 트리거가 하나만 일어나도 그 매크로의 액션이 <b>모두</b> 실행돼요. 그러면 앱을 열 때도 닫을 때도 «열림» 과 «닫힘» 이 함께 가서 기록이 뒤죽박죽이 돼요.</p>
-</details>
-<details>
-  <summary>예전(PUT) 방식으로 만들었다면</summary>
-  <p>예전 안내대로 방법을 <b>PUT</b> 으로 만들었다면 <b>POST</b> 로 바꾸고 헤더 <b>X-Mobile-Key</b> 를 넣어요 — PUT 이면 서버가 받지 않아요.</p>
 </details>
 <p class="tip">MacroDroid 는 판에 따라 메뉴 이름이 조금 달라요 — 안내 페이지의 괄호 안이 한국어 화면의 이름이에요.</p>
 
