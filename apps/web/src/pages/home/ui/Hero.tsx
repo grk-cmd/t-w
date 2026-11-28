@@ -39,6 +39,7 @@ export function Hero() {
                 src={c.src}
                 w={c.w}
                 h={c.h}
+                headX={c.headX}
               />
             ))}
           </div>

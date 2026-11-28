@@ -411,7 +411,7 @@ h3 {
 .crew-say::after {
   content: '';
   position: absolute;
-  left: 50%;
+  left: calc(50% + var(--tail-dx, 0px));
   bottom: -18px;
   width: 15px;
   height: 12px;

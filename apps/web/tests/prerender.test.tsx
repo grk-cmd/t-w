@@ -51,7 +51,14 @@ describe('미리 그린 페이지', () => {
           `<figcaption class="crew-tag"><span class="crew-role">${role}</span> <span class="crew-name">${c.name}</span></figcaption>`,
         );
       }
-      expect(html).toContain('<span class="crew-live" aria-live="polite"></span>'); // 말풍선은 누르기 전엔 없다
+      // 말풍선은 누르기 전엔 없다 · 알리는 칸은 머리 위(headX)에 늘 있다
+      for (const c of CREW) {
+        expect(c.headX).toBeGreaterThan(0);
+        expect(c.headX).toBeLessThan(1);
+        expect(html).toContain(
+          `<span class="crew-live" aria-live="polite" style="left:${c.headX * 100}%"></span>`,
+        );
+      }
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
       expect(html).not.toMatch(/%TW_LANG%|<!--tw-head-->|<!--tw-body-->/);
     }
