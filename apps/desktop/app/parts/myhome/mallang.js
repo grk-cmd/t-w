@@ -80,7 +80,7 @@ function createMallang(deps){
   function homeWin(){ return document.getElementById('myHomeWin'); }
   function roomBox(){ return document.getElementById('mhRoomPreview'); }   // 청록 바탕화면 박스
   function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
-  function hasLicense(){ return !!premiumOn(); }   // deps 로 받은 읽는 함수 — 던짐을 «아님» 으로 삼키지 않는다(모름은 premiumGate)
+  function hasLicense(){ return !!premiumOn(); }   // deps 로 받은 읽는 함수 — 던짐을 «아님» 으로 삼키지 않는다(모름은 premiumBlocked)
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
 
   /* ── 폴더 + 레이어 DOM 주입 ── */

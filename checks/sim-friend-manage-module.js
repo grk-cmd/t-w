@@ -241,10 +241,10 @@ await sec('── 6. app.js 배선', () => {
   chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 📅 스케줄러 연결 뒤 · 마이홈 준비(_myHomeReady) 앞');
   const call = (APP.match(/TwFriendManage\.createFriendManage\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 12 && /friendsForCheck: \(\.\.\.a\)=>friendsSubMod\.friendsForCheck\(\.\.\.a\),/.test(call) && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
-    'deps 12개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 (' + deps.length + ')');
-  chk(/myHomeOpen: \(\)=>(?:launcherStateMod\.myHomeOpen\(\)|myHomeOpen),/.test(call) && /myHomeFriends: \(\)=>_myHomeFriends,/.test(call) && /myFriendRequests: \(\)=>_myFriendRequests,/.test(call),
-    '다시 대입되는 let(myHomeOpen · _myHomeFriends · _myFriendRequests)은 읽는 함수로');
+  chk(deps.length === 11 && /friendsForCheck: \(\.\.\.a\)=>friendsSubMod\.friendsForCheck\(\.\.\.a\),/.test(call) && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
+    'deps 11개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 · 친구 목록은 friendsForCheck 하나(화면 캐시 _myHomeFriends 를 받지 않는다) (' + deps.length + ')');
+  chk(/myHomeOpen: \(\)=>(?:launcherStateMod\.myHomeOpen\(\)|myHomeOpen),/.test(call) && !/myHomeFriends:/.test(call) && /myFriendRequests: \(\)=>_myFriendRequests,/.test(call),
+    '다시 대입되는 let(myHomeOpen · _myFriendRequests)은 읽는 함수로 · 친구 목록 캐시는 받지 않는다');
   const m = strip(MOD).replace(/const (_myFriendRequests|_myHomeFriends|myHomeOpen) = deps\.\w+;/g, '');
   chk(!/\b_myFriendRequests\b(?!\(\))/.test(m) && !/\b_myHomeFriends\b(?!\(\))/.test(m) && !/\bmyHomeOpen\b(?!\(\))/.test(m), '모듈 본문은 읽는 함수만 부른다(값으로 쓰면 늘 참 · 옛 값이 된다)');
   const off = (APP.match(/const FRIEND_MANAGE_OFF = \{([\s\S]*?)\};/) || [])[1] || '';

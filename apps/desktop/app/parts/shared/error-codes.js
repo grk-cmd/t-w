@@ -61,6 +61,7 @@ const CODES = {
   'E-ACC-07': { msg: '이 PC 의 계정 정보가 맞지 않아 기능을 시작하지 못했어요 — 앱을 다시 켜거나 다시 로그인해 주세요', where: 'launcher/app-boot.js — begin 에서 계정 칸 열기 실패(account-store.js open — 이 PC 에 적힌 계정 코드가 서버 계정과 다름 · 없음) · 계정 기능(레벨 · 친구 · 일정 …)을 하나도 시작하지 않음 · 한 번 · 레벨 [다시 시도] 가 다시 알림 · 코드를 몰래 고쳐 쓰지 않는다' },
   'E-ACC-04': { msg: '이 PC를 등록하지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요', where: 'account/device-register.js — 켤 때 · [이 PC 다시 등록] 의 이 PC 등록(POST /v2/me/devices)이 «등록 PC 가 다 참» 밖의 까닭으로 실패' },
   'E-FR-06': { msg: '친구 신청을 보내지 못했어요', where: 'myhome/friend-req-btn.js — 남의 마이홈 [친구 신청] › [신청하기]' },   // E-FR-05 는 0.13.0-server 가 쓴다
+  'E-FR-07': { msg: '보낸 친구 요청을 확인하지 못해 보내지 않았어요 — 잠시 뒤 다시 해 주세요', where: 'myhome/seat-friend-req.js — 좌석 우클릭 친구 신청 › 보낸 요청이 열려 있나(isFriendRequestAlive — GET 보낸 요청) 읽기 실패 · 빈 사유로 다시 보내면 마이홈에서 적은 사유가 지워지므로 보내지 않음' },
   'E-MH-01': { msg: '도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'myhome/help-tab.js — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(LOAD_MS)' },
   'E-MH-02': { msg: '배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요', where: 'myhome/mh-bg-url.js — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만)' },
   'E-MH-03': { msg: '선물 그림을 저장하지 못했어요 — 잠시 뒤에 다시 해 주세요', where: 'myhome/gift-save.js — 선물함 우클릭 [저장]에서 그림을 못 받음(주소 없음 · 네트워크 · 그림 아님)' },

@@ -115,7 +115,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
         nm.textContent = TwPersonName.shown(f.name);
         const meta = document.createElement('span');
         meta.style.cssText = 'font-size:10px;color:var(--ink-soft);margin-left:4px;';
-        meta.textContent = 'Lv.' + (f.level || 1) + (inRoom ? ' 🏠' : '');
+        meta.textContent = [f.level == null ? null : 'Lv.' + f.level, inRoom ? '🏠' : null].filter(Boolean).join(' ');   // 레벨을 모르면(null) 적지 않는다 — Lv.1 로 오해되지 않게(myhome-inbox 와 같이)
         if(inRoom) meta.title = '지금 다른 방에 있어요';
         nm.appendChild(meta);
 

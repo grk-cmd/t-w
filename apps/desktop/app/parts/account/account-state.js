@@ -14,7 +14,7 @@ function createAccountState(deps){
 const isPremium = deps.isPremium;   // 읽는 함수 — 프리미엄 여부(app.js 의 let · 여러 모듈이 읽는다)
 const isAdmin = deps.isAdmin;   // 읽는 함수 — 관리자 여부(app.js 의 let)
 const setIsPremium = deps.setIsPremium;   // 쓰는 함수 — 바꾸는 곳은 아래 _setPremium 하나
-const toast = deps.toast;   // «라이선스 확인 중» 안내 한 줄(tellPremiumUnknown)
+const toast = deps.toast;   // «라이선스 확인 중» 안내 한 줄(premiumBlocked)
 /* 원격 설정 한 벌(remote-config.js 가 app.js 앞에 싣는다). 없으면(검사 · 옛 html) null — 부르는 쪽이 기본값으로.
    초대 게이트 스위치 · 방 정원 · 방 개수가 같이 읽어 계정 묶음 맨 아래 여기 한 벌(옮기기 전엔 초대 게이트에 있었다) */
 function _rcStore(){ return (typeof window !== 'undefined' && window.TwRemoteConfig && window.TwRemoteConfig.store) || null; }

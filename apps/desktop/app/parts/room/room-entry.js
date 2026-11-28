@@ -288,6 +288,8 @@ function _applyRemoteRides(){
 }
 /* 부르는 곳(provider 변경 · app.js 친구 복원)은 이것을 부른다 — 본문은 그대로 두고 걸린 시간만 잰다 */
 const syncFriendSeatsTimed = runCost.timed('sync', syncFriendSeats);
+/* 상대 레벨(방에 실린 값) — 1 이상 정수만, 아니면 null(모름 · 구버전). 1 로 대신하지 않는다(이름표는 이름만) */
+function _remoteLevel(v){ return (typeof v === 'number' && Number.isInteger(v) && v >= 1) ? v : null; }
 function syncFriendSeats(friends){
   friends=friends||{};
   const _cap=maxPeople();
@@ -366,7 +368,7 @@ function syncFriendSeats(friends){
     s.remoteAwayImg=awayPicMod()._awayUrlOk(friends[id].awayImg) ? friends[id].awayImg : null;   // 🫧 자리비움 그림(Storage URL 만)
     s.remoteAwaySz=awayPicMod()._awaySzOk(friends[id].awaySz) ? friends[id].awaySz : null;          // 📏 그 그림의 화면 크기(없으면 기본 · 구버전)
     s.remoteNoise=(typeof friends[id].noise === 'string' && /^(pencil|keyboard|page)$/.test(friends[id].noise)) ? friends[id].noise : null;   // 🌙 백색소음 종류 — 모르는 값은 버린다(parts/noise.js 가 읽는다)
-    s.friendLevel=friends[id].level||1;
+    s.friendLevel=_remoteLevel(friends[id].level);   // 모르는 값(구버전 · 빈 칸)은 null — Lv.1 로 치지 않는다
     s.friendStar=focusLevelMod().starFromRemote(friends[id]);   // 🌟 회차 · 이번 바퀴 레벨 · 색(모르는 값은 버린다 · 옛 판은 null)
     /* ⭐ 상대 경험치 진행도(0~12칸). 구버전 상대는 이 필드가 없어서 undefined → null로 두고 바를 안 그린다.
        0으로 채우면 상대가 "방금 레벨업했다"로 잘못 읽힌다. */
