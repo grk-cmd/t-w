@@ -2,7 +2,7 @@
    app.js 의 복제 코드 구역 본문 을 parts/character/char-code.js 로 옮겼다(글자 그대로 · 바뀐 줄 7 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(복제 코드 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(downloadBlob · importCloneCode · loadEncryptedGlbAsSeat · openCodeModal)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 26줄 그대로 · 부르는 곳은 charCodeMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 27줄 그대로 · 부르는 곳은 charCodeMod.이름 · html(app.js 앞)
    ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · char-code.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -17,13 +17,13 @@ const MOD = ["char-code.js","parts/character/char-code.js","app/parts/character/
 if(!MOD){ say('  ? 원본 못 찾음 — char-code.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["applyCharToSeat","closeGearMenu","createSeat","decryptCode","encryptCode","layoutSeats","loadCharGLB","renderLauncher","renderSeatTabs","saveCurSlot","saveSlots","selectSeat","toast"];
+const FN_DEPS = ["applyCharToSeat","closeGearMenu","createSeat","decryptCode","encryptCode","layoutSeats","loadCharGLB","lockedToast","renderLauncher","renderSeatTabs","saveCurSlot","saveSlots","selectSeat","toast"];
 const VAL_DEPS = ["CHAR_SLOT_MAX","overheadMod","premiumMod","scene","seats","slots"];
 const GET_DEPS = ["curSlot","focusLevelMod","gachaMod","isAdmin","isPremium","premiumKnown"];
 const SET_DEPS = ["curSlot"];
 const EXPORTS = ["downloadBlob","importCloneCode","loadEncryptedGlbAsSeat","openCodeModal"];
 const MOVED = ["downloadBlob","loadEncryptedGlbAsSeat","openCodeModal","importCloneCode","exportDef"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  decryptCode: (...a)=>codeCryptoMod.decryptCode(...a),","  encryptCode: (...a)=>codeCryptoMod.encryptCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  premiumKnown: ()=>acctStateMod.premiumKnown(),","  layoutSeats: (...a)=>layoutSeats(...a),","  loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),","  overheadMod: overheadMod,","  premiumMod: premiumMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),","  scene: scene,","  seats: seats,","  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  decryptCode: (...a)=>codeCryptoMod.decryptCode(...a),","  encryptCode: (...a)=>codeCryptoMod.encryptCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  lockedToast: (...a)=>iDeskMod.lockedToast(...a),","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  premiumKnown: ()=>acctStateMod.premiumKnown(),","  layoutSeats: (...a)=>layoutSeats(...a),","  loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),","  overheadMod: overheadMod,","  premiumMod: premiumMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),","  scene: scene,","  seats: seats,","  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

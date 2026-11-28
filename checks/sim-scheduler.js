@@ -135,7 +135,7 @@ function mkEnv(opt){
     scheduleApi, apiErrors, notifyError: (code) => { errs.push(code); return true; },
     rtOn: (kind, fn) => { (rt[kind] = rt[kind] || []).push(fn); return noop; },
     getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'),
-    viewingUserId: () => g.viewing, myHomeFriends: () => g.friends,
+    viewingUserId: () => g.viewing, myHomeFriends: () => g.friends, friendsNotice: () => (g.friendsNotice || null),
     toast: m => toasts.push(m),
     uiIconEl: (name) => { const e = mkEl('img'); e.dataset.icon = name; return e; },
     escRegisterWindow: w => escWins.push(w),
@@ -362,6 +362,13 @@ await sec('── 4. 달력', async () => {
   chk(p.path === '/v2/me/schedules' && p.body.date === YM + '-' + DD && p.body.text === '치과' && p.body.visibility === 'PRIVATE' && p.opts.expectOwner === 'tokenA', '일정 쓰기 — POST { date · text · visibility } · expectOwner');
   chk(day.textContent.includes('치과') && E.el('mhSchedInput').value === '' && E.toasts.includes('일정을 추가했어요'), '  서버가 돌려준 일정이 목록에 얹히고 입력칸이 비워진다 · 토스트');
   chk(E.calls('GET', /schedules\?month/).length === n0 + 1, '  쓰고 나서 달 전체를 다시 받지 않는다(돌려받은 일정을 얹는다)');
+  /* 친구 목록을 못 받았을 때(처음 값 {}) — «친구가 없어요» 가 아니라 friends-sub 안내 */
+  E.g.friends = {}; E.g.friendsNotice = '친구 목록을 불러오는 중이에요';
+  E.el('mhSchedTagBtn').fire('click');
+  { const L = E.el('mhSchedTagList'); chk(L.children.length === 1 && L.children[0].textContent === '친구 목록을 불러오는 중이에요', '태그 — 친구 목록을 못 받았으면 «불러오는 중» 안내(«친구가 없어요» 아님)'); }
+  E.g.friendsNotice = null;
+  E.el('mhSchedTagBtn').fire('click');
+  { const L = E.el('mhSchedTagList'); chk(L.children.length === 1 && L.children[0].textContent === '친구가 없어요', '  받았는데 비었으면 «친구가 없어요»'); }
   E.g.friends = { f1: { name: '친구A' }, f2: { name: '친구B' } };
   E.el('mhSchedTagBtn').fire('click');
   chk(E.el('mhSchedTagList').children.length === 2, '태그 — 친구 목록이 뜬다');
@@ -797,6 +804,12 @@ await sec('── 8. app.js 배선 · html', async () => {
   chk(iC > 0 && iC < iB && iC < iV, 'createScheduler 는 원래 자리(👥 친구 관리 연결 바로 앞)에서 부른다');
   chk(/^const mhScheduler = MhScheduler\.createScheduler\(\{/m.test(APP) && !/\bSCHEDULER_OFF\b/.test(APP), '  빈 껍데기 없이 만든다');
   chk(/viewingUserId: \(\)=>(?:mhStateMod\.)?_mhViewingUserId/.test(APP) && /myHomeFriends: \(\)=>_myHomeFriends/.test(APP), '  다시 대입되는 값은 읽는 함수로 넘긴다');
+  chk(/\n  friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),/.test((APP.match(/const mhScheduler = MhScheduler\.createScheduler\(\{\n([\s\S]*?)\n\}\);/) || [])[0] || ''), '  친구 목록 안내(못 받음 · 받는 중)는 friends-sub notice 한 곳에서');
+  { /* mutation test — 안내를 안 보면(받기 전 {} 를 «친구가 없어요» 로) 빨강 */
+    const bad = MOD.replace('    if(n) return n;\n', '');
+    let red = false;
+    if(bad !== MOD){ const B = mkEnv({ src: bad }); B.g.friends = {}; B.g.friendsNotice = '친구 목록을 불러오는 중이에요'; B.el('mhSchedTagBtn').fire('click'); red = B.el('mhSchedTagList').children[0].textContent !== '친구 목록을 불러오는 중이에요'; }
+    chk(red, '  mutation test — 못 받은 친구 목록을 «친구가 없어요» 로 그리면 빨강'); }
   const mk = (APP.match(/const mhScheduler = MhScheduler\.createScheduler\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   chk(/scheduleApi: scheduleApiMod/.test(mk) && /apiErrors: TwApiErrors\.store/.test(mk) && /rtOn: \(kind, fn\)=>TwRtHub\.store\.on\(kind, fn\)/.test(mk) && /notifyError: /.test(mk), '  provider · 오류 번역 · 서버 알림 길 · 오류 번호 알림을 deps 로 받는다');
   chk(/TwScheduleApi\.createScheduleApi\(\{[^}]*authed: TwApi\.authed/.test(APP) && !/uploadDdayImage|uploadImage/.test(APP), 'provider 는 로그인 통로(TwApi.authed)로 — 카드 그림 올리기도 같은 길(app.js 가 올리기 함수를 따로 넘기지 않는다)');

@@ -15,7 +15,7 @@
          listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · readFriend(fid) → Promise<친구 | null>(새 친구 한 명) ·
          watchPresence(myId, ids, onChange, onStatus('waiting' | 'live' | 'failed')) → 해제 함수 · readPresence(ids) → Promise<{친구id: 접속 상태}>(못 받으면 던짐) · retryPresence() → bool(듣기가 못 받음이면 한 번 다시) · watchProfile(myId, ids, onChange) → 해제 함수 · readProfile(fid) → Promise<프로필> · current() → 지금 목록 ·
          setFriends(v) · getMyUserId() · toast(msg) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · setTimer(fn, ms) → id · clearTimer(id) · onUnload(fn)(앱 종료 · 로그아웃 뒤 재시작 때 정리)
-   내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck() ·
+   내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck({ quiet? }) ·
          open(key, onUpdate)(목록을 열 때 — 다시 걸기 · 이름 받기 · 접속 상태 듣기 · 열려 있는 동안 바뀌면 onUpdate) · close(key) ·
          refreshPresence(ids) → Promise(듣고 있지 않은 친구만 한 번 읽기) · refreshProfile(fid) → Promise<bool>(친구면 이름 · 레벨을 새로 — 듣는 중이면 그대로 true)
      순수: noticeFor(status) · friendOf(entry, card, pres) · mergeFriends(ids, details, presence) · NOTICE · STATUS · PRES · SUB_WAIT_MS (TwFriendsSub 위)
@@ -84,6 +84,7 @@ let _gen = 0;          // 구독마다 올린다 — 풀었거나 새로 건 구
 let _okSeq = 0;        // 구독 값이 올 때마다 올린다 — 늦게 끝난 한 번 읽기가 구독 값을 덮지 않게
 let _waiters = [];     // 연결 시도 중인 구독의 결과를 기다리는 판정들
 let _check = null;     // 진행 중인 판정(하나뿐 — 부르는 곳 모두가 같이 기다린다)
+let _checkLoud = false;   // 그 판정을 기다리는 쪽 중 토스트를 바라는 쪽이 있나(quiet 아닌 쪽이 하나라도 있으면 실패 토스트 한 번)
 let _fetching = false, _retryAfterFetch = false;
 let _ids = {};         // 구독이 준 목록 { 친구id: 칸 } — 누가 친구인지는 이것만 본다
 let _details = {};     // listFriends 로 받은 이름 · 레벨 · 소개 · 사진 { 친구id: 칸 }
@@ -266,7 +267,7 @@ function _waitSub(){
 }
 async function _fetch(){
   const id = _myId || getMyUserId();
-  if(!id) return {};
+  if(!id) return null;   // 계정을 모른다 — 빈 목록(«친구 없음»)으로 치지 않는다(부르는 쪽은 null 이면 아무것도 안 보낸다)
   const seq = _okSeq;
   _fetching = true;
   try{
@@ -280,7 +281,7 @@ async function _fetch(){
     return out;
   }catch(e){
     console.warn('[친구 목록] 판정용 읽기 실패', e);
-    toast(NOTICE.checkFail);
+    if(_checkLoud) toast(NOTICE.checkFail);   // 기다리는 쪽이 모두 quiet(상태를 스스로 그리는 곳)면 토스트 없이
     return null;
   }finally{
     _fetching = false;
@@ -289,9 +290,11 @@ async function _fetch(){
 }
 /* 친구 추가 · 수락 판정에 쓸 목록 → Promise<목록 | null(못 읽음 — 토스트는 여기서 한 번)>.
    받았으면 지금 목록 그대로. 아니면 구독을 SUB_WAIT_MS 까지 기다리고, 그래도 없으면 한 번 읽는다. */
-function friendsForCheck(){
+function friendsForCheck(opts){
+  const loud = !(opts && opts.quiet);   // quiet — 못 읽음을 부르는 쪽이 화면으로 보인다(마이홈 [친구 신청] «다시 확인» 단추) · 토스트 없이
   if(_status === STATUS.READY) return Promise.resolve(current() || {});
-  if(_check) return _check;
+  if(_check){ if(loud) _checkLoud = true; return _check; }
+  _checkLoud = loud;
   _check = (async ()=>{
     if(_status === STATUS.LOADING){
       await _waitSub();
@@ -300,7 +303,7 @@ function friendsForCheck(){
     return _fetch();
   })();
   const mine = _check;
-  mine.then(()=>{ if(_check === mine) _check = null; });
+  mine.then(()=>{ if(_check === mine){ _check = null; _checkLoud = false; } });
   return mine;
 }
 /* 목록을 열 때(친구 탭 · 워킹룸 초대 목록) — 못 불러왔으면 다시 걸고, 이름 · 사진을 다시 받는다(서버부터).

@@ -6,7 +6,7 @@
      Presence · focusLevelMod · isAdmin 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · unlockGate · unlockLevelUnknown · tellUnlockLevelUnknown · setActiveInteractionDeskId · startMyDance — app.js 는 iDeskMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · unlockGate · unlockLevelUnknown · tellUnlockLevelUnknown · lockedToast · lockedText · setActiveInteractionDeskId · startMyDance — app.js 는 iDeskMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwInteractionDesk — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-interaction-desk.js */
@@ -168,8 +168,13 @@ function _lowestDanceReq(){
   return DANCE_MOVES.reduce((m, d)=>d.reqLevel == null ? m : (m == null ? d.reqLevel : Math.min(m, d.reqLevel)), null);   // 하나도 못 받았으면 null(= 모름 — 안내 글은 lockedToast)
 }
 /* 잠긴 안내 글 한 곳 — 레벨을 알면 «Lv.N …», 서버 표를 아직 못 받아 모르면 «해금 정보를 받는 중» 으로 드러낸다(레벨 글자를 지어내지 않는다). tail = 뒤에 붙는 말 */
+const LOCKED_UNKNOWN_TEXT = '🔒 해금 정보를 받는 중이에요';
 function lockedToast(level, tail){
-  return (level == null) ? '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;
+  return (level == null) ? LOCKED_UNKNOWN_TEXT + ' — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;
+}
+/* 카드 띠 · 제목처럼 «다시 해 주세요» 꼬리가 없는 자리 — 같은 한 벌(동물 카드 animal.js) */
+function lockedText(level, tail){
+  return (level == null) ? LOCKED_UNKNOWN_TEXT : '🔒 Lv.' + level + ' ' + tail;
 }
 /* 카드에 붙이는 레벨 글자 — 모르면 «?» */
 function levelText(level){
@@ -274,6 +279,7 @@ return {
   applyUnlocks,
   levelText,
   lockedToast,
+  lockedText,
   setActiveInteractionDeskId,
   startMyDance,
 };

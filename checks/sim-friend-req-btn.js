@@ -70,7 +70,8 @@ function load(src, o = {}){
     sendFriendReq: async (...a) => { log.sends.push(a); if (o.throws) throw new Error('x'); return o.res || { ok: true }; },
     resultView: seatResultView(o.seat || SEAT),
     friendNet: () => o.noNet ? null : { isFriendRequestAlive: (to, me) => { log.alive.push([to, me]); if (o.aliveThrows) return Promise.reject(new Error('x')); return o.alivePromise || Promise.resolve(!!o.alive); } },
-    friends: () => o.friends || {}, getMyUserId: () => 'me', toast: (m) => log.toasts.push(m),
+    friends: () => (o.friendsUnknown ? null : (o.friends || {})), friendsForCheck: async (opts) => { log.checks = (log.checks || 0) + 1; log.quiet = !!(opts && opts.quiet); return o.friendsFail ? null : (o.friends || {}); },
+    getMyUserId: () => 'me', toast: (m) => log.toasts.push(m),
     reasonOn: () => !o.noReason,
   });
   return { T, mod, D, log };
@@ -93,8 +94,16 @@ async function behave(src, seat){
     w = load(src, { alive: false }); await w.mod.refresh('me', '나'); r.hideSelf = w.D.btn.hidden === true && w.log.alive.length === 0;
     w = load(src, { alive: false, friends: { u2: {} } }); await w.mod.refresh('u2', '민지'); r.hideFriend = w.D.btn.hidden === true && w.log.alive.length === 0;
     w = load(src, { alive: true }); await w.mod.refresh('u2', '민지'); r.hidePending = w.D.btn.hidden === true;
-    w = load(src, { aliveThrows: true }); await w.mod.refresh('u2', '민지'); r.hideUnknown = w.D.btn.hidden === true;
-    w = load(src, { noNet: true }); await w.mod.refresh('u2', '민지'); r.hideUnknown = r.hideUnknown && w.D.btn.hidden === true;
+    /* 보낸 요청 · 친구 목록을 못 읽으면 숨기지도 «신청» 을 열지도 않고 «다시 확인» 단추 — 누르면 다시 묻는다(보내지 않음) */
+    w = load(src, { aliveThrows: true }); await w.mod.refresh('u2', '민지');
+    { const retry = w.D.btn.hidden === false && w.D.btn.textContent === '⟳ 친구 신청 다시 확인';
+      w.D.btn.onclick(); await flush(); await flush();
+      r.retryAlive = retry && w.log.alive.length === 2 && !find(w.D.win, 'friend-req-ask-ov') && w.log.sends.length === 0 && w.D.btn.textContent === '⟳ 친구 신청 다시 확인'; }
+    w = load(src, { friendsFail: true, friendsUnknown: true }); await w.mod.refresh('u2', '민지');
+    r.retryFriends = w.D.btn.hidden === false && w.D.btn.textContent === '⟳ 친구 신청 다시 확인' && w.log.checks === 1 && w.log.quiet === true && w.log.sends.length === 0;   // quiet — 홈을 열기만 했는데 토스트가 뜨지 않게
+    w = load(src, { friendsUnknown: true, friends: { u2: {} } }); await w.mod.refresh('u2', '민지');
+    r.unknownThenFriend = w.D.btn.hidden === true && w.log.checks === 1;   // 화면 목록을 모를 때는 판정용 목록으로 — 친구면 숨김
+    w = load(src, { noNet: true }); await w.mod.refresh('u2', '민지'); r.hideUnknown = w.D.btn.hidden === true;
     w = load(src, { alive: false }); await w.mod.refresh('u2', '민지'); await w.mod.refresh('u2', '민지'); await w.mod.refresh('u2', '민지');
     { const once = w.log.alive.length === 1 && w.D.btn.hidden === false;
       await w.mod.refresh(null, null); await w.mod.refresh('u2', '민지');
@@ -128,6 +137,10 @@ async function behave(src, seat){
     const E = new Error('보내기 쪽 오류');
     w = load(src, { alive: false, res: { ok: false, reason: 'error', err: E }, seat }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
     { const o2 = find(w.D.win, 'friend-req-ask-ov'); await find(o2, 'friend-req-ask-btns').children[0].onclick(); await flush(); r.errRes = w.log.notes.length === 1 && w.log.notes[0][0] === 'E-FR-06' && w.log.notes[0][1] === E && w.log.toasts.length === 0; }
+    /* 보낼 때 친구 목록을 못 읽음(seat resultView quiet) — 창 · 적은 사유를 그대로 두고 다시 누를 수 있게(안내는 friends-sub 한 곳) */
+    w = load(src, { alive: false, res: { ok: false, reason: 'friends_unknown' }, seat }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
+    { const o2 = find(w.D.win, 'friend-req-ask-ov'); const ta2 = find(o2, 'friend-req-ask-msg'); ta2.value = '적어 둔 사유'; const [b1, b2] = find(o2, 'friend-req-ask-btns').children; await b1.onclick(); await flush();
+      r.quietKeep = !!find(w.D.win, 'friend-req-ask-ov') && ta2.value === '적어 둔 사유' && !b1.disabled && !b2.disabled && w.log.toasts.length === 0 && w.log.notes.length === 0; }
     w = load(src, { alive: false, throws: true }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
     { const o2 = find(w.D.win, 'friend-req-ask-ov'); await find(o2, 'friend-req-ask-btns').children[0].onclick(); await flush(); r.throwFail = w.log.notes.length === 1 && w.log.notes[0][0] === 'E-FR-06'; }
     w = load(src, { alive: false }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
@@ -160,7 +173,7 @@ async function behave(src, seat){
   } catch (e) { r.err = e && e.message; }
   return r;
 }
-const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'dedupe', 'rename', 'becameFriend', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close', 'escCapture', 'switchClose', 'noReason'];
+const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'retryAlive', 'retryFriends', 'unknownThenFriend', 'quietKeep', 'dedupe', 'rename', 'becameFriend', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close', 'escCapture', 'switchClose', 'noReason'];
 const allOk = (r) => !r.err && KEYS.every(k => r[k]);
 
 function wire(app, html, visit, fm, fbi, rules){
@@ -190,7 +203,11 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(R.show, 'refresh — 남의 홈 · 친구 아님 · 보낸 요청 없음이면 보인다(그 사람 · 나로 물어봄)');
   chk(R.hideOwn && R.hideSelf, '  내 홈 · 미리보기(uid 없음) · 나 자신이면 숨김(묻지도 않음)');
   chk(R.hideFriend, '  이미 친구면 숨김(묻지도 않음)');
-  chk(R.hidePending && R.hideUnknown, '  보낸 요청이 살아 있거나 확인을 못 하면(provider 없음 · 던짐) 숨김');
+  chk(R.hidePending && R.hideUnknown, '  보낸 요청이 살아 있으면 숨김 · provider 가 아직 없으면 묻지 않고 숨김(다음 칠하기에서 묻는다)');
+  chk(R.retryAlive, '  ★ 보낸 요청을 못 읽으면(던짐) «⟳ 친구 신청 다시 확인» — 누르면 다시 묻는다 · 창을 열거나 보내지 않는다(모름을 «있음» · «없음» 으로 치지 않는다)');
+  chk(R.retryFriends, '  ★ 친구 목록을 못 읽으면(friendsForCheck null) 같은 «다시 확인» 단추 · 빈 {} 로 치지 않는다 · 묻기는 quiet(홈을 열기만 해도 토스트가 뜨지 않게)');
+  chk(R.unknownThenFriend, '  화면 친구 목록을 모르면(null) 판정용 목록으로 본다 — 친구면 숨김');
+  chk(R.quietKeep, '  보낼 때 친구 목록을 못 읽으면(quiet) 창 · 적은 사유를 그대로 두고 다시 누를 수 있다(오류 번호 · 토스트를 더 안 띄움)');
   chk(R.dedupe, '  같은 관람 화면을 여러 번 칠해도 서버는 한 번만 묻고 단추가 깜빡이지 않는다 · 내 홈으로 오면 다시 묻는다');
   chk(R.rename, '  같은 uid 를 이름만 바꿔 다시 칠하면(\'친구\' → \'민지\') 창 · 보내는 이름은 새 이름(서버는 다시 안 물음)');
   chk(R.becameFriend, '  같은 uid 를 다시 칠하는 사이 친구가 되면 숨긴다');
@@ -216,9 +233,9 @@ function wire(app, html, visit, fm, fbi, rules){
 
   say('── 5. mutation test');
   const brk = async (from, to) => { const m = MOD.replace(from, to); return m === MOD ? null : await behave(m); };
-  const b1 = await brk(' || (friends() || {})[viewUid]){', '){');
+  const b1 = await brk("  if(fr && fr[viewUid]) return;   // 이미 친구\n", '');
   chk(b1 && !allOk(b1), '친구여도 단추를 보이면 빨강');
-  const b2 = await brk('if(seq !== _seq || alive) return;', 'if(alive) return;');
+  const b2 = await brk('  if(seq !== _seq) return;\n  if(fr && fr[viewUid]) return;', '  if(fr && fr[viewUid]) return;');
   chk(b2 && !allOk(b2), '늦은 답을 안 버리면 빨강');
   const b3 = await brk("nm.textContent = name;", "nm.innerHTML = name;");
   chk(b3 && !allOk(b3), '이름을 innerHTML 로 넣으면 빨강');
@@ -228,13 +245,19 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(b10 && !allOk(b10), '서버가 사유를 받기 전에도 사유 칸을 보이면 빨강');
   const b8 = await brk("b.onclick = () => openDialog(viewUid, _name || '이 사람');", "b.onclick = () => openDialog(viewUid, name || '이 사람');");
   chk(b8 && !allOk(b8), '누를 때 처음 받은 이름을 쓰면(친구 님) 빨강');
-  const b9 = await (async () => { const m = MOD.replace("if(!viewUid || !me || viewUid === me || (friends() || {})[viewUid]){", "if(!viewUid || !me || viewUid === me){")
-    .replace('  _askedFor = viewUid;\n', '  _askedFor = viewUid;\n  if((friends() || {})[viewUid]) return;\n'); return m === MOD ? null : await behave(m); })();
+  const b9 = await (async () => { const m = MOD.replace("if(!viewUid || !me || viewUid === me || _isFriend(viewUid)){", "if(!viewUid || !me || viewUid === me){"); return m === MOD ? null : await behave(m); })();
   chk(b9 && !allOk(b9), '친구 판정을 «같은 uid 면 끝» 뒤로 옮기면(다시 칠할 때 안 꺼짐) 빨강');
   const b7 = await brk('if(viewUid === _askedFor) return;', '');
+  { const q = await brk('friendsForCheck({ quiet: true })', 'friendsForCheck()'); chk(q && !allOk(q), '홈을 열 때 판정용 목록을 quiet 없이 물으면(실패 토스트가 뜸) 빨강'); }
   chk(b7 && !allOk(b7), '같은 uid 를 다시 물으면(깜빡임) 빨강');
-  const b5 = await brk("catch(_){ alive = true; }", "catch(_){ alive = false; }");
-  chk(b5 && !allOk(b5), '확인을 못 했는데 단추를 보이면 빨강');
+  const b5 = await brk("try{ [fr, alive] = await Promise.all([friendsForCheck({ quiet: true }), net.isFriendRequestAlive(viewUid, me)]); }catch(_){ alive = null; }", "fr = await friendsForCheck({ quiet: true }); try{ alive = await net.isFriendRequestAlive(viewUid, me); }catch(_){ alive = true; }");
+  chk(b5 && !allOk(b5), '보낸 요청을 못 읽었는데 «있음» 으로 치고 숨기면(옛 catch → true) 빨강');
+  const b5e = await brk("try{ [fr, alive] = await Promise.all([friendsForCheck({ quiet: true }), net.isFriendRequestAlive(viewUid, me)]); }catch(_){ alive = null; }", "fr = await friendsForCheck({ quiet: true }); try{ alive = await net.isFriendRequestAlive(viewUid, me); }catch(_){ alive = false; }");
+  chk(b5e && !allOk(b5e), '보낸 요청을 못 읽었는데 «없음» 으로 치고 신청 단추를 보이면 빨강');
+  const b5b = await brk("  if(!fr || alive == null){   // 모름", "  if(alive == null){   // 모름");
+  chk(b5b && !allOk(b5b), '친구 목록을 못 읽었는데 빈 목록으로 치고 신청 단추를 보이면 빨강');
+  const b5d = await brk("    if(v.kind === 'quiet'){ ok.disabled = false; no.disabled = false; return; }\n", '');
+  chk(b5d && !allOk(b5d), '보낼 때 친구 목록 모름(quiet)에 창을 닫거나 사유를 버리면 빨강');
   { const s2 = SEAT.replace("if(r === 'error') return { kind:'fail',", "if(r === 'error') return { kind:'info',"); const b6 = s2 === SEAT ? null : await behave(MOD, s2);
     chk(b6 && !allOk(b6), '좌석 쪽 한 벌에서 던짐을 안내로 바꾸면(마이홈이 실패를 못 알림) 빨강'); }
   { const c1 = await brk("document.addEventListener('keydown', onKey, true);", "ov.addEventListener('keydown', onKey);"); chk(c1 && !allOk(c1), 'Esc 를 창 안 버블로 받으면 빨강'); }

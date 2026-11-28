@@ -185,6 +185,8 @@ const probe = `
   picked:     () => friendManage.picked,
   setTab:     t => { friendManage.setTab(t); },
   stubReqApi: o => Object.assign(friendRequestsApiMod, o),   /* 요청 포트가 쥔 서버 provider 의 쓰기를 가짜로 — 서버 경로의 끝(로그인 통로)까지는 안 간다 */
+  checkWith:  fn => { friendsSubMod.friendsForCheck = fn; },   /* 판정용 목록(friends-sub) — 받았으면 지금 목록 · 못 읽으면 null */
+  cur:        () => _myHomeFriends,
 };`;
 
 let accepted = [];
@@ -221,10 +223,11 @@ function setup() {
   const p = F.picked(); p.clear(); p.add('a'); p.add('b'); p.add('c');
 }
 
-(async () => {
+async function runAll(){
+  F.checkWith(async () => F.cur());   // 받은 목록 = 화면 캐시(구독이 받은 뒤)
   // ── (ㄱ) 지금 코드 ─────────────────────────────────────────────
   setup();
-  const seats0 = F.seatsLeft();
+  const seats0 = await F.seatsLeft();   // 판정용 목록(friendsForCheck)으로 센다
   chk(seats0 === 1, '시작 시 남은 자리가 1칸이다 (' + seats0 + ')');
   await F.bulkAccept();
   chk(accepted.length === 1, '★ 서버로 간 수락이 1건뿐이다 (' + accepted.length + '건) — 상한을 넘지 않는다');
@@ -240,13 +243,51 @@ function setup() {
   setup();
   let broken = 0;
   for (const id of ['c', 'b', 'a']) {
-    const r = await F.acceptOne(id, F.seatsLeft());   // ← 매번 다시 센다 (틀린 방식)
+    const r = await F.acceptOne(id, await F.seatsLeft());   // ← 매번 다시 센다 (틀린 방식)
     if (r === 'ok') broken++;
   }
   chk(broken === 3, '★ 옛 방식이면 3건이 전부 통과한다 — 상한이 조용히 뚫린다 (' + broken + '건)');
   chk(broken !== accepted.length || true, '  (위 (ㄱ) 이 1건이므로 두 방식이 실제로 갈린다)');
 
+  // ── (ㄷ) 친구 목록을 모를 때 — 빈 {} 로 치면 자리가 FRIEND_MAX 로 보여 상한을 넘는다 ──
   say('');
-  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 일괄 수락이 상한을 넘지 않고, 못 받은 요청을 지우지도 않는다');
+  say('· 친구 목록을 못 받았을 때(판정용 목록 null)');
+  setup();
+  F.setFriends({});   // 화면 캐시는 받기 전 처음 값(빈 {})
+  F.checkWith(async () => null);
+  await F.bulkAccept();
+  chk(accepted.length === 0 && Object.keys(F.getReqs()).length === 3, '★ 모르면 하나도 수락하지 않고 요청 3건을 그대로 둔다(빈 목록으로 치지 않는다)');
+  chk((await F.seatsLeft()) === null, '  남은 자리도 null(모름) — FRIEND_MAX 로 치지 않는다');
+}
+
+(async () => {
+  await runAll();
+  /* mutation test — 판정을 옛 모양(화면 캐시 · 모르면 빈 {})으로 되돌리면 빨강 */
+  say('');
+  say('· mutation test — 남은 자리를 화면 캐시(빈 {})로 세면 잡는가');
+  {
+    setup(); F.setFriends({}); F.checkWith(async () => null);
+    const fm2 = FMSRC.replace('  let seats = await _fmSeatsLeftChecked();\n  if(seats == null) return;', '  let seats = FRIEND_MAX - Object.keys(deps.myHomeFriends() || {}).length;');
+    let caught = false;
+    if (fm2 !== FMSRC) {
+      const _l = console.log, _w = console.warn; console.log = () => {}; console.warn = () => {};
+      try { vm.runInThisContext(fm2 + '\n;globalThis.__FM2 = window.TwFriendManage;', { filename: 'friend-manage-mut.js' }); } catch (_) {}
+      console.log = _l; console.warn = _w;
+      const M = globalThis.__FM2;
+      if (M && typeof M.createFriendManage === 'function') {
+        const reqs = { a: { name: '민지', ts: 3 } }; const sent = [];
+        const fm = M.createFriendManage({ getMyUserId: () => 'me', toast: () => {}, escHtml: (x) => x, giftStat: () => {}, renderGiftBox: () => {}, inboxTimeStr: () => '', myHomeOpen: () => false,
+          myHomeFriends: () => ({}), myFriendRequests: () => reqs, friendMax: F.FRIEND_MAX, requests: () => ({ accept: async (me, id) => { sent.push(id); } }), friendsForCheck: async () => null });
+        fm.picked.add('a');
+        const _l2 = console.log; console.log = () => {};
+        try { await fm.bulkAccept(); } catch (_) {}
+        console.log = _l2;
+        caught = sent.length > 0;   // 옛 모양이면 모르는데도 수락이 나간다
+      }
+    }
+    chk(caught, '  옛 모양(모르면 빈 {} → 자리 FRIEND_MAX)으로 되돌리면 수락이 나간다 — 잡는다');
+  }
+  say('');
+  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 일괄 수락이 상한을 넘지 않고, 못 받은 요청을 지우지도 않는다 · 친구 목록을 모르면 수락하지 않는다');
   process.exit(fail ? 1 : 0);
 })();

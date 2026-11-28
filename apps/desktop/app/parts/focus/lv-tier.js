@@ -15,19 +15,24 @@ function createLvTier(deps){
 
 const LV_TIERS = [[20,1],[40,2],[60,3],[80,4],[100,5],[130,6],
                   [200,7],[300,8],[400,9],[600,10],[998,11],[Infinity,12]];
+/* 레벨 → 티어 번호. 모르는 레벨(null · 1 아래 · 숫자 아님)은 null — 1티어로 치지 않는다(색 없는 중립 · 부르는 쪽이 클래스를 비운다) */
 function lvTierNum(lv){
-  const n = Math.max(1, parseInt(lv, 10) || 1);
+  const n = parseInt(lv, 10);
+  if(!(n >= 1)) return null;
   for(let i = 0; i < LV_TIERS.length; i++) if(n <= LV_TIERS[i][0]) return LV_TIERS[i][1];
   return LV_TIERS[LV_TIERS.length - 1][1];
 }
 /* 배지(.mh-flv)에 붙일 클래스 덩어리 — 'mh-flv' 는 뺀 나머지. */
 function lvBadgeClass(lv){
-  const n = Math.max(1, parseInt(lv, 10) || 1), t = lvTierNum(n);
+  const t = lvTierNum(lv);
+  if(t == null) return '';
+  const n = parseInt(lv, 10);
   return 't' + t + (n >= 81 ? ' shine' : '') + (t >= 7 ? ' lvx' : '');
 }
 /* 경험치 바(.seat-exp)에 붙일 클래스 덩어리 — 배지와 **같은 표**를 읽으므로 색이 어긋날 수 없다. */
 function lvBarClass(lv){
   const t = lvTierNum(lv);
+  if(t == null) return '';   // 남의 레벨을 모름(칸 수만 앎) — 티어 색 없이
   return 't' + t + (t >= 7 ? ' lvx' : '') + (t >= 8 ? ' lvglow' : '');
 }
 /* 🌟 회차(999시간을 한 바퀴 채운 뒤) — 티어 자리에 lv-star 가 들어간다 (CHECKS 개정 70).
