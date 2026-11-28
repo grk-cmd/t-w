@@ -37,8 +37,7 @@ const saveCurSlot = deps.saveCurSlot;
 const LIGHT_PRESET = deps.LIGHT_PRESET;
 const setCurSlot = deps.setCurSlot;   // 쓰는 함수
 const setCreatorOpen = deps.setCreatorOpen;   // 쓰는 함수
-const lockedToast = deps.lockedToast;   // 🔒 잠긴 안내 한 벌(room/interaction-desk.js) — 해금 레벨을 모르면 «해금 정보를 받는 중»
-const lockedText = deps.lockedText;     //   같은 한 벌의 꼬리 없는 말(카드 띠 · 제목)
+const iDeskMod = deps.iDeskMod;   // 🔒 잠긴 안내 한 벌(room/interaction-desk.js lockedToast · lockedText) — 해금 레벨을 모르면 «해금 정보를 받는 중» · 이 파일은 deps 를 app.js 이름 그대로 받는다(sim-global-deps)
 const accountStoreMod = deps.accountStoreMod;   // 🗂️ 계정 칸(해금 기록 CHEAT_KEY · EVER_KEY)
 const accountJsonStoreMod = deps.accountJsonStoreMod;   // 🗂️ 계정 칸 위 JSON 칸(동물 프리셋)
 (function(){
@@ -184,9 +183,9 @@ function initCard(){
   const _unlocked = _unlockOk();
   if(under){
     if(_unlocked){ under.style.display='none'; }
-    else{ under.style.display=''; under.textContent = lockedText(UNLOCK_LEVEL, '달성 시 해금'); }
+    else{ under.style.display=''; under.textContent = iDeskMod.lockedText(UNLOCK_LEVEL, '달성 시 해금'); }
   }
-  card.title = _unlocked ? '동물 캐릭터 만들기' : (UNLOCK_LEVEL == null ? ('동물 캐릭터 만들기 — ' + lockedText(null)) : ('동물 캐릭터 만들기 (Lv.'+UNLOCK_LEVEL+' 보상)'));
+  card.title = _unlocked ? '동물 캐릭터 만들기' : (UNLOCK_LEVEL == null ? ('동물 캐릭터 만들기 — ' + iDeskMod.lockedText(null)) : ('동물 캐릭터 만들기 (Lv.'+UNLOCK_LEVEL+' 보상)'));
   card.style.cursor='pointer';
   card.onclick=()=>{
     if(!_unlockOk()){
@@ -207,7 +206,7 @@ function initCard(){
         return;
       }
       if(focusLevelMod.getFocusLevel() == null){ focusLevelMod.tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.N 보상» 이 아니다(B-1128-2)
-      if(UNLOCK_LEVEL == null){ toast(lockedToast(null)); return; }   // 해금 레벨(서버 해금 표)을 아직 모른다 — 레벨 글자를 지어내지 않는다
+      if(UNLOCK_LEVEL == null){ toast(iDeskMod.lockedToast(null)); return; }   // 해금 레벨(서버 해금 표)을 아직 모른다 — 레벨 글자를 지어내지 않는다
       toast(_lockMsg(UNLOCK_LEVEL, focusLevelMod.shownFocusLevel()));
       return;
     }

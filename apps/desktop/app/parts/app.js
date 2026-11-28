@@ -5167,8 +5167,7 @@ TwAnimal.createAnimal({
   lightToneMod: lightToneMod,
   loader: loader,
   focusLevelMod: focusLevelMod,
-  lockedToast: (...a)=>iDeskMod.lockedToast(...a),   // 🔒 잠긴 안내 한 벌(해금 레벨 모름 포함)
-  lockedText: (...a)=>iDeskMod.lockedText(...a),
+  iDeskMod: iDeskMod,
   normalizeModel: (...a)=>normalizeModel(...a),
   toast: (...a)=>toast(...a),
   bindHold: (...a)=>bindHold(...a),

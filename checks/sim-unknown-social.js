@@ -61,8 +61,8 @@ function animalWorld(src, o){
   const focusLevelMod = { getFocusLevel: lv, shownFocusLevel: lv, levelGate: (min) => (lv() == null ? 'unknown' : (lv() >= min ? 'ok' : 'low')), tellLevelUnknown: () => { log.unknownTold++; } };
   const accountStoreMod = { get: (k) => (store.has(k) ? store.get(k) : null), set: (k, v) => { log.sets.push([k, v]); store.set(k, v); } };
   const L = o.stub ? STUB : LOCKED;
-  new Function('window', 'document', 'focusLevelMod', 'accountStoreMod', 'isAdmin', 'toast', 'startNewAnimal', 'renderAnimalCardThumb', 'setTimeout', 'lockedToast', 'lockedText',
-    parts.join('\n'))(window, document, focusLevelMod, accountStoreMod, () => false, (m) => log.toasts.push(m), () => { log.started++; }, () => {}, () => 0, L.lockedToast, L.lockedText);
+  new Function('window', 'document', 'focusLevelMod', 'accountStoreMod', 'isAdmin', 'toast', 'startNewAnimal', 'renderAnimalCardThumb', 'setTimeout', 'iDeskMod',
+    parts.join('\n'))(window, document, focusLevelMod, accountStoreMod, () => false, (m) => log.toasts.push(m), () => { log.started++; }, () => {}, () => 0, L);
   window._animalLoadLocal();   // 계정 칸이 열린 뒤(확인 뒤) — 해금 기록을 읽고 카드를 그린다
   return { window, card, under, log, store, setLevel: (v) => { o.level = v; } };
 }
@@ -168,10 +168,10 @@ say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['A', 'let UNLOCK_LEVEL = null;', 'let UNLOCK_LEVEL = 50;', '해금 레벨 처음 값을 50 으로(받기 전 열리고 영구 해금을 적음)'],
   ['A', 'if(lv != null && UNLOCK_LEVEL != null && lv >= UNLOCK_LEVEL){', 'if(lv != null && lv >= UNLOCK_LEVEL){', '해금 레벨을 모를 때도 «만족» 으로(null 비교 — 영구 해금을 적음)'],
-  ['A', "      if(UNLOCK_LEVEL == null){ toast(lockedToast(null)); return; }", '', '모를 때 «Lv.null 보상» 을 띄움'],
-  ['A', "under.textContent = lockedText(UNLOCK_LEVEL, '달성 시 해금');", "under.textContent = '🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금';", '카드 띠에 모르는 레벨 글자를 씀'],
-  ['A', "      if(UNLOCK_LEVEL == null){ toast(lockedToast(null)); return; }", "      if(UNLOCK_LEVEL == null){ toast('🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요'); return; }", '«받는 중» 글을 animal.js 에 따로 박음(한 벌이 아님)'],
-  ['A', "under.textContent = lockedText(UNLOCK_LEVEL, '달성 시 해금');", "under.textContent = UNLOCK_LEVEL == null ? '🔒 해금 정보를 받는 중이에요' : ('🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금');", '카드 띠 글을 animal.js 에 따로 박음'],
+  ['A', "      if(UNLOCK_LEVEL == null){ toast(iDeskMod.lockedToast(null)); return; }", '', '모를 때 «Lv.null 보상» 을 띄움'],
+  ['A', "under.textContent = iDeskMod.lockedText(UNLOCK_LEVEL, '달성 시 해금');", "under.textContent = '🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금';", '카드 띠에 모르는 레벨 글자를 씀'],
+  ['A', "      if(UNLOCK_LEVEL == null){ toast(iDeskMod.lockedToast(null)); return; }", "      if(UNLOCK_LEVEL == null){ toast('🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요'); return; }", '«받는 중» 글을 animal.js 에 따로 박음(한 벌이 아님)'],
+  ['A', "under.textContent = iDeskMod.lockedText(UNLOCK_LEVEL, '달성 시 해금');", "under.textContent = UNLOCK_LEVEL == null ? '🔒 해금 정보를 받는 중이에요' : ('🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금');", '카드 띠 글을 animal.js 에 따로 박음'],
   ['A', "      if(focusLevelMod.getFocusLevel() == null){ focusLevelMod.tellLevelUnknown(); return; }", '', '내 레벨을 모를 때 «Lv.N 보상» 으로'],
   ['C', 'const _ulv = window._animalUnlockLevel;', 'const _ulv = window._animalUnlockLevel || 50;', '복제 코드 — 해금 레벨 모름을 50 으로(옛 `|| 50`)'],
   ['C', '    else if(_lv == null || _ulv == null) _ok = isAdmin();   // 둘 중 하나라도 모르면 레벨로는 열지 않는다\n', '', '복제 코드 — 모름끼리 비교(null >= null 이 열림)'],
