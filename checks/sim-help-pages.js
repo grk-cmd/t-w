@@ -6,7 +6,9 @@
           ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다(자리 #… 가 든 링크는 # 앞에)
    ・4절: mutation test
    ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절)
-   ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 · 사라진 옛 편(OLD_SLUGS)은 빠짐없이 넘긴다 */
+   ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 · 사라진 옛 편(OLD_SLUGS)은 빠짐없이 넘긴다
+   ・2절 끝: 폰 연결 안내 — 모든 페이지(처방 · 폰 연결 · FAQ 포함)에 예전(0.12) 단계(방법 PUT · 요청 본문 파일 · 텍스트 동작)가 «예전 …» 문장 밖에 없고,
+          5-7 편 · /link 가 X-Mobile-Key 헤더를 안내한다(5-7 이 /link 와 따로 놀아 예전 단계로 만든 자동화가 401 을 받던 일) */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -93,6 +95,40 @@ say('── 1 · 2. 목차 · 편 · 링크 · 그림 · 바깥 것');
 const real = load();
 const errs = judge(real);
 chk(errs.length === 0, '도움말 페이지 ' + Object.keys(real.pages).length + '개 — 링크 · 그림 · 이전/다음 · 스크립트 · 시안 글 모두 맞다' + (errs.length ? '\n      ' + errs.slice(0, 8).join('\n      ') : ''));
+
+say('── 2-1. 폰 연결 안내 — 예전(PUT) 단계가 «예전 …» 문장 밖에 없다 · X-Mobile-Key 를 안내한다');
+// 0.12 단계(PUT 으로 Firebase 에 쓰던 때)의 글 — 지금 서버는 POST · X-Mobile-Key 헤더 · JSON 만 받는다
+const OLD_LINK_STEPS = ['방법 <b>PUT</b>', '요청 본문 <b>파일</b>', '«텍스트» · «URL 콘텐츠 가져오기»'];
+const NEED_KEY_HEADER = ['5-7.html', 'link.html'];
+/* 찾은 자리가 든 문장(앞의 «요.» · «다.» · 태그 시작 뒤부터)에 «예전» 이 있으면 «예전 방식이면 바꿔요» 안내라서 둔다 */
+function linkDrift(all){
+  const errs = [];
+  for (const [f, s] of Object.entries(all)){
+    const body = s.replace(/<!--[\s\S]*?-->/g, '');
+    for (const w of OLD_LINK_STEPS){
+      for (let at = body.indexOf(w); at >= 0; at = body.indexOf(w, at + 1)){
+        const head = body.slice(0, at);
+        const from = Math.max(head.lastIndexOf('요.'), head.lastIndexOf('다.'), head.lastIndexOf('<li'), head.lastIndexOf('<p'), head.lastIndexOf('<div'), head.lastIndexOf('<br'));
+        if (!head.slice(from).includes('예전')) errs.push(f + ' — 예전 폰 연결 단계 «' + w + '» 가 지금 안내로 남았다(/link 와 같게 POST · X-Mobile-Key · JSON)');
+      }
+    }
+  }
+  for (const f of NEED_KEY_HEADER) if (!/X-Mobile-Key/.test((all[f] || '').replace(/<!--[\s\S]*?-->/g, ''))) errs.push(f + ' — X-Mobile-Key 헤더 안내가 없다');
+  return errs;
+}
+const allPages = {};
+for (const f of fs.readdirSync(DIR)) if (f.endsWith('.html')) allPages[f] = fs.readFileSync(path.join(DIR, f), 'utf8');
+const drift = linkDrift(allPages);
+chk(drift.length === 0, '모든 페이지 ' + Object.keys(allPages).length + '개 — 예전 단계 없음 · 5-7 · /link 에 X-Mobile-Key' + (drift.length ? '\n      ' + drift.slice(0, 8).join('\n      ') : ''));
+const driftBreaks = [
+  ['5-7 에 방법 PUT 이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('방법 <b>POST</b></li>', '방법 <b>PUT</b></li>'); }],
+  ['5-7 에 요청 본문 파일이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('</ol>', '<li>요청 본문 <b>파일</b> → 위 «텍스트»</li></ol>'); }],
+  ['FAQ 에 «텍스트» · «URL 콘텐츠 가져오기» 두 개가 되살아남', (a) => { a['faq.html'] += '<p>동작이 «텍스트» · «URL 콘텐츠 가져오기» 두 개뿐인지 봐 주세요.</p>'; }],
+  ['/link 에서 X-Mobile-Key 가 빠짐', (a) => { a['link.html'] = a['link.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
+  ['5-7 에서 X-Mobile-Key 가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
+];
+for (const [name, f] of driftBreaks){ const a = Object.assign({}, allPages); f(a); chk(linkDrift(a).length > 0, '  mutation test — ' + name); }
+chk(linkDrift({ 'x.html': '<p>예전 방식(방법 <b>PUT</b>)이면 POST 로 바꿔요.</p>', '5-7.html': 'X-Mobile-Key', 'link.html': 'X-Mobile-Key' }).length === 0, '  «예전 …» 문장 안의 PUT 은 둔다(바꾸라는 안내)');
 
 say('── 3. theme.js');
 const THEME = fs.readFileSync(path.join(DIR, 'theme.js'), 'utf8');
