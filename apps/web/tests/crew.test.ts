@@ -66,8 +66,36 @@ describe('bubbleShift — 화면 끝에선 몸통만 밀고 꼬리는 머리를 
 });
 
 describe('bopFrames — 눌렀을 때 통통(앱 쓰다듬기 박자)', () => {
-  const ys = (f: Keyframe[]) =>
-    f.map((k) => Number(/translateY\((-?[\d.]+)px\)/.exec(String(k.transform))![1]));
+  // 1ms 마다 한 프레임 — 박자 · 높이를 시각으로 견준다
+  const fine = () => bopFrames(BOP_MS);
+  const parse = (k: Keyframe) => {
+    const m = /translateY\((-?[\d.]+)px\) scale\(([\d.]+), ([\d.]+)\)/.exec(String(k.transform))!;
+    return { y: Number(m[1]), sx: Number(m[2]), sy: Number(m[3]) };
+  };
+  /** 튐(높은 점) — 오르다 내려가기 시작하는 곳. 같은 값이 이어지면 하나로 · 땅(−0.5px 위)에 돌아온 뒤에만 새로 센다 ·
+      1px 보다 낮은 끝자락 떨림은 튐으로 세지 않는다 */
+  const peaks = (y: number[]) => {
+    const out: number[] = [];
+    let best = 0;
+    let at = -1;
+    for (let i = 0; i < y.length; i++) {
+      if (y[i]! < best) {
+        best = y[i]!;
+        at = i;
+      } else if (y[i]! > -0.5 && at >= 0) {
+        if (best < -1) out.push(at);
+        best = 0;
+        at = -1;
+      }
+    }
+    if (at >= 0 && best < -1) out.push(at);
+    return out;
+  };
+
+  it('정한 값 — 최대 12px · 1.1초', () => {
+    expect(BOP_PX).toBe(12);
+    expect(BOP_MS).toBe(1100);
+  });
   it('처음 · 끝은 제자리 · offset 은 0 → 1 순서', () => {
     const f = bopFrames();
     expect(f[0]!.offset).toBe(0);
@@ -75,17 +103,30 @@ describe('bopFrames — 눌렀을 때 통통(앱 쓰다듬기 박자)', () => {
     expect(f.at(-1)!.transform).toBe('translateY(0px) scale(1, 1)');
     expect(f.every((k, i) => i === 0 || (k.offset as number) > (f[i - 1]!.offset as number))).toBe(true);
   });
-  it('위로만 튄다(바닥을 뚫지 않음) · 높이는 BOP_PX 를 넘지 않고 점점 낮아진다', () => {
-    const y = ys(bopFrames(220));
+  it('위로만 튄다(바닥을 뚫지 않음) · 첫 튐이 가장 높고(약 −9.4px · 약 88ms) 점점 낮아진다', () => {
+    const y = fine().map((k) => parse(k).y);
     expect(Math.max(...y)).toBeLessThanOrEqual(0);
-    expect(Math.min(...y)).toBeGreaterThanOrEqual(-BOP_PX);
-    const half = y.length / 2;
-    expect(Math.min(...y.slice(0, half))).toBeLessThan(Math.min(...y.slice(half)) - 2); // 앞쪽 튐이 뒤쪽보다 높다
+    const p = peaks(y);
+    expect(y[p[0]!]).toBeCloseTo(-9.4, 0);
+    expect(p[0]).toBeGreaterThanOrEqual(80);
+    expect(p[0]).toBeLessThanOrEqual(100);
+    for (let i = 1; i < p.length; i++) expect(y[p[i]!]!).toBeGreaterThan(y[p[i - 1]!]!);
   });
-  it('여러 번 튄다(통통) — 높은 점이 셋 이상', () => {
-    const y = ys(bopFrames(220));
-    const peaks = y.filter((v, i) => i > 0 && i < y.length - 1 && v < y[i - 1]! && v <= y[i + 1]! && v < -1);
-    expect(peaks.length).toBeGreaterThanOrEqual(3);
-    expect(BOP_MS).toBeGreaterThan(0);
+  it('통통 다섯 번 — 박자는 앱 쓰다듬기(반 주기 약 196ms)', () => {
+    const p = peaks(fine().map((k) => parse(k).y));
+    expect(p).toHaveLength(5);
+    expect(p[1]! - p[0]!).toBeGreaterThan(180);
+    expect(p[1]! - p[0]!).toBeLessThan(215);
+  });
+  it('땅에 닿을 때 살짝 납작 — 옆으로 넓고 위아래로 낮게 · 6% 안', () => {
+    const f = fine().map(parse);
+    const land = f.slice(1, -1).filter((k) => k.y > -0.2);
+    expect(land.length).toBeGreaterThan(0);
+    for (const k of land) {
+      expect(k.sx).toBeGreaterThanOrEqual(1);
+      expect(k.sy).toBeLessThanOrEqual(1);
+      expect(k.sx - 1).toBeLessThanOrEqual(0.06);
+    }
+    expect(Math.max(...land.map((k) => k.sx))).toBeGreaterThan(1.03); // 처음 닿을 때(약 196ms)는 눈에 띄게
   });
 });

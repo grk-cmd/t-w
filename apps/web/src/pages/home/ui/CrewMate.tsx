@@ -59,11 +59,15 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     el.style.bottom = `${r.top - Math.round(r.top)}px`;
   }, [say]);
   const body = useRef<HTMLSpanElement>(null);
-  /** 눌렀을 때 통통 — 누를 때마다 처음부터(겹치지 않게 앞 것을 지움) · 애니메이션 줄이기 설정이면 안 튄다 */
+  /** 돌던 통통을 멈춘다 — 다시 누를 때(처음부터) · 날아갈 때(날기와 겹치지 않게) */
+  const stopBop = () => {
+    for (const a of body.current?.getAnimations() ?? []) a.cancel();
+  };
+  /** 눌렀을 때 통통 — 누를 때마다 처음부터 · 애니메이션 줄이기 설정이면 안 튄다 */
   const bop = () => {
     const el = body.current;
+    stopBop();
     if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    for (const a of el.getAnimations()) a.cancel();
     el.animate(bopFrames(), { duration: BOP_MS, easing: 'linear' });
   };
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -75,6 +79,7 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     taps.current = r.taps;
     clearTimeout(timer.current);
     if (r.fly) {
+      stopBop();
       setSay(null);
       setFlying(true);
       timer.current = setTimeout(() => setFlying(false), FLY_MS);
