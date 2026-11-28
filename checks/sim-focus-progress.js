@@ -153,8 +153,10 @@ async function judge(S){
   chk(W.gets.length === 2, '  받는 중에 또 복귀가 와도 요청은 늘지 않는다');
   W.gets[1].rej(new Error('y')); await flush();
   chk(W.notes.length === nN && W.timers === 0, '  복귀 다시 받기가 또 실패해도 번호 없음 · 타이머 0(다음 복귀를 기다린다)');
-  W.recover(); await W.ok(W.gets[2], prog(398 * 3600));
-  chk(W.mod.getFocusLevel() === 399 && W.mod.isReady(), '  다시 받으면 서버 레벨 그대로(레벨 398 사용자 — 1 이 아니다)');
+  W.recover(); await flush();
+  chk(W.gets.length === 2, '★ 복귀로 다시 받다 실패하면 다음 복귀엔 다시 받지 않는다(실패 한 묶음에 한 번 — 끝없이 돌지 않게)');
+  W.mod.reload(true); await W.ok(W.gets[2], prog(398 * 3600));
+  chk(W.mod.getFocusLevel() === 399 && W.mod.isReady(), '  [다시 시도]로 받으면 서버 레벨 그대로(레벨 398 사용자 — 1 이 아니다)');
   W.recover(); await flush();
   chk(W.gets.length === 3, '★ 이미 받았으면(ready) 복귀가 와도 다시 받지 않는다');
   W = world(S); W.mod.blockStart(() => {}); W.recover(); await flush();
@@ -428,7 +430,7 @@ async function judge(S){
     ['MOD', "    session.onReset(reset);", "", '세션 reset 훅을 안 건다'],
     ['MOD', "    ls.load('start');\n  }", "  }", '시작해도 진척을 안 받음'],
     ['MOD', "    if(seq < appliedSeq){", "    if(false){", '요청 순번을 안 봄'],
-    ['LS', "        st = 'failed';\n        say('새로 못 받음 ' + errTag(e));", "        say('새로 못 받음 ' + errTag(e));", '새 날 받기 실패를 failed 로 안 둠'],
+    ['LS', "        st = 'failed'; recoverArmed = true;\n        say('새로 못 받음 ' + errTag(e));", "        say('새로 못 받음 ' + errTag(e));", '새 날 받기 실패를 failed 로 안 둠'],
     ['LS', "    if(st !== 'ready' || run) return refreshing || Promise.resolve();\n    if(refreshing) return refreshing;", "", '새 날 받기가 받기 전에도 · 겹쳐서 나감'],
     ['MOD', "    health,\n", "", '★ 복귀 알림을 안 넘김(배포 중 켜면 레벨 1 로 남음)'],
     ['MOD', "if(!adopt(r.progress, seq) && p) p.starColor = r.progress.starColor;", "adopt(r.progress, seq);", '늦은 별 색 답의 색을 버림'],

@@ -603,15 +603,17 @@ async function gateCases(M){
       const mod = { exports: {} }; vm.runInNewContext(src, { module: mod, setTimeout, clearTimeout, AbortController, console, atob: (x) => Buffer.from(x, 'base64').toString('binary') });
       const M = mod.exports;
       let mode = 200;
-      const f = mkFetch(() => { if(mode === 'net') throw new TypeError('x'); if(typeof mode === 'number' && mode !== 200) return res(mode, { success: false, code: mode === 503 ? 'X_NOT_READY' : (mode === 404 ? 'USER_NOT_FOUND' : 'BAD') }); if(mode === 'shape') return res(200, { nope: 1 }); return res(200, { success: true, data: 1 }); });
+      const f = mkFetch(() => { if(mode === 'net') throw new TypeError('x'); if(mode === 'caddy') return res(502, new Error('HTML 페이지')); if(typeof mode === 'number' && mode !== 200) return res(mode, { success: false, code: mode === 503 ? 'X_NOT_READY' : (mode === 404 ? 'USER_NOT_FOUND' : (mode === 500 ? 'INTERNAL' : 'BAD')) }); if(mode === 'shape') return res(200, { nope: 1 }); return res(200, { success: true, data: 1 }); });
       const ev = [];
       const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => 't', backoffMs: 0, health: { down: () => ev.push('down'), ok: () => ev.push('ok'), reset: () => ev.push('reset') } });
       await c.get('/a', { auth: true });
       ok(ev.join() === 'ok', '성공 → ok');
-      ev.length = 0; mode = 500; await err(c.get('/b', { auth: true }));
+      ev.length = 0; mode = 'caddy'; await err(c.get('/b', { auth: true }));
       mode = 'net'; await err(c.post('/c', {}));
       mode = 'shape'; await err(c.get('/d', { auth: true }));
-      ok(ev.join() === 'down,down,down', '★ 5xx · 네트워크 · 봉투 아님 → down');
+      ok(ev.join() === 'down,down,down', '★ 서버가 답하지 못함(앞단 502 HTML 페이지 · 네트워크 · 봉투 아님) → down');
+      ev.length = 0; mode = 500; const e500 = await err(c.get('/b2', { auth: true }));
+      ok(ev.length === 0 && e500 && e500.kind === 'unavailable' && e500.answered === true, '★ 우리 API 가 봉투로 답한 500 은 닿지 않음이 아니다(그 기능의 실패 · err.answered) — ' + ev.join());
       ev.length = 0; mode = 404; await err(c.get('/e', { auth: true })); mode = 401; await err(c.get('/f', { auth: true })); mode = 400; await err(c.post('/g', {})); mode = 503; await err(c.get('/h', { auth: true }));
       ok(ev.length === 0, '★ 4xx(404 · 401 · 400) · notReady(503 *_NOT_READY) 는 알리지 않는다 — ' + ev.join());
       c.forgetSession();
@@ -630,7 +632,9 @@ async function gateCases(M){
       ["(e) => { if(isUnreachable(e)) health.down(); throw e; }", "(e) => { throw e; }", '닿지 못함을 안 알림'],
       ["p.then((data) => { health.ok(); return data; }", "p.then((data) => { return data; }", '성공을 안 알림(복귀가 안 옴)'],
       ["      if(health) health.reset();   // 닿지 않음", "      //", '계정을 놓아도 확인 타이머가 남음'],
-      ["const isUnreachable = (e) => e instanceof ApiError && e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED';", "const isUnreachable = (e) => e instanceof ApiError && (e.kind === 'unavailable' || e.kind === 'notReady');", 'notReady(서버는 답함)도 닿지 않음으로'],
+      ["const isUnreachable = (e) => e instanceof ApiError && e.kind === 'unavailable' && !e.answered && e.code !== 'NOT_MODIFIED';", "const isUnreachable = (e) => e instanceof ApiError && (e.kind === 'unavailable' || e.kind === 'notReady');", 'notReady(서버는 답함)도 닿지 않음으로'],
+      ["e.kind === 'unavailable' && !e.answered && e.code !== 'NOT_MODIFIED';", "e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED';", '★ 봉투로 답한 5xx 도 닿지 않음으로(끝없이 확인 · 다시 받기)'],
+      [", answered: isObj(body) && typeof body.success === 'boolean' };", " };", '봉투로 답했는지 안 적음'],
     ];
     const missed = [];
     for(const [from, to, what] of HB){

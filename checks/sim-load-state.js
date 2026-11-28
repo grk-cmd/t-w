@@ -78,9 +78,21 @@ async function judge(src){
   t(W.gets.length === 2 && W.notes.includes('복귀로 다시 받음') && W.notes.includes('받기 시작(recover)'), '★ 못 받았으면(failed) 복귀 때 한 번 다시 받는다 · 진단');
   await W.bad(1);
   t(W.once.length === 1 && W.retries.length === 0, '  복귀 다시 받기가 또 실패해도 번호는 안 띄운다(다음 복귀를 기다린다)');
-  W.recover(); await W.ok(2, 9);
   W.recover(); await flush();
-  t(W.gets.length === 3 && W.ls.value() === 9, '★ 받았으면(ready) 복귀가 와도 다시 받지 않는다');
+  t(W.gets.length === 2, '★ 복귀로 다시 받다 실패하면 다음 복귀엔 다시 받지 않는다(실패 한 묶음에 한 번)');
+  W.ls.load('quiet'); await W.bad(2);
+  W.recover(); await flush();
+  t(W.gets.length === 4, '  조용한 받기가 실패하면 복귀 다시 받기가 다시 열린다(한 번)');
+  await W.ok(3, 9);
+  W.recover(); await flush();
+  t(W.gets.length === 4 && W.ls.value() === 9, '★ 받았으면(ready) 복귀가 와도 다시 받지 않는다');
+  W = world(src);
+  W.ls.load('start'); await W.bad(0); W.recover(); await W.bad(1);
+  W.ls.reset(); W.ls.load('start'); await W.bad(2); W.recover(); await flush();
+  t(W.gets.length === 4, '  reset 뒤 새 실패면 복귀 다시 받기가 다시 열린다');
+  W = world(src);
+  W.ls.load('start'); await W.bad(0); W.ls.retry(); await W.ok(1, 7); W.recover(); await flush();
+  t(W.gets.length === 2 && W.ls.value() === 7, '  실패 뒤 [다시 시도]로 받았으면 그 뒤 복귀는 다시 받지 않는다');
   W = world(src, { noHealth: true });
   W.ls.load('start'); await W.bad(0);
   t(W.subs.length === 0 && W.ls.state() === 'failed', '  health 가 없으면 복귀 다시 받기도 없다');
@@ -108,7 +120,10 @@ async function judge(src){
     ["value: () => (st === 'ready' ? val : null)", "value: () => val", '받지 못했는데 옛 값 · 기본값을 돌려줌'],
     ["    if(run) return run;\n    if(!bound", "    if(!bound", '겹친 load 가 요청을 또 보냄'],
     ["        if(g !== gen) return 'skipped';\n        val = v;", "        val = v;", '늦은 답이 reset 뒤 값을 바꿈'],
-    ["    if(st !== 'failed') return;   // 받는 중", "    if(st === 'loading') return;   // 받는 중", '받았는데도 복귀 때 또 받음'],
+    ["    if(st !== 'failed' || !recoverArmed) return;", "    if(st === 'loading' || !recoverArmed) return;", '받았는데도 복귀 때 또 받음'],
+    ["    if(st !== 'failed' || !recoverArmed) return;", "    if(st !== 'failed') return;", '★ 복귀 다시 받기가 실패해도 다음 복귀에 또 받음(끝없이 돎)'],
+    ["        if(w !== 'recover') recoverArmed = true;", "        recoverArmed = true;", '복귀로 다시 받다 실패해도 다시 엶(끝없이 돎)'],
+    ["        if(w !== 'recover') recoverArmed = true;", "", '실패해도 복귀 다시 받기를 안 엶(못 받은 채 남음)'],
     ["    if(!bound && health){ bound = true; health.onRecover(recovered); }", "", '복귀 구독을 안 걺(못 받은 채 남음)'],
     ["    if(!bound && health){ bound = true; health.onRecover(recovered); }", "    if(health){ health.onRecover(recovered); }", 'load 마다 복귀 구독을 또 걺'],
     ["    else if(!notified){ notified = true; notifyOnce(e); }", "    else notifyOnce(e);", '실패마다 번호를 또 띄움'],
@@ -116,7 +131,7 @@ async function judge(src){
     ["    st = 'idle'; val = null; run = null; refreshing = null; notified = false;", "    st = 'idle'; val = null; run = null; refreshing = null;", 'reset 이 첫 실패 표시를 안 비움'],
     ["    if(st === 'ready' || st === 'loading') return Promise.resolve(st);\n    return load('user');", "    return load('user');", 'ready 인데 retry 가 또 받음'],
     ["    if(st !== 'ready' || run) return refreshing || Promise.resolve();", "    if(run) return refreshing || Promise.resolve();", '받기 전에도 refresh'],
-    ["        st = 'failed';\n        say('새로 못 받음 ' + errTag(e));", "        say('새로 못 받음 ' + errTag(e));", 'refresh 실패에도 ready 그대로(옛 값을 보임)'],
+    ["        st = 'failed'; recoverArmed = true;\n        say('새로 못 받음 ' + errTag(e));", "        say('새로 못 받음 ' + errTag(e));", 'refresh 실패에도 ready 그대로(옛 값을 보임)'],
   ];
   const missed = [];
   for(const [from, to, what] of BREAKS){

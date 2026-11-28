@@ -42,7 +42,6 @@ const starColorOk = (c) => STAR_PALETTE.some((p) => p[0] === c);
  *   health: { onRecover: (fn: () => void) => unknown },       // API 복귀 알림(shared/api-health.js — 앱 한 벌 TwApi.health)
  *   createLoadState: Function,                                // 받기 틀(shared/load-state.js TwLoadState.createLoadState)
  *   note: (line: string) => unknown,                          // 진단 기록 한 줄(companion.diagNote — 200자에서 잘린다)
- *   note: (line: string) => unknown,                          // 진단 기록 한 줄(companion.diagNote — 200자에서 잘린다)
  * }} deps */
 function createFocusProgress(deps){
   const focusApi = deps.focusApi;

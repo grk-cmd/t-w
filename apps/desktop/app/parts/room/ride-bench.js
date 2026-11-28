@@ -1106,7 +1106,7 @@ function restoreInteractionDesk(){
     const id = getActiveInteractionDeskId();
     if(!id){ _ideskRestored = true; return; }
     const def = _deskDefById(id);
-    if(def && unlockGate(def) === 'unknown') return;   // 레벨을 아직 모른다 — 저장값을 지우지 않고 다음 호출 때 다시 본다(B-1128-2)
+    if(def && (def.reqLevel == null || unlockGate(def) === 'unknown')) return;   // 해금 표 · 내 레벨을 아직 모른다 — 저장값을 지우지 않고 다음 호출 때 다시 본다(B-1128-2)
     if(def && isDeskUnlocked(def)){
       attachBenchToSeat(me, def.seats, def.id);
       try{ broadcastRide(); }catch(_){}

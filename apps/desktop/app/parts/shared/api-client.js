@@ -26,7 +26,8 @@
    [멈춤 gate] gate:true 인 통로(authed)만 — 서버가 답을 못 하면(5xx · 시간 초과 · 네트워크 · notReady) 다음 요청을 바로 보내지 않고 GATE_MS 만큼 기다렸다 보낸다
      (연달아 실패하면 늘고 · 실제 기다림은 [base/2, base] 로 흩는다(jitter) · 성공하면 풀린다). 429 + Retry-After 면 그 요청(method + path)만 그때까지 보내지 않고
      곧장 429(retryAfterMs = 남은 시간)로 끝낸다 — 서버 요청 제한은 endpoint(method + path)마다라 다른 endpoint 는 막지 않는다. Retry-After 없는 429 는 위 멈춤. 다시 묻는 쪽(login-flow retryNow 등)이 따로 흩지 않아도 되게 여기 한 곳.
-   [닿는가] health(shared/api-health.js)에 알린다 — 닿지 못한 실패(네트워크 · 시간 초과 · 5xx · 봉투가 아닌 응답)는 down() · 성공은 ok(). 4xx · notReady 는 알리지 않는다.
+   [닿는가] health(shared/api-health.js)에 알린다 — 서버가 답하지 못한 실패(네트워크 · 시간 초과 · 봉투가 아닌 응답 — 앞단 502/503 페이지)는 down() · 성공은 ok().
+     4xx · notReady · 우리 API 가 봉투로 답한 5xx 는 알리지 않는다(그 기능의 실패 — err.answered).
      닿지 않는 동안 확인 요청(PROBE_PATH — 이미 있는 가벼운 공개 읽기)을 health 가 간격을 두고 하나만 보낸다 · 복귀 알림은 TwApi.health.onRecover. 계정을 놓으면(forgetSession) health.reset().
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
      CSP connect-src https://*.together-working.com 안이어야 한다(desk-companion-prototype.html).
@@ -66,6 +67,7 @@ class ApiError extends Error {
     this.name = 'ApiError'; this.kind = kind; this.status = status || 0; this.code = code || '';
     this.items = Array.isArray(x.items) ? x.items : null;
     this.retryAfterMs = (typeof x.retryAfterMs === 'number') ? x.retryAfterMs : null;
+    this.answered = x.answered === true;   // 우리 API 가 봉투({ success, … })로 답했다 — 5xx 여도 «닿지 않음» 이 아니다(api-health)
   }
 }
 
@@ -108,8 +110,9 @@ function gatePauseMs(n, r){
   return Math.round(base * (1 - 0.5 * r));
 }
 /* 서버가 답을 못 한 실패인가 — 멈춤 gate 를 건다. 304 인데 기억 값이 없는 것(NOT_MODIFIED)은 서버가 답한 것이라 뺀다 */
-/* 닿지 못한 실패인가 — health 에 알린다(notReady 는 서버가 답한 것이라 뺀다) */
-const isUnreachable = (e) => e instanceof ApiError && e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED';
+/* 서버가 답하지 못했나 — health 에 알린다. 네트워크 · 시간 초과 · 봉투가 아닌 응답(앞단 Caddy 502/503 페이지)만.
+   우리 API 가 봉투로 답한 5xx 는 그 기능의 실패일 뿐 «닿지 않음» 이 아니다 — 세면 확인 성공 → 복귀 → 다시 받기 → 같은 5xx 로 끝없이 돈다 */
+const isUnreachable = (e) => e instanceof ApiError && e.kind === 'unavailable' && !e.answered && e.code !== 'NOT_MODIFIED';
 const isServerDown = (e) => e instanceof ApiError && (e.kind === 'notReady' || (e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED'));
 
 /** @param {{ baseUrl: string, fetch: Function | null, now?: () => number, timeoutMs?: number, writeTimeoutMs?: number, backoffMs?: number,
@@ -231,7 +234,7 @@ function createApiClient(deps){
     }
     const code = (isObj(body) && typeof body.code === 'string') ? body.code : '';
     const msg = (isObj(body) && typeof body.message === 'string') ? body.message : '';
-    const extra = { items: isObj(body) ? body.items : null, retryAfterMs: status === 429 ? retryAfterMsOf(headerOf(res, 'Retry-After')) : null };
+    const extra = { items: isObj(body) ? body.items : null, retryAfterMs: status === 429 ? retryAfterMsOf(headerOf(res, 'Retry-After')) : null, answered: isObj(body) && typeof body.success === 'boolean' };
     if(/_NOT_READY$/.test(code)) throw new ApiError('notReady', status, code, msg, extra);
     if(status === 401 || status === 403) throw new ApiError('auth', status, code, msg, extra);
     if(status >= 500 || !status) throw new ApiError('unavailable', status, code, msg || ('API 오류 (' + status + ')'), extra);

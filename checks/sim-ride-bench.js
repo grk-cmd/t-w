@@ -371,13 +371,23 @@ function judgeDeskUnknown(src){
   t(st.sets.join() === '' && st.sets.length === 1 && st.sets[0] === null, '  레벨을 받았는데 모자라면 원래대로 저장값을 정리한다(한 번)');
   out.restoreInteractionDesk();
   t(st.sets.length === 1, '  정리 뒤에는 다시 안 본다(복원은 한 번)');
+  const st2 = { sets: [] }, def2 = { id: 'bench2', seats: 2, reqLevel: null };
+  const out2 = build(src, { IDESK_ENABLED: () => true, seats: [{ isMe: true }], getActiveInteractionDeskId: () => 'bench2', _deskDefById: () => def2,
+    unlockGate: () => 'low', isDeskUnlocked: () => false, setActiveInteractionDeskId: (v) => st2.sets.push(v), tellLevelUnknown: () => {}, toast: () => {}, lockedToast: () => '' });
+  out2.restoreInteractionDesk(); out2.restoreInteractionDesk();
+  t(st2.sets.length === 0, '★ 복원 — 서버 해금 표를 아직 못 받았으면(reqLevel null) 저장된 책상을 지우지 않는다(모름 → 지움이 아니다)');
+  def2.reqLevel = 60; out2.restoreInteractionDesk();
+  t(st2.sets.length === 1 && st2.sets[0] === null, '  해금 표를 받았는데 모자라면 그때 정리한다');
   return r;
 }
 judgeDeskUnknown(MOD).forEach(([ok, msg]) => chk(ok, msg));
 {
-  const m2 = MOD.replace("    if(def && unlockGate(def) === 'unknown') return;   // 레벨을 아직 모른다 — 저장값을 지우지 않고 다음 호출 때 다시 본다(B-1128-2)\n", '');
+  const m2 = MOD.replace("    if(def && (def.reqLevel == null || unlockGate(def) === 'unknown')) return;", "    if(def && unlockGate(def) === 'unknown') return;");
+  const m3 = MOD.replace("    if(def && (def.reqLevel == null || unlockGate(def) === 'unknown')) return;", "    if(def && def.reqLevel == null) return;");
+  { let rows3; try{ rows3 = judgeDeskUnknown(m3); }catch(_){ rows3 = [[false, '던짐']]; }
+    chk(m3 !== MOD && rows3.some(([ok]) => !ok), 'mutation test — 레벨을 모를 때 저장된 책상을 지우면 빨강'); }
   let rows2; try{ rows2 = judgeDeskUnknown(m2); }catch(_){ rows2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — 레벨을 모를 때 저장된 책상을 지우면 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), 'mutation test — 해금 표를 못 받았을 때 저장된 책상을 지우면 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
