@@ -19,8 +19,8 @@ const OUT = HELP + '/search.json';
 const FAQ_PAGE = HELP + '/faq.html';
 const WORDS = 'docs/help-search/words.json';
 const FAQ = 'docs/help-search/faq.json';
-// FAQ 질문 앞 꼬리표 — 어느 컴퓨터 이야기인지(«[mac] 맥에서 안 열려요»). 새 꼬리표는 여기에 더한다 · 없거나 모르는 값이면 만들 때 멈춘다
-const FAQ_TAGS = ['공통', 'Windows', 'mac'];
+// FAQ 질문 앞 꼬리표 — 어느 컴퓨터 이야기인지(«[mac] 맥에서 안 열려요») · 연동은 태블릿 · 폰 연결. 새 꼬리표는 여기에 더한다 · 없거나 모르는 값이면 만들 때 멈춘다
+const FAQ_TAGS = ['공통', 'Windows', 'mac', '연동'];
 
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
 const decode = (s) => s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, k) => ENT[k]);
