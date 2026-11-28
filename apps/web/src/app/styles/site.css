@@ -604,9 +604,22 @@ h3 {
     transition: none;
   }
   .land:hover .land-ic,
-  .land-bar .blink,
-  .crew-btn.fly {
+  .land-bar .blink {
     animation: none;
+  }
+  /* 연타 반응은 남긴다 — 돌며 날아가는 대신 제자리에서 사라졌다 돌아온다(길이 · 속도는 위 .crew-btn.fly 그대로) */
+  .crew-btn.fly {
+    animation-name: crew-fade;
+  }
+}
+@keyframes crew-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  30%,
+  70% {
+    opacity: 0;
   }
 }
 .eyebrow {
