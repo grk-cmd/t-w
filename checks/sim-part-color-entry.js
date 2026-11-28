@@ -21,6 +21,16 @@
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
+/* mutation test 용 — TW_PCE_MUT 가 있으면 wardrobe.js 글 하나를 바꿔 읽는다(아래 «mutation test» 가 자식 프로세스로 돌린다) */
+const PCE_MUTS = {
+  '보유분을 모르는데 gachaCount 그대로(0/4)': ['const have = gachaMod().ownedKnown() ? gachaMod().gachaCount(_colId) : null;', 'const have = gachaMod().gachaCount(_colId);'],
+  '모를 때 «불러오는 중» 줄을 뺌': ['if(have == null){ gp.textContent = gachaMod().ownedUnknownText(); container.appendChild(gp); _finish(); return; }', ''],
+};
+if(process.env.TW_PCE_MUT){
+  const [from, to] = PCE_MUTS[process.env.TW_PCE_MUT];
+  const read0 = fs.readFileSync;
+  fs.readFileSync = function(p, ...a){ const t = read0.call(fs, p, ...a); if(!/wardrobe\.js$/.test(String(p)) || typeof t !== 'string') return t; if(!t.includes(from)){ process.stdout.write('  ? 바꿀 글을 못 찾음\n'); process.exit(3); } return t.replace(from, to); };
+}
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
 smokeSrc = smokeSrc.slice(0, smokeSrc.indexOf('/* ── 실행'))
@@ -29,7 +39,13 @@ vm.runInThisContext(smokeSrc, { filename: 'smoke-stubs.js' });
 
 const probe = `
 ;(function(){ const gid = document.getElementById.bind(document);
-  document.getElementById = (id)=> (id === 'gachaInvHost' && !globalThis.__gachaHostOn) ? null : gid(id); })();
+  document.getElementById = (id)=> {
+    if(id === 'gachaInvHost' && !globalThis.__gachaHostOn) return null;
+    const el = gid(id);
+    /* 색상 영역 — 그 안에 붙인 줄의 글을 적는다(스텁 appendChild 는 아무것도 안 남긴다) */
+    if(id === 'wdPreviewColorSection' && !el.__rec){ el.__rec = true; el.appendChild = (c)=>{ (globalThis.__colorKids = globalThis.__colorKids || []).push(c); return c; }; }
+    return el;
+  }; })();
 globalThis.__P = {
   refresh: ()=>refreshWdPreviewColorSection(),
   setSaved: v=>{ savedParts = v; },
@@ -40,11 +56,14 @@ globalThis.__P = {
   setPremium: v=>{ isPremium = v; },
   setGachaSel: v=>{ gachaMod.state.setSelId(v); },
   setOwned: v=>{ gachaMod.state.setOwned(v); },
+  setLoad: v=>{ gachaMod.state.setLoad(v); },
   setUnlocked: v=>{ gachaMod.state.setUnlocked(v); },
   wrapBuildColorRows: fn=>{ const o = buildColorRows; buildColorRows = (...a)=>{ fn(...a); return o(...a); }; },
 };`;
 
 const say = console.log; console.log = () => {}; console.warn = () => {};
+/* 프리미엄을 서버가 확인했나(account-state.js premiumKnown) — 이 검사는 계정 모듈을 싣지 않으니 여기서 둔다. 기본은 «확인됨» */
+let _premiumKnown = true; globalThis.premiumKnown = () => _premiumKnown;
 if (!fs.existsSync('gacha.js') || !fs.existsSync('gacha-album.js') || !fs.existsSync('paging.js')) { say('  ? 원본 못 찾음 — gacha.js · gacha-album.js · paging.js'); process.exit(2); }
 try { vm.runInThisContext(fs.readFileSync('paging.js', 'utf8'), { filename: 'paging.js' }); vm.runInThisContext(fs.readFileSync('gacha-album.js', 'utf8'), { filename: 'gacha-album.js' }); vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
@@ -136,13 +155,42 @@ say('\n=== 5. 🎰 📚 도감에서 귀 파츠를 고른 상태 — 모자도 �
     '저장 대상(' + r.xfOwner + ') = 색칠 대상(' + r.wrapperOwner + ')');
 }
 
+say('\n=== 6. 🎰 가챠 파츠 색 잠김 — 보유분을 모르면 0/4 가 아니라 «불러오는 중 · 못 불러왔어요» ===');
+const lockedText = (load) => {
+  P.setSaved([{ id: 'ear', cat: 'hat', name: '귀', stackable: true, gacha: true }]);
+  P.setOwned(load === 'ready' ? { ear: 1 } : {}); P.setUnlocked({}); P.setLoad(load);
+  globalThis.__colorKids = [];
+  const r = scene({ entries: entry('ear'), main: null, stacked: ['ear'] });
+  return { open: !!r, text: globalThis.__colorKids.map(c => String(c.textContent || '')).join(' | ') };
+};
+{
+  const a = lockedText('loading'), b = lockedText('failed'), c = lockedText('ready');
+  chk(!a.open && /불러오는 중/.test(a.text) && !/\d\/4|[●○]/.test(a.text), '  받는 중 — «불러오는 중» · 0/4 · ●○ 없음 · 색 변경 안 열림 (' + a.text + ')');
+  chk(!b.open && /못 불러왔어요/.test(b.text) && !/\d\/4|[●○]/.test(b.text), '  못 받음 — «못 불러왔어요» · 0/4 없음 · 색 변경 안 열림 (' + b.text + ')');
+  chk(!c.open && /1\/4/.test(c.text) && /●○○○/.test(c.text), '  받음(1개) — «●○○○ 1/4» · 색 변경 잠금 그대로 (' + c.text + ')');
+  P.setLoad('idle'); P.setOwned({});
+  P.setSaved([{ id: 'ear', cat: 'hat', name: '귀', stackable: true }, { id: 'cap', cat: 'hat', name: '모자', stackable: false }]);
+}
+
 say('\n=== 라이선스 없음 — 카테고리 탭은 잠금 안내뿐 ===');
 {
   P.setPremium(false);
   const r = scene({ entries: entry('cap'), main: 'cap', stacked: null });
   chk(!r, '착용해 둔 꾸미기 파츠의 색상 영역을 열지 않는다(닫으면 저장되는 길을 막는다)');
+  _premiumKnown = false;
+  chk(!scene({ entries: entry('cap'), main: 'cap', stacked: null }), '  라이선스를 아직 모를 때(확인 전)도 열지 않는다 — «있음» 으로 짐작하지 않는다');
+  _premiumKnown = true;
   P.setPremium(true);
   chk(!!scene({ entries: entry('cap'), main: 'cap', stacked: null }), '  라이선스가 있으면 그대로 열린다');
+}
+
+if(!process.env.TW_PCE_MUT){
+  say('\n=== mutation test — 색상 영역을 일부러 바꾸면 6절이 빨강 ===');
+  const cp = require('child_process');
+  for(const name of Object.keys(PCE_MUTS)){
+    const r = cp.spawnSync(process.execPath, [__filename], { cwd: process.cwd(), env: Object.assign({}, process.env, { TW_PCE_MUT: name }), encoding: 'utf8' });
+    chk(r.status === 1 && /✗ {3}(받는 중|못 받음)/.test(r.stdout || ''), '  ' + name + (r.status === 3 ? ' — 바꿀 글을 못 찾음' : ''));
+  }
 }
 
 say('');

@@ -164,7 +164,7 @@
 | **sim-maintenance-gate.js** | 380 | **7f10a7c1dfc4** |
 | **sim-room-invite-wait.js** | 45 | **76bc51548bda** |
 | **sim-friend-manage.js** | 293 | **393c1e903601** |
-| **sim-gacha-prune.js** | 176 | **308fdbcafd56** |
+| **sim-gacha-prune.js** | 178 | **ef693d4c2d36** |
 | **sim-gacha-api.js** | 133 | **318931a0246a** |
 | **sim-friendreq-rules.js** | 112 | **a845eb0ae23d** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
@@ -197,7 +197,7 @@
 | **sim-bookmark.js** | 236 | **fbd1a1cead1a** |
 | **sim-overlay-gap.js** | 345 | **eeee70a317a5** |
 | **sim-overlay-layered.js** | 364 | **727c39586ae7** |
-| **sim-part-color-entry.js** | 155 | **37db4baa6ac8** |
+| **sim-part-color-entry.js** | 203 | **0225846e5d33** |
 | **sim-run-rect.js** | 76 | **366198fb34a1** |
 | **sim-pk-fit.js** | 188 | **d8cbb3611fc6** |
 | **sim-pl-grab-pick.js** | 211 | **05f87d671a99** |
@@ -317,7 +317,7 @@
 | **sim-friend-manage-module.js** | 274 | **ab05c8a571c3** |
 | **sim-pomodoro-module.js** | 251 | **c0cf84fa986c** |
 | **sim-myhome-sticker.js** | 442 | **143947485434** |
-| **sim-gacha.js** | 597 | **3145246dc6f9** |
+| **sim-gacha.js** | 602 | **35183a60898f** |
 | **sim-myhome-edit.js** | 629 | **d421148f0d5e** |
 | **sim-room-invite-ui.js** | 436 | **6f703fd83f71** |
 | **sim-focus-log.js** | 333 | **20b5a9e9421e** |
@@ -391,9 +391,9 @@
 | **sim-wd-pic-help.js** | 101 | **d07f53e740ca** |
 | **sim-focus-level.js** | 179 | **a686c5085763** |
 | **sim-chat-ui.js** | 126 | **875c6fad360f** |
-| **sim-license-gate.js** | 445 | **f714237c1fe9** |
+| **sim-license-gate.js** | 474 | **b87b8f83ac3c** |
 | **sim-account.js** | 174 | **bee6deb0f7c1** |
-| **sim-wardrobe.js** | 511 | **5452a5dd2332** |
+| **sim-wardrobe.js** | 535 | **6688b2c97173** |
 | **sim-settings-panel.js** | 255 | **a900a07f7321** |
 | **sim-desktop-run.js** | 94 | **2370870711eb** |
 | **sim-room-entry.js** | 401 | **29b730f27d0b** |
