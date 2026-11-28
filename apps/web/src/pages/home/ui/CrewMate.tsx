@@ -30,6 +30,8 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     if (!el) return;
     el.style.width = '';
     el.style.transform = '';
+    el.style.left = '';
+    el.style.bottom = '';
     const w = Math.ceil(el.getBoundingClientRect().width);
     el.style.width = `${w}px`;
     el.style.transform = `translateX(${-Math.round(w / 2)}px)`;
@@ -41,8 +43,12 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
       w,
       document.documentElement.clientWidth,
     );
-    el.style.setProperty('--tail-dx', `${tail}px`);
-    el.style.transform = `translate(${-Math.round(w / 2) + push + Math.round(r.left) - r.left}px, ${Math.round(r.top) - r.top}px)`;
+    // 꼬리(15px)를 가운데에 두면 7.5px 반 픽셀에 앉아 이음매가 흐려진다 — 안쪽(테두리 9px 안) 정수 px 로
+    el.style.setProperty('--tail-x', `${Math.floor((w - 18 - 15) / 2) + tail}px`);
+    // transform 으로 옮기면 그리는 층이 소수 px 에 남아 꼬리 그림 가장자리가 섞인다 — 자리(left · bottom)로 옮겨 정수 px 에 그리게
+    el.style.transform = 'none';
+    el.style.left = `${-Math.round(w / 2) + push + Math.round(r.left) - r.left}px`;
+    el.style.bottom = `${r.top - Math.round(r.top)}px`;
   }, [say]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
