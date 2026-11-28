@@ -572,7 +572,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
   unlockGate: (...a)=>iDeskMod.unlockGate(...a),
-  tellLevelUnknown: (...a)=>focusLevelMod.tellLevelUnknown(...a),
+  tellLevelUnknown: (...a)=>iDeskMod.tellLevelUnknown(...a),
   levelText: (...a)=>iDeskMod.levelText(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
   isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),
@@ -818,8 +818,8 @@ const statusChipMod = TwStatusChip.createStatusChip({
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
   lockedToast: (...a)=>iDeskMod.lockedToast(...a),
-  getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
-  tellLevelUnknown: (...a)=>focusLevelMod.tellLevelUnknown(...a),
+  levelUnknown: (...a)=>iDeskMod.levelUnknown(...a),
+  tellLevelUnknown: (...a)=>iDeskMod.tellLevelUnknown(...a),
   _moveModeJustToggled: ()=>moveModeMod._moveModeJustToggled(),
   _officeHidden: ()=>officeModeMod._officeHidden(),
   _seatHidden: (...a)=>hiddenSeatsMod._seatHidden(...a),
@@ -4711,6 +4711,8 @@ const focusProgressMod = TwFocusProgress.createFocusProgress({
   setServerDay: (t)=>focusTotalMod.setServerDay(t),
   addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
   note: (m)=>{ if(window.companion && companion.diagNote) companion.diagNote(m); },   // 🩺 [집중] 진단 줄 — 브라우저 미리보기 · 검사엔 companion 이 없다
+  health: TwApi.health,   // 🔁 API 복귀 알림(shared/api-health.js) — 못 받았으면 한 번 다시 받는다
+  createLoadState: TwLoadState.createLoadState,
 });
 const focusLevelMod = TwFocusLevel.createFocusLevel({
   onFocusAdded: (sec)=>roomFocusSync.add(sec),

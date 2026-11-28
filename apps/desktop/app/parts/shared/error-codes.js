@@ -158,7 +158,7 @@ const CODES = {
   'E-FOCUS-07': { msg: '달성표 보상을 받지 못했어요', where: 'focus/chal-store.js — 보상 칸 받기 실패(POST /v2/me/focus/challenges/{주}/rewards/{칸} — NOT_YET · NOTHING 은 조용히 · 이어지는 같은 실패는 한 번 · 서랍 [보상 받기] 로)' },
   'E-FOCUS-08': { msg: '폰 연결 키를 만들지 못했어요', where: 'focus/focus-api.js 길 — 폰 연결 새 키 만들기(POST /v2/me/focus/mobile-link)' },
   'E-FOCUS-09': { msg: '폰 연결을 끊지 못했어요', where: 'focus/focus-api.js 길 — 폰 연결 끊기(DELETE /v2/me/focus/mobile-link)' },
-  'E-FOCUS-10': { msg: '레벨을 불러오지 못했어요 — 내 정보에서 [다시 시도] 를 눌러 주세요', where: 'focus/focus-progress.js — 켤 때 서버 진척 받기 실패(GET /v2/me/focus · startFocus) · 시작마다 한 번 · 혼자 다시 받지 않는다(다시 받기는 내 정보 · 포커스 기록창 · 레벨 문 [다시 시도] — 실패하면 E-FOCUS-01)' },
+  'E-FOCUS-10': { msg: '레벨을 불러오지 못했어요 — 내 정보에서 [다시 시도] 를 눌러 주세요', where: 'focus/focus-progress.js — 서버 진척 받기 첫 실패(GET /v2/me/focus · 켤 때 등 · shared/load-state.js notifyOnce) · 시작마다 한 번 · 그 뒤는 API 복귀(shared/api-health.js) 때 한 번 다시 받는다(번호 없음) · 사용자는 내 정보 · 포커스 기록창 · 레벨 문 [다시 시도](실패하면 E-FOCUS-01)' },
   'E-BUG-01': { msg: '제보 목록을 불러오지 못했어요', where: 'support/bug-board-ui.js — 버그제보 탭 목록 · 필터 · [다음]/[이전] · [다시 시도](GET /v2/bugs — 기능 갈래도 공통 code(api-errors.js)도 아닌 실패 · «목록을 불러오지 못했어요 [다시 시도]» · 다시 보내지 않음 · 공지 받기 실패는 번호 없이 공지 칸만 비움)' },
   'E-BUG-02': { msg: '제보를 불러오지 못했어요', where: 'support/bug-board-ui.js — 글 열기 · 우편함 «가기» · [다시 시도](GET /v2/bugs/{number} — 없는 글 · 남의 비공개 글은 번호 없이 «없음» · «비공개» 화면)' },
   'E-BUG-03': { msg: '제보를 올리지 못했어요', where: 'support/bug-board-ui.js — 글쓰기 [등록](POST /v2/bugs — 하루 상한 · 공지 조건은 번호 없이 안내 · 입력은 그대로 · 다시 보내지 않음)' },

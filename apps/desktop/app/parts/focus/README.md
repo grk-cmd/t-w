@@ -24,7 +24,7 @@
 ## focus-progress.js — ⏱ 포커스 진척(서버 값 · 못 올린 초)
 
 **책임** — 레벨 · 회차 · 별 색은 서버가 준 값 그대로 들고(`load`: idle · loading · ready · failed), 이 PC 는 «아직 못 올린 초»(`pendingSec` · 계정 칸 `tw.focusPendingSec`)만 쌓아 정해진 때 한 번에 올린다. 앱이 누적에서 레벨을 다시 세지 않는다 — 레벨 막대만 `shownTotalSec()`(서버 누적 + 못 올린 몫).
-**deps** — `focusApi`(`createFocusApi`) · `focusStore`(계정 칸) · `notifyError` · `setServerDay`(서버 «오늘» → `focus-total.js`) · `addQuitListener` · `note`(진단 한 줄 `[집중]` — 시작 · 받기 시작 · 받음 · 못 받음(오류 code · 이름만)).
+**deps** — `focusApi`(`createFocusApi`) · `focusStore`(계정 칸) · `notifyError` · `setServerDay`(서버 «오늘» → `focus-total.js`) · `addQuitListener` · `health`(API 복귀 알림 `TwApi.health` — `shared/api-health.js`) · `createLoadState`(받기 틀 `shared/load-state.js`) · `note`(진단 한 줄 `[집중]` — 시작 · 받기 시작 · 받음 · 못 받음(오류 code · 이름만)).
 **내놓는 것** — `startFocus(code, me, session)`(app-boot `focusLevel` 차례 — `session.onReset` 으로 reset) · `blockStart(tell)`(app-boot 가 계정 기능을 못 시작함 — `failed` 로 두고 [다시 시도] 는 `tell()` 로 그 까닭(E-ACC-07)을 다시 알림 · 요청 0) · `progress()` · `isReady()` · `getFocusLevel()`(모르면 null) · `myFocusShow()` · `getStarColor()` · `setStarColor(hex)` · `shownTotalSec()` · `unsentSec()` · `addSeconds(sec)` · `focusEnded()` · `flushPending()`(로그아웃 올리기) · `reload(userOpened)` · `whenReady()`(폰 키 만들기 · 끊기가 먼저 부른다 — 받는 중이면 기다리고 못 받았으면 한 번 더 받아 true/false) · `refreshDay()`(하루가 바뀐 때 새 날 한 번) · `legacyAccrue(sec)`(첫 실행의 옛 누적) · `onChange(fn)`.
 **올리는 때** — 주기 · 재시도 타이머 없음. ① 미전송분이 600초 칸을 넘을 때 ② 더해서 3600초(다음 레벨) 경계를 넘을 때 ③ 집중이 끝날 때(60초 이상) ④ 켤 때 · 로그아웃 올리기 · 앱 끄기. 실패하면 다음 때까지 기다린다.
 **함정**
@@ -32,7 +32,8 @@
 - 늦은 답: `session.onReset` 이 `gen` 을 올려 옛 계정 답은 아무것도 못 바꾼다. 요청 순번(`reqSeq`)이 앞선 요청의 늦은 답이 진척을 덮는 것을 막는다 — 다만 늦게 온 답의 누적이 더 크면 그 몫은 받고(누적은 서버에서 줄지 않는다), 별 색 답의 색은 늘 받는다.
 - 새 날 받기(`refreshDay`): `ready` 일 때만, 겹치면 하나로, 실패하면 번호 없이 `failed` 로만 두고 되풀이하지 않는다(설계 7절 — 다음에 창을 열 때 다시 받는다).
 - 받기 전(idle · loading · failed)에는 레벨 배지 · 경험치 바를 그리지 않는다(`isReady()` · 막대 null). **`getFocusLevel()` 도 null(모름)** — 레벨 1 로 치지 않는다(B-1128-2: 서버 레벨 297 인 사람이 받기 전 1 로 잠겨 💣 · 색 · 춤이 «레벨 N 필요» 로 막혔다). 기능 문은 `focus-level.js` `levelGate` 가 «모름» 을 따로 가른다.
-- 켤 때 받기 실패도 번호를 띄운다(`E-FOCUS-10` — 시작마다 한 번 · 혼자 다시 받지 않는다). 다시 받기는 내 정보 · 포커스 기록창 · 레벨 문의 [다시 시도](`reload(true)`).
+- 받기는 `shared/load-state.js` 틀 위에 있다(겹친 받기 하나 · 늦은 답 버림 · 받기 전 값 null). 첫 실패(켤 때 등)는 번호 `E-FOCUS-10` 한 번, 사용자가 연 창 · [다시 시도](`reload(true)`)의 실패는 `E-FOCUS-01`.
+- **API 복귀 때 한 번 다시 받기**(설계된 것): API 배포 중(30초~1분)에 켜면 켤 때 받기가 실패하고 앱은 서버가 돌아온 때를 몰라 레벨 1 로 남았다(B-1128-2 · 여러 사용자). 이 모듈은 타이머를 두지 않는다 — 닿지 않는 동안 확인 요청 하나를 간격(10초 · 30초 · 1분 · 2분 · 5분, 그 뒤 5분마다)으로 보내는 것은 `shared/api-health.js` 한 곳이고, 복귀 알림이 오면 `load === 'failed'` 일 때만 한 번 다시 받는다(진단 `[집중] 진척 복귀로 다시 받음` · 번호 없음). ready · loading 이면 아무것도 안 한다. 새 날 받기(`refreshDay`) 실패도 failed 로 두고(번호 없음 — 설계 7절) 복귀 때 다시 받는다.
 - 번호: `E-FOCUS-10`(켤 때 받기 실패) · `E-FOCUS-01`(사용자가 연 창에서 다시 받기 실패) · `-02`(올리기 실패 — 이어지면 한 번) · `-03`(별 색 실패 — 이전 색으로).
 검사: `checks/sim-focus-progress.js`.
 

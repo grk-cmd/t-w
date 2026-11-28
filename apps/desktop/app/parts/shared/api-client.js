@@ -26,6 +26,8 @@
    [멈춤 gate] gate:true 인 통로(authed)만 — 서버가 답을 못 하면(5xx · 시간 초과 · 네트워크 · notReady) 다음 요청을 바로 보내지 않고 GATE_MS 만큼 기다렸다 보낸다
      (연달아 실패하면 늘고 · 실제 기다림은 [base/2, base] 로 흩는다(jitter) · 성공하면 풀린다). 429 + Retry-After 면 그 요청(method + path)만 그때까지 보내지 않고
      곧장 429(retryAfterMs = 남은 시간)로 끝낸다 — 서버 요청 제한은 endpoint(method + path)마다라 다른 endpoint 는 막지 않는다. Retry-After 없는 429 는 위 멈춤. 다시 묻는 쪽(login-flow retryNow 등)이 따로 흩지 않아도 되게 여기 한 곳.
+   [닿는가] health(shared/api-health.js)에 알린다 — 닿지 못한 실패(네트워크 · 시간 초과 · 5xx · 봉투가 아닌 응답)는 down() · 성공은 ok(). 4xx · notReady 는 알리지 않는다.
+     닿지 않는 동안 확인 요청(PROBE_PATH — 이미 있는 가벼운 공개 읽기)을 health 가 간격을 두고 하나만 보낸다 · 복귀 알림은 TwApi.health.onRecover. 계정을 놓으면(forgetSession) health.reset().
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
      CSP connect-src https://*.together-working.com 안이어야 한다(desk-companion-prototype.html).
    Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 쿠키는 늘 보내지 않는다.
@@ -49,6 +51,7 @@ const RETRY_AFTER_MAX_MS = 10 * 60 * 1000;   // Retry-After 상한 — 이상한
 const ETAG_MAX = 64;               // ETag 로 기억하는 읽기 수
 const PERSIST_LOAD_MS = 250;       // 남긴 ETag 기억 읽기 상한 — IndexedDB 가 멈춰도 요청은 If-None-Match 없이 바로 나간다
 const DEVICE_HEADER = 'X-Device-Id';
+const PROBE_PATH = '/v2/config';   // 닿지 않는 동안 api-health 가 보내는 확인 요청 — 로그인 없이 읽는 가벼운 공개 설정(점검 창도 읽는 길 · 새 endpoint 를 만들지 않는다)
 /* ETag 기억을 껐다 켜도 남기는 길 — 로그인 없는 읽기 · 로그인 읽기 */
 const PERSIST_PUBLIC = Object.freeze(['/v2/config', '/v2/notices']);
 const PERSIST_AUTHED = Object.freeze(['/v2/catalog', '/v2/me/avatars', '/v2/me/collection', '/v2/me/focus', '/v2/me/friends', '/v2/me/playlist']);
@@ -105,11 +108,13 @@ function gatePauseMs(n, r){
   return Math.round(base * (1 - 0.5 * r));
 }
 /* 서버가 답을 못 한 실패인가 — 멈춤 gate 를 건다. 304 인데 기억 값이 없는 것(NOT_MODIFIED)은 서버가 답한 것이라 뺀다 */
+/* 닿지 못한 실패인가 — health 에 알린다(notReady 는 서버가 답한 것이라 뺀다) */
+const isUnreachable = (e) => e instanceof ApiError && e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED';
 const isServerDown = (e) => e instanceof ApiError && (e.kind === 'notReady' || (e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED'));
 
 /** @param {{ baseUrl: string, fetch: Function | null, now?: () => number, timeoutMs?: number, writeTimeoutMs?: number, backoffMs?: number,
  *   getToken?: (force: boolean) => Promise<string | null>, deviceId?: () => string | null, onRequest?: () => void, etagMax?: number,
- *   gate?: boolean, random?: () => number, setTimeout?: Function,
+ *   gate?: boolean, random?: () => number, setTimeout?: Function, health?: { down: () => void, ok: () => void, reset: () => void },
  *   persist?: { store: { load: (k: string) => Promise<{ etag: string, data: any } | null>, save: Function, clear: Function }, paths: string[] } }} deps
  *   getToken 은 로그인 통로만 넘긴다(없으면 로그인 요청은 늘 NO_TOKEN) · onRequest 는 실제로 보내기 직전(서버 점검 창 maintenance-gate.js touch)
  *   gate 는 위 [멈춤 gate](로그인 통로만) · random · setTimeout 은 검사용(기본 전역) */
@@ -128,6 +133,7 @@ function createApiClient(deps){
   const gate = d.gate === true;
   const random = d.random || Math.random;
   const tSet = d.setTimeout || ((f, ms) => setTimeout(f, ms));
+  const health = d.health || null;   // shared/api-health.js — 앱 한 벌만 넘긴다(검사 · 다른 통로는 없음)
   const cache = new Map();      // path → { data, until }
   const inflight = new Map();   // 'A ' + 누구 + ' ' + path | 'P ' + path → Promise
   const etags = new Map();      // 누구 + ' ' + path → { etag, data } (넣은 차례 = 오래된 차례)
@@ -250,7 +256,8 @@ function createApiClient(deps){
       onRequest();
       return once(path, ms, Object.assign({}, o, { force: true }));
     });
-    return gate ? p.then((data) => { gateUntil = 0; gateFails = 0; return data; }, (e) => { gateAfter(e, o.method + ' ' + path); throw e; }) : p;
+    const q = health ? p.then((data) => { health.ok(); return data; }, (e) => { if(isUnreachable(e)) health.down(); throw e; }) : p;   // [닿는가] — 4xx 는 알리지 않는다
+    return gate ? q.then((data) => { gateUntil = 0; gateFails = 0; return data; }, (e) => { gateAfter(e, o.method + ' ' + path); throw e; }) : q;
   }
 
   /* 멈춤 gate — 실패 하나를 보고 다음 요청을 늦춘다. 같은 멈춤 동안 실패한 다른 요청(동시에 나간 것)은 한 번으로 센다 */
@@ -354,6 +361,7 @@ function createApiClient(deps){
       etags.clear();
       sessionGen++;
       if(persist){ try{ persist.store.clear(); }catch(_){} }   // 남긴 기억도 — 다음 계정이 앞 계정 값을 304 로 받지 않게(열쇠에 누구가 들어 있어도 이 PC 에 남기지 않는다)
+      if(health) health.reset();   // 닿지 않음 · 확인 타이머도 다음 계정에 남기지 않는다
       gateUntil = 0; gateFails = 0; limited.clear();   // 앞 계정의 멈춤 · 429 막힘(최대 RETRY_AFTER_MAX_MS)이 다음 계정에 남지 않게
     },
   };
@@ -361,7 +369,7 @@ function createApiClient(deps){
 
 /* 앱 한 벌 — preload 가 정한 환경으로. 검사 · 웹(companion 없음)은 운영 주소지만 CSP · 네트워크가 막으면 곧장 'unavailable'.
    authed 의 토큰은 firebase-init.js 가 bindToken 으로 잇는다(그 전 로그인 요청은 NO_TOKEN). */
-let client = null, authed = null, tokenSource = null;
+let client = null, authed = null, health = null, tokenSource = null;
 try{
   if(typeof window !== 'undefined'){
     let st = null; try{ st = window.localStorage; }catch(_){}
@@ -370,19 +378,25 @@ try{
     const touch = () => { window.TwMaintenance.store.touch(); };
     /* 켤 때 읽는 길 중 ETag 를 주는 것 — 기억을 껐다 켜도 남긴다(etag-store.js). 경로를 더할 땐 서버가 그 길에 ETag 를 주는지 먼저 본다 */
     const store = window.TwEtagStore.createEtagStore();
-    client = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, persist: { store, paths: PERSIST_PUBLIC } });
-    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0, persist: { store, paths: PERSIST_AUTHED },   // 쉬기 끔 — 이 실패가 다시 묻기를 막지 않게
+    /* API 가 닿는가 한 벌(shared/api-health.js) — 두 통로가 같이 알리고, 확인 요청은 로그인 통로(쉬기 없음)로 하나만 */
+    health = window.TwApiHealth.createApiHealth({
+      probe: () => authed.get(PROBE_PATH),
+      setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: (h) => clearTimeout(h),
+      note: (m) => { if(window.companion && window.companion.diagNote) window.companion.diagNote(m); },   // 🩺 [api] 줄 — 브라우저 미리보기 · 검사엔 companion 이 없다
+    });
+    client = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, health, persist: { store, paths: PERSIST_PUBLIC } });
+    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0, health, persist: { store, paths: PERSIST_AUTHED },   // 쉬기 끔 — 이 실패가 다시 묻기를 막지 않게
       gate: true,   // 대신 멈춤 gate — 다시 묻기는 막지 않고 늦춘다
       getToken: (force) => (tokenSource ? tokenSource(force) : Promise.resolve(null)),
       deviceId: () => window.TwDeviceId.store.get() });
   }
-}catch(_){ client = null; authed = null; }
+}catch(_){ client = null; authed = null; health = null; }
 
 /* 로그인 토큰 출처를 잇는다 — (force) → Promise<ID 토큰 | null>. 다시 부르면 바꾼다. */
 function bindToken(fn){ tokenSource = fn; }
 
-const api = { API_BASE_PROD, API_BASE_DEV, API_BASE_DEV_KEY, API_BASE_RE, TIMEOUT_MS, WRITE_TIMEOUT_MS, BACKOFF_MS, GATE_MS, RETRY_AFTER_MAX_MS, ETAG_MAX, PERSIST_LOAD_MS, DEVICE_HEADER, NO_ROUTE_CODES, PERSIST_PUBLIC, PERSIST_AUTHED,
-  ApiError, gatePauseMs, apiBaseFor, envOf, tokenOwner, retryAfterMsOf, createApiClient, bindToken, client, authed };
+const api = { API_BASE_PROD, API_BASE_DEV, API_BASE_DEV_KEY, API_BASE_RE, TIMEOUT_MS, WRITE_TIMEOUT_MS, BACKOFF_MS, GATE_MS, RETRY_AFTER_MAX_MS, ETAG_MAX, PERSIST_LOAD_MS, DEVICE_HEADER, NO_ROUTE_CODES, PERSIST_PUBLIC, PERSIST_AUTHED, PROBE_PATH,
+  ApiError, gatePauseMs, apiBaseFor, envOf, tokenOwner, retryAfterMsOf, createApiClient, bindToken, client, authed, health };
 if(typeof window !== 'undefined') window.TwApi = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

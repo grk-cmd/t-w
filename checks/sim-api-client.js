@@ -10,6 +10,7 @@
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
    7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
    8. ETag — 기억 · If-None-Match · 304 면 기억 값 · 계정이 다르면 따로 · 계정을 놓을 때(forgetSession) 진행 중 로그인 읽기 · 기억을 뗌 · 상한 · 오류 봉투(items · Retry-After · 자원 없음 404)
+   8-2. 닿는가(health) — 닿지 못함(5xx · 네트워크 · 시간 초과 · 봉투 아님)은 down · 성공은 ok · 4xx · notReady · 304 기억 없음은 알리지 않음 · 계정을 놓으면 reset · 앱 한 벌은 두 통로가 TwApi.health 하나를 쓴다 · mutation test
    9. 모듈 — Firebase 모름 · window.TwApi · 앱 한 벌(client · authed · bindToken) 주소 · html 차례
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
@@ -29,6 +30,8 @@ for(const [n, v] of [['api-client.js', SRC], ['desk-companion-prototype.html', H
 }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const A = require(path.resolve(where('api-client.js')));
+const H = where('api-health.js') ? require(path.resolve(where('api-health.js'))) : null;   // 앱 한 벌이 TwApiHealth 로 만든다(검사는 sim-api-health)
+if(!H){ say('  ? 원본 못 찾음 — api-health.js'); process.exit(2); }
 const memStore = (o) => ({ getItem: (k) => (k in (o || {}) ? o[k] : null) });
 const PROD = 'https://api.together-working.com', DEV = 'https://api-dev.together-working.com';
 const res = (status, body, hdr) => ({ ok: status >= 200 && status < 300, status, headers: { get: (k) => { const h = hdr || {}; const f = Object.keys(h).find((x) => x.toLowerCase() === String(k).toLowerCase()); return f ? h[f] : null; } }, json: async () => { if(body instanceof Error) throw body; return body; } });
@@ -420,7 +423,7 @@ async function gateCases(M){
     const code = strip(SRC);
     chk(!/^\s*import\s/m.test(SRC) && !/firebase\/|firebase-|gstatic|getDatabase|require\(/.test(code), 'api-client.js 는 아무것도 import 하지 않는다(Firebase 모름)');
     const mkWin = (env, ls) => {
-      const w = { fetch: () => {}, localStorage: memStore(ls || {}), companion: env ? { firebaseEnv: env } : undefined, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) } };
+      const w = { fetch: () => {}, localStorage: memStore(ls || {}), companion: env ? { firebaseEnv: env } : undefined, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) }, TwApiHealth: H };
       w.window = w;
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent });
       return w;
@@ -431,7 +434,7 @@ async function gateCases(M){
     {
       const calls = [];
       let down = false;
-      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){ calls.push('touch'); } } }, TwDeviceId: { store: { get: () => 'dev-abc123' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) },
+      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){ calls.push('touch'); } } }, TwDeviceId: { store: { get: () => 'dev-abc123' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) }, TwApiHealth: H,
         fetch: async (url, init) => { if(down) throw new TypeError('x'); calls.push(init.headers); return res(200, { success: true, data: 1 }); } };
       w.window = w;
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
@@ -539,7 +542,7 @@ async function gateCases(M){
         ok(ew && ew.code === 'OWNER_CHANGED' && wf.calls.length === 0);
         ok((await cw.put('/m', {}, { expectOwner: 'B' })) === 7 && (await cw.put('/m', {})) === 7 && wf.calls.length === 2);
         const ow = []; await cw.get('/m', { auth: true, onOwner: (x) => ow.push(x) }); ok(ow.join() === 'B');
-        const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) }, fetch: async () => { throw new TypeError('x'); } };
+        const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) }, TwApiHealth: H, fetch: async () => { throw new TypeError('x'); } };
         w.window = w;
         vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
         w.TwApi.bindToken(async () => 't');
@@ -591,6 +594,51 @@ async function gateCases(M){
       if(bad === 0) missed.push(what);
     }
     chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
+  }
+
+  say('── 8-2. 닿는가(health) — api-health 에 알리기(B-1128-2)');
+  {
+    const healthCases = async (src) => {
+      const out = [], ok = (c, msg) => out.push([!!c, msg]);
+      const mod = { exports: {} }; vm.runInNewContext(src, { module: mod, setTimeout, clearTimeout, AbortController, console, atob: (x) => Buffer.from(x, 'base64').toString('binary') });
+      const M = mod.exports;
+      let mode = 200;
+      const f = mkFetch(() => { if(mode === 'net') throw new TypeError('x'); if(typeof mode === 'number' && mode !== 200) return res(mode, { success: false, code: mode === 503 ? 'X_NOT_READY' : (mode === 404 ? 'USER_NOT_FOUND' : 'BAD') }); if(mode === 'shape') return res(200, { nope: 1 }); return res(200, { success: true, data: 1 }); });
+      const ev = [];
+      const c = M.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => 't', backoffMs: 0, health: { down: () => ev.push('down'), ok: () => ev.push('ok'), reset: () => ev.push('reset') } });
+      await c.get('/a', { auth: true });
+      ok(ev.join() === 'ok', '성공 → ok');
+      ev.length = 0; mode = 500; await err(c.get('/b', { auth: true }));
+      mode = 'net'; await err(c.post('/c', {}));
+      mode = 'shape'; await err(c.get('/d', { auth: true }));
+      ok(ev.join() === 'down,down,down', '★ 5xx · 네트워크 · 봉투 아님 → down');
+      ev.length = 0; mode = 404; await err(c.get('/e', { auth: true })); mode = 401; await err(c.get('/f', { auth: true })); mode = 400; await err(c.post('/g', {})); mode = 503; await err(c.get('/h', { auth: true }));
+      ok(ev.length === 0, '★ 4xx(404 · 401 · 400) · notReady(503 *_NOT_READY) 는 알리지 않는다 — ' + ev.join());
+      c.forgetSession();
+      ok(ev.join() === 'reset', '  계정을 놓으면(forgetSession) health.reset()');
+      const c2 = M.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(500, { success: false })), backoffMs: 0 });
+      ok(!!(await err(c2.get('/x'))), '  health 가 없는 통로(검사 · 다른 통로)는 그대로');
+      const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'd' } }, TwEtagStore: { createEtagStore: () => ({ load: async () => null, save(){}, clear(){} }) }, TwApiHealth: H, fetch: async () => res(200, { success: true, data: 1 }) };
+      w.window = w;
+      vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
+      ok(w.TwApi.health && typeof w.TwApi.health.onRecover === 'function' && w.TwApi.PROBE_PATH === '/v2/config', '  앱 한 벌 — TwApi.health 하나 · 확인 요청은 이미 있는 공개 설정 읽기(/v2/config)');
+      return out;
+    };
+    (await healthCases(SRC)).forEach(([o, m]) => chk(o, m));
+    const HB = [
+      ["(e) => { if(isUnreachable(e)) health.down(); throw e; }", "(e) => { health.down(); throw e; }", '4xx 도 닿지 않음으로 알림'],
+      ["(e) => { if(isUnreachable(e)) health.down(); throw e; }", "(e) => { throw e; }", '닿지 못함을 안 알림'],
+      ["p.then((data) => { health.ok(); return data; }", "p.then((data) => { return data; }", '성공을 안 알림(복귀가 안 옴)'],
+      ["      if(health) health.reset();   // 닿지 않음", "      //", '계정을 놓아도 확인 타이머가 남음'],
+      ["const isUnreachable = (e) => e instanceof ApiError && e.kind === 'unavailable' && e.code !== 'NOT_MODIFIED';", "const isUnreachable = (e) => e instanceof ApiError && (e.kind === 'unavailable' || e.kind === 'notReady');", 'notReady(서버는 답함)도 닿지 않음으로'],
+    ];
+    const missed = [];
+    for(const [from, to, what] of HB){
+      if(SRC.indexOf(from) < 0){ missed.push('글 못 찾음: ' + what); continue; }
+      let red = false; try{ red = (await healthCases(SRC.split(from).join(to))).some(([o]) => !o); }catch(_){ red = true; }
+      if(!red) missed.push(what);
+    }
+    chk(!missed.length, 'mutation test(닿는가) ' + HB.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   }
 
   say('── whenIdle — 나가 있는 요청이 다 끝나면 풀린다(켤 때 «접속 중…» 을 내릴 때)');

@@ -19,6 +19,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const pick = (names) => names.map(read).find((v) => v != null);
 const SRC0 = {
   MOD: pick(['focus-progress.js', 'parts/focus/focus-progress.js', 'app/parts/focus/focus-progress.js']),
+  LS: pick(['load-state.js', 'parts/shared/load-state.js', 'app/parts/shared/load-state.js']),   // 받기 틀 — 진짜를 넘긴다(sim-load-state 가 틀 자체를 본다)
   API: pick(['focus-api.js', 'parts/focus/focus-api.js', 'app/parts/focus/focus-api.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   WM: pick(['window-mode.js', 'parts/launcher/window-mode.js', 'app/parts/launcher/window-mode.js']),   // 활성 앱 판정(_applyActiveAppState)은 launcher/window-mode.js
@@ -33,12 +34,13 @@ const prog = (total, o) => {
   const C = 999 * 3600;
   return Object.assign({ totalSec: total, level: Math.min(999, 1 + Math.floor(total / 3600)), cycle: Math.floor(total / C), cycleLevel: 1 + Math.floor((total % C) / 3600), starColor: '#ffd76a', today: TODAY }, o || {});
 };
+const loadLS = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwLoadState; };
 const load = (src, timers) => { const w = {}; new Function('window', 'module', 'setTimeout', 'setInterval', src)(w, undefined, timers.setTimeout, timers.setInterval); return w.TwFocusProgress; };
 
 /* 한 판 — 손으로 푸는 가짜 서버 경로 · 가짜 계정 칸 · 가짜 세션 */
 function world(S, o){
   o = o || {};
-  const W = { gets: [], accrues: [], patches: [], notes: [], diags: [], days: [], store: new Map(), storeWrites: 0, resets: [], quit: [], timers: 0, resetApi: 0 };
+  const W = { gets: [], accrues: [], patches: [], notes: [], diags: [], recoverFns: [], days: [], store: new Map(), storeWrites: 0, resets: [], quit: [], timers: 0, resetApi: 0 };
   if(o.pending) W.store.set('tw.focusPendingSec', String(o.pending));
   const defer = () => { const d = {}; d.p = new Promise((res, rej) => { d.res = res; d.rej = rej; }); return d; };
   const focusApi = {
@@ -55,11 +57,14 @@ function world(S, o){
     notifyError: (c, e) => W.notes.push(c), setServerDay: (t) => W.days.push(t),
     addQuitListener: (fn) => W.quit.push(fn),
     note: (line) => W.diags.push(line),
+    health: { onRecover: (fn) => { W.recoverFns.push(fn); } },
+    createLoadState: loadLS(S.LS).createLoadState,
   });
   const session = { onReset: (fn) => W.resets.push(fn), setInterval: () => { W.timers++; }, setTimeout: () => { W.timers++; } };
   W.T = T; W.mod = mod; W.session = session;
   W.start = (code) => mod.startFocus(code || 'uAAAAAAAA1', { userCode: code || 'uAAAAAAAA1' }, session);
   W.reset = () => W.resets.forEach((f) => f());
+  W.recover = () => W.recoverFns.forEach((f) => f());   // api-health.js 복귀 알림이 부르는 때
   W.ok = async (d, v) => { d.res(v); await flush(); };
   W.up = async (total, extra) => { W.start(); await W.ok(W.gets[0], prog(total || 0, extra)); return W; };   // 시작 → ready
   W.add = (n) => { for(let i = 0; i < n; i++) mod.addSeconds(1); };
@@ -134,6 +139,28 @@ async function judge(S){
   chk(W.gets.length === 1 && W.mod.progress().load === 'loading', '  나중에 시작하면 평소대로 받는다');
   W.reset(); await W.mod.reload(true);
   chk(told.length === 1, '  reset 뒤에는 막힘을 잊는다');
+
+  say('── 1-3. API 복귀 — 못 받았을 때만 한 번 다시 받기(배포 중 켬 · B-1128-2)');
+  W = world(S);
+  chk(W.recoverFns.length === 0, '만들 때는 복귀 알림을 구독하지 않는다');
+  W.start();
+  chk(W.recoverFns.length === 1, '  시작(첫 받기)에서 한 번 건다');
+  W.gets[0].rej(Object.assign(new Error('x'), { code: 'UNAVAILABLE' })); await flush();
+  const nN = W.notes.length;
+  W.recover(); await flush();
+  chk(W.gets.length === 2 && W.mod.progress().load === 'loading' && W.diags.includes('[집중] 진척 복귀로 다시 받음'), '★ 켤 때 받기 실패 → API 복귀 → 진척을 한 번 다시 받는다 · 진단 줄');
+  W.recover(); await flush();
+  chk(W.gets.length === 2, '  받는 중에 또 복귀가 와도 요청은 늘지 않는다');
+  W.gets[1].rej(new Error('y')); await flush();
+  chk(W.notes.length === nN && W.timers === 0, '  복귀 다시 받기가 또 실패해도 번호 없음 · 타이머 0(다음 복귀를 기다린다)');
+  W.recover(); await W.ok(W.gets[2], prog(398 * 3600));
+  chk(W.mod.getFocusLevel() === 399 && W.mod.isReady(), '  다시 받으면 서버 레벨 그대로(레벨 398 사용자 — 1 이 아니다)');
+  W.recover(); await flush();
+  chk(W.gets.length === 3, '★ 이미 받았으면(ready) 복귀가 와도 다시 받지 않는다');
+  W = world(S); W.mod.blockStart(() => {}); W.recover(); await flush();
+  chk(W.gets.length === 0, '  막힌 시작이면 복귀가 와도 요청 0');
+  W = world(S); W.start(); W.gets[0].rej(new Error('x')); await flush(); W.reset(); W.recover(); await flush();
+  chk(W.gets.length === 1, '  계정을 놓은 뒤(reset) 복귀가 와도 요청 0');
 
   say('── 2. 보내는 때');
   W = await world(S).up(0);
@@ -361,6 +388,9 @@ async function judge(S){
   chk(/else if\(_focusAccruedLast\) focusProgressMod\(\)\.focusEnded\(\);/.test(S.WM) && /focusProgressMod: \(\)=>focusProgressMod,/.test(A), 'window-mode.js — 집중이 끝나는 순간 focusEnded 를 부른다(app.js 가 읽는 함수로 넘긴다)');
   const iP = S.HTML.indexOf('<script src="parts/focus/focus-progress.js"></script>'), iApi = S.HTML.indexOf('<script src="parts/focus/focus-api.js"></script>'), iApp = S.HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iP > 0 && iApp > iP && iApi > 0, 'html — focus-progress.js 를 app.js 앞에');
+  const iLs = S.HTML.indexOf('<script src="parts/shared/load-state.js"></script>');
+  chk(iLs > 0 && iLs < iP && /health: TwApi\.health,/.test(mk) && /createLoadState: TwLoadState\.createLoadState,/.test(mk) && /PRELOAD\.push\('load-state\.js'\)/.test(S.SMOKE),
+    'html · smoke — load-state.js 를 focus-progress.js 앞에 · app.js 가 받기 틀 · API 복귀 알림(TwApi.health)을 넘긴다');
   chk(/PRELOAD\.push\('focus-progress\.js'\)/.test(S.SMOKE), 'smoke — PRELOAD');
   chk(!/setInterval|setTimeout/.test(S.MOD.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')), '모듈에 타이머 코드가 없다(주기 · 재시도 없음)');
 }
@@ -375,33 +405,35 @@ async function judge(S){
     ['MOD', "            pendingRaw = Math.max(0, pendingRaw - sent);", "            pendingRaw = Math.max(0, pendingRaw - (r.acceptedSec || sent));", '받아 주지 않은 몫을 안 버리고 남김'],
     ['MOD', "        }while(again && unsent() > 0);", "        }while(false);", 'again 을 지움(끝난 뒤 한 번 더가 없음)'],
     ['MOD', "          if(g !== gen) return;\n          if(r.status === 'ok'){", "          if(r.status === 'ok'){", '올리기 답에서 gen 확인을 뺌(늦은 답이 새 계정을 바꿈)'],
-    ['MOD', "        if(g !== gen) return 'skipped';\n        adopt(prog, seq);", "        adopt(prog, seq);", '받기 답에서 gen 확인을 뺌'],
+    ['LS', "        if(g !== gen) return 'skipped';\n        val = v;", "        val = v;", '받기 답에서 gen 확인을 뺌(받기 틀)'],
     ['MOD', "const SEND_STEP_SEC = 600; ", "const SEND_STEP_SEC = 500; ", '보내는 칸을 600 이 아닌 값으로'],
     ['MOD', "    if(crossStep || crossLevel) send();", "    if(crossStep) send();", '레벨 경계 보내기를 뺌'],
     ['MOD', "    if(crossStep || crossLevel) send();", "    if(crossLevel) send();", '600초 보내기를 뺌'],
-    ['MOD', "    if(started && load === 'ready' && unsent() >= END_MIN_SEC) send();", "    if(started && load === 'ready' && unsent() >= 1) send();", '집중 끝남을 60초 문턱 없이 보냄'],
+    ['MOD', "    if(started && loadOf() === 'ready' && unsent() >= END_MIN_SEC) send();", "    if(started && loadOf() === 'ready' && unsent() >= 1) send();", '집중 끝남을 60초 문턱 없이 보냄'],
     ['MOD', "            if(!failShown){ failShown = true; notifyError('E-FOCUS-02', r.err); }", "            notifyError('E-FOCUS-02', r.err);", '이어지는 실패도 번호를 또 띄움'],
     ['MOD', "            failShown = false;\n", "", '성공해도 실패 알림 표시를 안 풂'],
     ['MOD', "            return;   // 미전송분 그대로 · 혼자 다시 보내지 않는다", "            setTimeout(() => send(), 60000); return;", '실패하면 60초 재시도 타이머'],
-    ['MOD', "        if(why === 'user') notifyError('E-FOCUS-01', e);", "        notifyError('E-FOCUS-01', e);", '시작 때의 실패에도 E-FOCUS-01 을 띄움'],
-    ['MOD', "        else if(why === 'start') notifyError('E-FOCUS-10', e);", "", '켤 때의 실패를 조용히 넘김(E-FOCUS-10 없음)'],
-    ['MOD', "        else if(why === 'start') notifyError('E-FOCUS-10', e);", "        else notifyError('E-FOCUS-10', e);", '조용한 다시 받기 실패에도 E-FOCUS-10 을 또 띄움'],
-    ['MOD', "  const getFocusLevel = () => (load === 'ready' ? p.level : null);", "  const getFocusLevel = () => (load === 'ready' ? p.level : 1);", '★ 모르는 레벨을 1 로 돌려줌(B-1128-2 옛 모양)'],
-    ['MOD', "        diag('진척 못 받음(' + why + ') ' + errTag(e));", "        diag('진척 못 받음(' + why + ') ' + String(e && e.message));", '진단에 오류 글을 그대로 적음'],
-    ['MOD', "    diag('진척 받기 시작(' + why + ')');\n", "", '받기 시작 진단 줄을 뺌'],
+    ['MOD', "    notifyOnce: (e) => notifyError('E-FOCUS-10', e),", "    notifyOnce: (e) => notifyError('E-FOCUS-01', e),", '켤 때의 실패에 E-FOCUS-01 을 띄움'],
+    ['MOD', "    notifyRetry: (e) => notifyError('E-FOCUS-01', e),", "    notifyRetry: (e) => {},", '사용자가 연 창의 실패를 안 알림'],
+    ['MOD', "    notifyOnce: (e) => notifyError('E-FOCUS-10', e),", "    notifyOnce: (e) => {},", '켤 때의 실패를 조용히 넘김(E-FOCUS-10 없음)'],
+    ['LS', "    else if(!notified){ notified = true; notifyOnce(e); }", "    else notifyOnce(e);", '조용한 다시 받기 실패에도 E-FOCUS-10 을 또 띄움'],
+    ['MOD', "  const getFocusLevel = () => (loadOf() === 'ready' ? p.level : null);", "  const getFocusLevel = () => (loadOf() === 'ready' ? p.level : 1);", '★ 모르는 레벨을 1 로 돌려줌(B-1128-2 옛 모양)'],
+    ['LS', "        say('못 받음(' + w + ') ' + errTag(e));", "        say('못 받음(' + w + ') ' + String(e && e.message));", '진단에 오류 글을 그대로 적음'],
+    ['LS', "    say('받기 시작(' + w + ')');\n", "", '받기 시작 진단 줄을 뺌'],
     ['MOD', "      if(blocked && userOpened === true){ try{ blocked(); }catch(_){} }", "", '막힌 시작에서 [다시 시도] 가 까닭을 안 알림'],
-    ['MOD', "    blocked = tell; load = 'failed';", "    blocked = tell;", '막힌 시작을 «못 불러옴» 으로 안 둠'],
+    ['MOD', "  const loadOf = () => (blocked ? 'failed' : ls.state());", "  const loadOf = () => ls.state();", '막힌 시작을 «못 불러옴» 으로 안 둠'],
     ['MOD', "          starWant = null;   // 서버가 아는 색으로 되돌린다\n", "", '별 색 실패해도 이전 색으로 안 되돌림'],
     ['MOD', "          if(r.status === 'failed') notifyError('E-FOCUS-03', r.err);", "", '별 색 실패 알림이 빠짐'],
     ['MOD', "    if(starBusy){ starAgain = true; changed(); return true; }", "    if(false){ starAgain = true; changed(); return true; }", '별 색 한 줄을 뺌'],
     ['MOD', "    session.onReset(reset);", "", '세션 reset 훅을 안 건다'],
-    ['MOD', "    loadNow('start');\n  }", "  }", '시작해도 진척을 안 받음'],
+    ['MOD', "    ls.load('start');\n  }", "  }", '시작해도 진척을 안 받음'],
     ['MOD', "    if(seq < appliedSeq){", "    if(false){", '요청 순번을 안 봄'],
-    ['MOD', "        if(g === gen){ load = 'failed'; changed(); }\n      }finally{", "        if(g === gen){ changed(); }\n      }finally{", '새 날 받기 실패를 failed 로 안 둠'],
-    ['MOD', "    if(!started || load !== 'ready' || dayRun) return dayRun || Promise.resolve();", "    if(!started) return Promise.resolve();", '새 날 받기가 받기 전에도 · 겹쳐서 나감'],
+    ['LS', "        st = 'failed';\n        say('새로 못 받음 ' + errTag(e));", "        say('새로 못 받음 ' + errTag(e));", '새 날 받기 실패를 failed 로 안 둠'],
+    ['LS', "    if(st !== 'ready' || run) return refreshing || Promise.resolve();\n    if(refreshing) return refreshing;", "", '새 날 받기가 받기 전에도 · 겹쳐서 나감'],
+    ['MOD', "    health,\n", "", '★ 복귀 알림을 안 넘김(배포 중 켜면 레벨 1 로 남음)'],
     ['MOD', "if(!adopt(r.progress, seq) && p) p.starColor = r.progress.starColor;", "adopt(r.progress, seq);", '늦은 별 색 답의 색을 버림'],
-    ['MOD', "  const shownTotalSec = () => (load === 'ready' ? p.totalSec + unsent() : null);", "  const shownTotalSec = () => (load === 'ready' ? p.totalSec : null);", '레벨 막대용 합계에 못 올린 몫을 안 더함'],
-    ['MOD', "  const getFocusLevel = () => (load === 'ready' ? p.level : null);", "  const getFocusLevel = () => (load === 'ready' ? Math.min(p.level, 50) : null);", '레벨을 앱이 다시 셈'],
+    ['MOD', "  const shownTotalSec = () => (loadOf() === 'ready' ? p.totalSec + unsent() : null);", "  const shownTotalSec = () => (loadOf() === 'ready' ? p.totalSec : null);", '레벨 막대용 합계에 못 올린 몫을 안 더함'],
+    ['MOD', "  const getFocusLevel = () => (loadOf() === 'ready' ? p.level : null);", "  const getFocusLevel = () => (loadOf() === 'ready' ? Math.min(p.level, 50) : null);", '레벨을 앱이 다시 셈'],
     ['MOD', "    if(!started || !(sec > 0)) return;", "    if(!(sec > 0)) return;", '시작 전에도 쌓음'],
     ['MOD', "    setServerDay(prog.today);", "", '서버 날을 안 넘김'],
     ['APP', "focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },", "focusLevel: ()=>{},", '앱 켜는 차례가 시작을 안 부름'],

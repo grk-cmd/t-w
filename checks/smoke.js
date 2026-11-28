@@ -379,6 +379,8 @@ PRELOAD.push('purikura-rt.js');   // 📷 스티커사진 세션 포트 — app.
 PRELOAD.push('purikura-ui.js');
 /* focus-api.js · focus-progress.js — ⏱ 포커스 서버 경로 provider · 진척(서버 값 · 못 올린 초). app.js 가 로그인 통로를 넘겨 만든다. */
 PRELOAD.push('focus-api.js');
+PRELOAD.push('api-health.js');   // 🩺 API 가 닿는가(TwApiHealth) — api-client.js 가 만든다
+PRELOAD.push('load-state.js');   // 📦 서버 값 받는 틀(TwLoadState) — app.js 가 focus-progress 에 넘긴다
 PRELOAD.push('focus-progress.js');
 /* guestbook-api.js · guestbook-feed.js — 📖 방명록 서버 경로와 받아 들고 있는 한 벌. app.js 가 만들 때 TwGuestbookApi · TwGuestbookFeed 를 부른다. */
 PRELOAD.push('guestbook-api.js');

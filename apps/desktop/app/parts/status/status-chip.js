@@ -24,7 +24,7 @@ const _closeChipPopups = deps._closeChipPopups;
 const _danceCmdCooldownAt = deps._danceCmdCooldownAt;   // 읽는 함수
 const _lowestDanceReq = deps._lowestDanceReq;
 const lockedToast = deps.lockedToast;   // 잠긴 안내 글(room/interaction-desk.js)
-const getFocusLevel = deps.getFocusLevel;   // 내 서버 레벨 — 모르면 null(focus-level.js)
+const levelUnknown = deps.levelUnknown;   // 내 서버 레벨을 모르나(room/interaction-desk.js)
 const tellLevelUnknown = deps.tellLevelUnknown;   // 레벨을 몰라 못 열 때 안내(못 받았으면 [다시 시도])
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
 const _officeHidden = deps._officeHidden;   // 읽는 함수
@@ -567,7 +567,7 @@ function updateMyStatusChipPosition(){
       e.stopPropagation();
       const def = _pickUnlockedDance();
       if(!def){
-        if(getFocusLevel() == null){ tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.N 필요» 가 아니다(B-1128-2)
+        if(levelUnknown()){ tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.N 필요» 가 아니다(B-1128-2)
         toast(lockedToast(_lowestDanceReq(), '달성 시 사용할 수 있어요')); return;
       }
       // 개인 쿨다운 5초 (채팅 명령과 공유)
