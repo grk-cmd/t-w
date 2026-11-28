@@ -607,6 +607,10 @@ async function behave(src){
     chk(head.textContent === '(4/100)' && groups.join('|') === '온라인 — 2|오프라인 — 2', '(n/상한) · 온라인 / 오프라인 묶음');
     chk(rows().map(r => /mh-fname">([^< ]*)/.exec(r.innerHTML)[1]).join() === 'alice,Bob,Carl,Zed&lt;&amp;&gt;', '  이름순(대소문자 무시 localeCompare) · 이름은 escHtml');
     const rBob = rows()[1], rAli = rows()[0], rZed = rows()[3], rCarl = rows()[2];
+    { const keep = e.friends;
+      e.friends = { f5: { name: 'Zoe', online: false, level: 0 }, f6: { name: 'Zz', online: false, level: 'x' } }; m.renderMyHomeFriendList();
+      chk(rows().length === 2 && rows().every(r => !/mh-flv/.test(r.innerHTML)), '  잘못된 레벨(0 · 글자)도 배지 없음 — Lv.1 로 그리지 않는다');
+      e.friends = keep; m.renderMyHomeFriendList(); }
     chk(/ 🏠/.test(rBob.innerHTML) && / 🏠/.test(rAli.innerHTML) && !/🏠/.test(rZed.innerHTML), '🏠 — 시크릿룸이어도 붙는다(코드만 안 보인다)');
     chk(/<i class="lvp">Lv<\/i>12/.test(rBob.innerHTML) && !/mh-flv/.test(rAli.innerHTML) && /mh-flv lv-star lvx" style="--pre-c:#ff0"><i class="pre">★2<\/i>7/.test(rCarl.innerHTML), '레벨 배지 — 레벨 없으면 안 붙음 · 회차 친구는 별');
     chk(/mh-fsub">안녕</.test(rBob.innerHTML) && /mh-fsub">온라인</.test(rAli.innerHTML) && /mh-fsub">오프라인</.test(rZed.innerHTML), '한 줄 요약 — 소개글은 태그를 걷어 낸 글자 · 없으면 온라인 / 오프라인');
@@ -743,6 +747,7 @@ async function runAll(MI, APP, HTML){
 
   say('── 8. mutation test');
   const BREAKS = [
+    ['MI', "    const n = parseInt(lv,10);\n    if(!(n >= 1)) return '';", "    if(lv == null) return '';\n    const n = Math.max(1, parseInt(lv,10) || 1);", '잘못된 레벨(0 · 글자)을 Lv.1 배지로(옛 `|| 1`)'],
     ['MI', '_inboxFilter = inboxSec.normCat(_inboxFilter);', '', "옛 'gift' 필터를 안 되돌림"],
     ['MI', "[saveBtn, { label:'취소' }]);", "[saveBtn, { label:'삭제', danger:true }, { label:'취소' }]);", '⭐ 선물 우클릭에 삭제 단추가 붙음'],
     ['MI', "const saveBtn = { label:'저장', run: ()=>giftSave.save({ imgUrl: g.imageUrl, fromName: g.senderName, ts: g.sentAt }) };", "const saveBtn = { label:'저장' };", '[저장] 이 아무것도 안 함'],

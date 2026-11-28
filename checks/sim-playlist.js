@@ -929,6 +929,8 @@ async function behave(src){
     chk(lv.className === 'mh-flv lv34' && lv.textContent === 'Lv34', '🏅 레벨 배지(plMod.fillLv) — 친구 목록과 같은 함수');
     m.fillLv(lv, null, null);
     chk(lv.className === '' && lv.textContent === '', '  레벨을 모르면 숨긴다');
+    { const bad = [0, 'x', -3].map(v => { m.fillLv(lv, v, null); return lv.className === '' && lv.textContent === ''; });
+      chk(bad.every(Boolean), '  잘못된 레벨(0 · 글자 · 음수)도 숨긴다 — Lv.1 로 그리지 않는다'); }
     chk(m.ytVideoId('https://youtu.be/abcdefghijk?t=3') === 'abcdefghijk' && m.ytVideoId('https://www.youtube.com/shorts/abcdefghijk') === 'abcdefghijk' && m.ytVideoId('x') === null, '🔗 유튜브 id 파서(마이홈 BGM 과 한 벌)');
   }
   say('── 7-2. 😴 재생 창 사각형 폴링 — 닫혀 있고 off 를 보냈으면 잔다 · 열리면 다시');
@@ -1042,6 +1044,7 @@ async function runAll(PL, APP, HTML){
 
   say('── 9. mutation test');
   const BREAKS = [
+    ['PL', "  const n = star ? star.lv : parseInt(lv, 10);\n  if(!star && !(n >= 1)){", "  const n = star ? star.lv : Math.max(1, parseInt(lv, 10) || 1);\n  if(lv == null && !star){", '잘못된 레벨(0 · 글자)을 Lv.1 배지로(옛 `|| 1`)'],
     ['PL', "  if(notice){   // 못 받음 · 받는 중", "  if(false){   // 못 받음 · 받는 중", '못 받은 친구 목록을 «아직 친구가 없어요» · 옛 목록으로 그림'],
     ['PL', "? s.items.filter(x => x && x.id).slice(0, PL_MAX).map(", "? s.items.filter(x => x && x.id).map(", '관문이 20곡으로 안 깎음'],
     ['PL', "out[i].name  = (typeof s.name === 'string') ? s.name.slice(0, PL_TITLE_MAX) : '';", 'out[i].name  = String(s.name || \'\').slice(0, PL_TITLE_MAX);', '깨진 이름을 «[object Object]» 로'],

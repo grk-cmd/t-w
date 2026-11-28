@@ -285,7 +285,7 @@ function _fmSyncSentCount(){
 
 /* 수락 한 건 — **단건과 일괄이 같은 함수를 쓴다.** 자리 판정과 문구가 두 벌이 되면 한쪽만
    고쳐진다(친구 상한을 50→100 으로 올릴 때 겪은 종류).
-   ⚠️ seats 를 호출자가 세어 넘기는 것이 핵심이다. 서버 왕복 뒤에도 _myHomeFriends 는
+   ⚠️ seats 를 호출자가 세어 넘기는 것이 핵심이다. 서버 왕복 뒤에도 친구 목록(friendsForCheck 가 읽는 구독 값)은
      구독 콜백이 와야 갱신되므로, 매 건 다시 세면 **자리가 1칸인데 3건이 전부 통과한다.** */
 async function _fmAcceptOne(fromId, seats){
   if(seats <= 0) return 'full';
@@ -476,7 +476,7 @@ return {
   tab: ()=>_fmTab,
   picked: _fmPicked,                               // 체크된 요청 fromId(같은 Set) — 전체 선택 체크박스
   acceptOne: _fmAcceptOne,                         // 검사용(sim-friend-manage — 자리 계산)
-  seatsLeft: _fmSeatsLeftChecked,                         // 검사용
+  seatsLeft: _fmSeatsLeftChecked,                  // 검사용
 };
 }
 
