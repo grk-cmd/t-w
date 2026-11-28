@@ -78,7 +78,7 @@ export function CrewMate({ name, role, lines, src, w, h }: Props) {
         <img className="crew" src={src} width={w} height={h} alt="" />
       </button>
       <figcaption className="crew-tag">
-        <b>{role}</b> {name}
+        <span className="crew-role">{role}</span> <span className="crew-name">{name}</span>
       </figcaption>
     </figure>
   );

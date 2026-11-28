@@ -32,7 +32,7 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 - **색**은 디자인 시스템 원본(`docs/design-system/project/tokens.json`)에서 빌드 때 만든다(`vite.config.ts` 의 `virtual:tw-tokens.css` — 도움말 사이트와 같은 변환기 `scripts/build-design-tokens.js`). 사본을 커밋하지 않는다. 페이지는 `<html data-theme="classic">`.
 - **몸 모델 · 피부 그림**은 앱 원본(`apps/desktop/app/parts/base-glb.js` · `skin-data.js`)에서 빌드 때 꺼내 파일로 낸다(`virtual:tw-char-assets` — 사본 커밋 없음). 설치 파일에도 든 공개 자산이라 웹에 둬도 된다(#430 4절).
 - **캐릭터 코어**는 `@tw/char-core` 빌드(`packages/char-core/dist`)를 쓴다 — `dev` · `build` · `test` 앞에 코어 빌드가 먼저 돈다(`pre*` 스크립트).
-- **글꼴**: 제목은 갈무리11 굵게(`galmuri` · SIL OFL 1.1), 일본어 가나는 DotGothic16(`@fontsource/dotgothic16` 일본어 묶음 · SIL OFL 1.1). 우리 사이트에 같이 올리고 라이선스는 `/licenses/`.
+- **글꼴**: 제목 · 첫 화면 이름표는 갈무리11 굵게, 첫 화면 말풍선은 갈무리11 보통(`--font-cute-thin` · 둘 다 `galmuri` · SIL OFL 1.1), 일본어 가나는 DotGothic16(`@fontsource/dotgothic16` 일본어 묶음 · SIL OFL 1.1). 우리 사이트에 같이 올리고 라이선스는 `/licenses/`.
 
 ## 지킬 것
 - 남이 쓴 값(닉네임 · 캐릭터 이름 · 소식 글)은 JSX 글로만 넣는다 — `dangerouslySetInnerHTML` 은 oxlint(`react/no-danger`)가 막는다. HTML 을 그대로 넣어야 하는 날이 오면 앱의 `safe-html.js` 규칙을 먼저 옮긴다.

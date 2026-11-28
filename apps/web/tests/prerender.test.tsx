@@ -47,7 +47,9 @@ describe('미리 그린 페이지', () => {
         const role = m.crew[c.key].role;
         expect(html).toContain(`aria-label="${role} ${c.name}"`);
         expect(html).toContain(`<img class="crew" src="${c.src}" width="${c.w}" height="${c.h}" alt=""/>`);
-        expect(html).toContain(`<figcaption class="crew-tag"><b>${role}</b> <!-- -->${c.name}</figcaption>`);
+        expect(html).toContain(
+          `<figcaption class="crew-tag"><span class="crew-role">${role}</span> <span class="crew-name">${c.name}</span></figcaption>`,
+        );
       }
       expect(html).toContain('<span class="crew-live" aria-live="polite"></span>'); // 말풍선은 누르기 전엔 없다
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
