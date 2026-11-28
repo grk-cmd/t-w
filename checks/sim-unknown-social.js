@@ -5,7 +5,8 @@
    ・1절 animal.js — 해금 레벨 모름(null): 카드 «해금 정보를 받는 중» · 누르면 같은 안내 · 열지 않음 · EVER_KEY 안 적음
          받은 뒤: 레벨이 넘으면 열고 EVER_KEY 를 적음 · 모자라면 «Lv.N 보상» · 내 레벨 모름이면 tellLevelUnknown(안 적음) · 지난번 서버에서 받아 둔 EVER 는 그대로 연다
    ・2절 char-code.js — 복제 코드 동물: 해금 레벨 모름이면 «받는 중» 으로 막음 · 내 레벨 모름이면 tellLevelUnknown · animal.js 가 없을 때도 모름으로 열지 않음
-   ・3절 room-entry.js · frame-loop.js — 방에 실린 남의 레벨: 1 이상 정수만, 아니면 null(이름표는 이름만)
+   ・1 · 2절의 «해금 정보를 받는 중» 문구는 room/interaction-desk.js lockedToast · lockedText 한 벌(deps) — 모듈에 따로 박으면 빨강
+   ・3절 room-entry.js · frame-loop.js — 방에 실린 남의 레벨: 1 이상 정수만, 아니면 null(이름표는 이름만) · 3-2절 lv-tier.js — 모르는 레벨은 티어 클래스 없음
    ・4절 mutation test — 옛 대신 값(50 · `|| 50` · `|| 1`)을 되살리면 빨강 */
 'use strict';
 const fs = require('fs');
@@ -14,8 +15,9 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, path.basename(f), path.join('apps', 'desktop', 'app', 'parts', f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const ANIMAL = read('character/animal.js'), CC = read('character/char-code.js'), RE = read('room/room-entry.js'), FL = read('launcher/frame-loop.js');
-if (!ANIMAL || !CC || !RE || !FL) { say('  ? 원본 못 찾음 — animal.js · char-code.js · room-entry.js · frame-loop.js'); process.exit(2); }
+const ANIMAL = read('character/animal.js'), CC = read('character/char-code.js'), RE = read('room/room-entry.js'), FL = read('launcher/frame-loop.js'),
+  IDESK = read('room/interaction-desk.js'), TIER = read('focus/lv-tier.js');
+if (!ANIMAL || !CC || !RE || !FL || !IDESK || !TIER) { say('  ? 원본 못 찾음 — animal.js · char-code.js · room-entry.js · frame-loop.js · interaction-desk.js · lv-tier.js'); process.exit(2); }
 
 /* 이름 · 머리글로 덩어리 하나를 오려 낸다(중괄호 짝) */
 function cutFrom(src, head){
@@ -31,12 +33,20 @@ function cutFrom(src, head){
 }
 const cutFn = (src, name) => { const m = new RegExp('function\\s+' + name + '\\s*\\(').exec(src); return m ? cutFrom(src, m[0]) : null; };
 const line = (src, re) => { const m = re.exec(src); return m ? m[0] : null; };
+/* 잠긴 안내 한 벌 — room/interaction-desk.js 의 진짜 lockedToast · lockedText(app.js 가 deps 로 넘기는 것) */
+const LOCKED = (() => {
+  const parts = [line(IDESK, /const LOCKED_UNKNOWN_TEXT = [^;]+;/), cutFn(IDESK, 'lockedToast'), cutFn(IDESK, 'lockedText')];
+  if (parts.some(p => !p)) throw new Error('interaction-desk.js 에 잠긴 안내 한 벌이 없다');
+  return new Function(parts.join('\n') + '\nreturn { lockedToast, lockedText };')();
+})();
+/* 표시 문구를 deps 로 받는지 보는 가짜 — 모듈이 글을 따로 박으면 이 표식이 안 나온다 */
+const STUB = { lockedToast: (lv, tail) => 'TOAST:' + lv + (tail ? ':' + tail : ''), lockedText: (lv, tail) => 'TEXT:' + lv + (tail ? ':' + tail : '') };
 
 /* ── animal.js 의 해금 몫을 가짜 카드 · 계정 칸 위에서 돌린다 ── */
 function animalWorld(src, o){
   const parts = [
     line(src, /let UNLOCK_LEVEL = [^;]+;/), line(src, /const CHEAT_KEY = [^;]+;/), line(src, /const CHEAT_CLICKS = [^;]+;/),
-    line(src, /let _lKeyDown=[^;]+;/), line(src, /let _cheatOn=[^;]+;/), line(src, /const EVER_KEY = [^;]+;/), line(src, /const UNLOCK_LOADING_TEXT = [^;]+;/),
+    line(src, /let _lKeyDown=[^;]+;/), line(src, /let _cheatOn=[^;]+;/), line(src, /const EVER_KEY = [^;]+;/),
     cutFn(src, '_cheatUnlocked'), cutFn(src, '_everUnlocked'), cutFn(src, '_unlockOk'), cutFn(src, 'myLevel'), cutFn(src, '_lockMsg'), cutFn(src, 'admin'), cutFn(src, 'initCard'),
     cutFrom(src, 'window._setAnimalUnlockLevel = function(lv){'), cutFrom(src, 'window._animalLoadLocal = function(){'),
   ];
@@ -50,8 +60,9 @@ function animalWorld(src, o){
   const lv = () => o.level;
   const focusLevelMod = { getFocusLevel: lv, shownFocusLevel: lv, levelGate: (min) => (lv() == null ? 'unknown' : (lv() >= min ? 'ok' : 'low')), tellLevelUnknown: () => { log.unknownTold++; } };
   const accountStoreMod = { get: (k) => (store.has(k) ? store.get(k) : null), set: (k, v) => { log.sets.push([k, v]); store.set(k, v); } };
-  new Function('window', 'document', 'focusLevelMod', 'accountStoreMod', 'isAdmin', 'toast', 'startNewAnimal', 'renderAnimalCardThumb', 'setTimeout',
-    parts.join('\n'))(window, document, focusLevelMod, accountStoreMod, () => false, (m) => log.toasts.push(m), () => { log.started++; }, () => {}, () => 0);
+  const L = o.stub ? STUB : LOCKED;
+  new Function('window', 'document', 'focusLevelMod', 'accountStoreMod', 'isAdmin', 'toast', 'startNewAnimal', 'renderAnimalCardThumb', 'setTimeout', 'lockedToast', 'lockedText',
+    parts.join('\n'))(window, document, focusLevelMod, accountStoreMod, () => false, (m) => log.toasts.push(m), () => { log.started++; }, () => {}, () => 0, L.lockedToast, L.lockedText);
   window._animalLoadLocal();   // 계정 칸이 열린 뒤(확인 뒤) — 해금 기록을 읽고 카드를 그린다
   return { window, card, under, log, store, setLevel: (v) => { o.level = v; } };
 }
@@ -74,6 +85,11 @@ function animalRows(src){
     w = animalWorld(src, { level: null, store: { 'tw.animalEverUnlocked': '1' } }); w.card.onclick();
     t(w.log.started === 1 && w.under.style.display === 'none', '지난번 서버 값으로 적어 둔 영구 해금은 모를 때도 그대로 연다(출처가 서버)');
     t(w.window._setAnimalUnlockLevel(0) === false && w.window._setAnimalUnlockLevel('x') === false, '  해금 레벨 받기는 1~999 정수만');
+    w = animalWorld(src, { level: 120, stub: true }); w.card.onclick();
+    const s1 = w.under.textContent, s2 = w.log.toasts[0];
+    w.window._setAnimalUnlockLevel(150);
+    t(s1 === 'TEXT:null:달성 시 해금' && s2 === 'TOAST:null' && w.under.textContent === 'TEXT:150:달성 시 해금' && /TEXT:null/.test(animalWorld(src, { level: 1, stub: true }).card.title),
+      '  문구는 deps 의 한 벌(room/interaction-desk.js lockedToast · lockedText)에서 — animal.js 에 «해금 정보를 받는 중» 글을 따로 두지 않는다');
   } catch (e) { t(false, 'animal.js 해금 몫을 돌리다 멈춤 — ' + e.message); }
   return r;
 }
@@ -86,7 +102,8 @@ function ccRun(src, o){
   const window = { _animalUnlockLevel: o.ulv };
   if (o.unlockedFn !== undefined) window._animalUnlocked = () => o.unlockedFn;
   const fl = { getFocusLevel: () => o.level, shownFocusLevel: () => o.level, levelGate: (m) => (o.level == null ? 'unknown' : (o.level >= m ? 'ok' : 'low')), tellLevelUnknown: () => { log.unknownTold++; } };
-  const ok = new Function('window', 'focusLevelMod', 'isAdmin', 'toast', 'def', block + '\nreturn true;')(window, () => fl, () => false, (m) => log.toasts.push(m), { animal: true });
+  const L = o.stub ? STUB : LOCKED;
+  const ok = new Function('window', 'focusLevelMod', 'isAdmin', 'toast', 'lockedToast', 'def', block + '\nreturn true;')(window, () => fl, () => false, (m) => log.toasts.push(m), L.lockedToast, { animal: true });
   return { ok, log };
 }
 function ccRows(src){
@@ -104,6 +121,8 @@ function ccRows(src){
     t(x.ok === false, 'animal.js 가 없을 때(판정 창구 없음)도 해금 레벨을 모르면 열지 않는다(50 으로 치지 않는다)');
     x = ccRun(src, { ulv: 50, level: 60 });
     t(x.ok === true, '  창구가 없고 둘 다 알면 레벨로 판정(60 ≥ 50)');
+    x = ccRun(src, { ulv: undefined, level: 120, unlockedFn: false, stub: true });
+    t(x.ok === false && x.log.toasts[0] === 'TOAST:null', '  «받는 중» 문구는 deps 의 lockedToast 한 벌에서(char-code.js 에 따로 두지 않는다) · 창구 값이 undefined 여도 모름');
   } catch (e) { t(false, 'char-code.js 동물 판정을 돌리다 멈춤 — ' + e.message); }
   return r;
 }
@@ -123,6 +142,18 @@ function levelRows(re, fl){
   return r;
 }
 
+/* ── 레벨 티어(lv-tier.js) — 모르는 레벨은 티어 없음(1티어 색으로 치지 않는다) ── */
+function tierRows(src){
+  const r = []; const t = (ok, msg) => r.push([!!ok, msg]);
+  try {
+    const w = {}; new Function('window', 'document', 'module', src)(w, {}, undefined);
+    const T = w.TwLvTier.createLvTier({ });
+    t(/^t1\b/.test(T.lvBarClass(5)) && /^t1\b/.test(T.lvBadgeClass(1)) && /^t12\b/.test(T.lvBarClass(999)), '받은 레벨은 그대로 티어(1 → t1 · 5 → t1 · 999 → t12)');
+    t([null, undefined, 0, 'x', NaN].every(v => T.lvBarClass(v) === '' && T.lvBadgeClass(v) === ''), '  모르는 레벨(null · 0 · 글자 · NaN)은 클래스 없음 — 남의 바가 1티어 색으로 칠해지지 않는다');
+  } catch (e) { t(false, 'lv-tier.js 를 돌리다 멈춤 — ' + e.message); }
+  return r;
+}
+
 const all = (rows) => rows.every(([ok]) => ok);
 say('── 1. animal.js — 동물 해금');
 animalRows(ANIMAL).forEach(([ok, m]) => chk(ok, m));
@@ -130,27 +161,34 @@ say('── 2. char-code.js — 복제 코드 동물');
 ccRows(CC).forEach(([ok, m]) => chk(ok, m));
 say('── 3. 남의 레벨');
 levelRows(RE, FL).forEach(([ok, m]) => chk(ok, m));
+say('── 3-2. 레벨 티어');
+tierRows(TIER).forEach(([ok, m]) => chk(ok, m));
 
 say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
   ['A', 'let UNLOCK_LEVEL = null;', 'let UNLOCK_LEVEL = 50;', '해금 레벨 처음 값을 50 으로(받기 전 열리고 영구 해금을 적음)'],
   ['A', 'if(lv != null && UNLOCK_LEVEL != null && lv >= UNLOCK_LEVEL){', 'if(lv != null && lv >= UNLOCK_LEVEL){', '해금 레벨을 모를 때도 «만족» 으로(null 비교 — 영구 해금을 적음)'],
-  ['A', "      if(UNLOCK_LEVEL == null){ toast(UNLOCK_LOADING_TEXT + ' — 잠시 뒤 다시 해 주세요'); return; }", '', '모를 때 «Lv.null 보상» 을 띄움'],
-  ['A', "under.textContent = UNLOCK_LEVEL == null ? UNLOCK_LOADING_TEXT : ('🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금');", "under.textContent = '🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금';", '카드 띠에 모르는 레벨 글자를 씀'],
+  ['A', "      if(UNLOCK_LEVEL == null){ toast(lockedToast(null)); return; }", '', '모를 때 «Lv.null 보상» 을 띄움'],
+  ['A', "under.textContent = lockedText(UNLOCK_LEVEL, '달성 시 해금');", "under.textContent = '🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금';", '카드 띠에 모르는 레벨 글자를 씀'],
+  ['A', "      if(UNLOCK_LEVEL == null){ toast(lockedToast(null)); return; }", "      if(UNLOCK_LEVEL == null){ toast('🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요'); return; }", '«받는 중» 글을 animal.js 에 따로 박음(한 벌이 아님)'],
+  ['A', "under.textContent = lockedText(UNLOCK_LEVEL, '달성 시 해금');", "under.textContent = UNLOCK_LEVEL == null ? '🔒 해금 정보를 받는 중이에요' : ('🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금');", '카드 띠 글을 animal.js 에 따로 박음'],
   ['A', "      if(focusLevelMod.getFocusLevel() == null){ focusLevelMod.tellLevelUnknown(); return; }", '', '내 레벨을 모를 때 «Lv.N 보상» 으로'],
-  ['C', 'const _ulv = (window._animalUnlockLevel == null) ? null : window._animalUnlockLevel;', 'const _ulv = window._animalUnlockLevel || 50;', '복제 코드 — 해금 레벨 모름을 50 으로(옛 `|| 50`)'],
+  ['C', 'const _ulv = window._animalUnlockLevel;', 'const _ulv = window._animalUnlockLevel || 50;', '복제 코드 — 해금 레벨 모름을 50 으로(옛 `|| 50`)'],
   ['C', '    else if(_lv == null || _ulv == null) _ok = isAdmin();   // 둘 중 하나라도 모르면 레벨로는 열지 않는다\n', '', '복제 코드 — 모름끼리 비교(null >= null 이 열림)'],
-  ['C', "    if(!_ok && _ulv == null){ toast('🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요'); return false; }", '', '복제 코드 — 모를 때 «Lv.null» 안내'],
+  ['C', "    if(!_ok && _ulv == null){ toast(lockedToast(null)); return false; }", '', '복제 코드 — 모를 때 «Lv.null» 안내'],
+  ['C', "    if(!_ok && _ulv == null){ toast(lockedToast(null)); return false; }", "    if(!_ok && _ulv == null){ toast('🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요'); return false; }", '복제 코드 — «받는 중» 글을 따로 박음(한 벌이 아님)'],
+  ['T', "  if(!(n >= 1)) return null;", "  if(!(n >= 1)) return 1;", '모르는 레벨을 1티어로(옛 `|| 1`)'],
+  ['T', "  if(t == null) return '';   // 남의 레벨을 모름", "  if(false) return '';   // 남의 레벨을 모름", '바가 모르는 레벨에 티어 클래스를 붙임'],
   ['R', "? v : null; }", "? v : 1; }", '남의 레벨 모름을 1 로'],
   ['R', 's.friendLevel=_remoteLevel(friends[id].level);', 's.friendLevel=friends[id].level||1;', '좌석에 앉힐 때 옛 `|| 1`'],
   ['F', 'lv = st ? st.lv : seat.friendLevel;', 'lv = st ? st.lv : (seat.friendLevel||1);', '이름표에 옛 `|| 1`'],
 ];
 const missed = [];
 for (const [where, from, to, what] of BREAKS){
-  const src = { A: ANIMAL, C: CC, R: RE, F: FL }[where];
+  const src = { A: ANIMAL, C: CC, R: RE, F: FL, T: TIER }[where];
   if (src.indexOf(from) < 0){ missed.push(what + '(글을 못 찾음)'); continue; }
   const m = src.split(from).join(to);
-  const rows = where === 'A' ? animalRows(m) : where === 'C' ? ccRows(m) : levelRows(where === 'R' ? m : RE, where === 'F' ? m : FL);
+  const rows = where === 'A' ? animalRows(m) : where === 'C' ? ccRows(m) : where === 'T' ? tierRows(m) : levelRows(where === 'R' ? m : RE, where === 'F' ? m : FL);
   if (all(rows)) missed.push(what);
 }
 chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));

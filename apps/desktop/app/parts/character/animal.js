@@ -37,6 +37,8 @@ const saveCurSlot = deps.saveCurSlot;
 const LIGHT_PRESET = deps.LIGHT_PRESET;
 const setCurSlot = deps.setCurSlot;   // 쓰는 함수
 const setCreatorOpen = deps.setCreatorOpen;   // 쓰는 함수
+const lockedToast = deps.lockedToast;   // 🔒 잠긴 안내 한 벌(room/interaction-desk.js) — 해금 레벨을 모르면 «해금 정보를 받는 중»
+const lockedText = deps.lockedText;     //   같은 한 벌의 꼬리 없는 말(카드 띠 · 제목)
 const accountStoreMod = deps.accountStoreMod;   // 🗂️ 계정 칸(해금 기록 CHEAT_KEY · EVER_KEY)
 const accountJsonStoreMod = deps.accountJsonStoreMod;   // 🗂️ 계정 칸 위 JSON 칸(동물 프리셋)
 (function(){
@@ -134,7 +136,6 @@ let scl={x:1, y:1, all:1};
 
 function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return null; } }   // 모르면 null — 레벨 1 로 치지 않는다(B-1128-2)
 /* 잠금 안내 — 서버 레벨을 못 받았으면(shown null) «현재 Lv» 를 적지 않는다(받기 전 1 을 보여 주지 않게) */
-const UNLOCK_LOADING_TEXT = '🔒 해금 정보를 받는 중이에요';   // 해금 레벨을 아직 못 받음 — room/interaction-desk.js lockedToast 와 같은 말
 function _lockMsg(unlockLv, shown){ return '🔒 동물 캐릭터는 Lv.'+unlockLv+' 달성 보상이에요' + (shown != null ? ' (현재 Lv.'+shown+')' : ''); }
 function admin(){ try{ return !!isAdmin(); }catch(_){ return false; } }
 
@@ -183,9 +184,9 @@ function initCard(){
   const _unlocked = _unlockOk();
   if(under){
     if(_unlocked){ under.style.display='none'; }
-    else{ under.style.display=''; under.textContent = UNLOCK_LEVEL == null ? UNLOCK_LOADING_TEXT : ('🔒 Lv.'+UNLOCK_LEVEL+' 달성 시 해금'); }
+    else{ under.style.display=''; under.textContent = lockedText(UNLOCK_LEVEL, '달성 시 해금'); }
   }
-  card.title = _unlocked ? '동물 캐릭터 만들기' : (UNLOCK_LEVEL == null ? '동물 캐릭터 만들기 (해금 정보를 받는 중)' : ('동물 캐릭터 만들기 (Lv.'+UNLOCK_LEVEL+' 보상)'));
+  card.title = _unlocked ? '동물 캐릭터 만들기' : (UNLOCK_LEVEL == null ? ('동물 캐릭터 만들기 — ' + lockedText(null)) : ('동물 캐릭터 만들기 (Lv.'+UNLOCK_LEVEL+' 보상)'));
   card.style.cursor='pointer';
   card.onclick=()=>{
     if(!_unlockOk()){
@@ -206,7 +207,7 @@ function initCard(){
         return;
       }
       if(focusLevelMod.getFocusLevel() == null){ focusLevelMod.tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.N 보상» 이 아니다(B-1128-2)
-      if(UNLOCK_LEVEL == null){ toast(UNLOCK_LOADING_TEXT + ' — 잠시 뒤 다시 해 주세요'); return; }   // 해금 레벨(서버 해금 표)을 아직 모른다 — 레벨 글자를 지어내지 않는다
+      if(UNLOCK_LEVEL == null){ toast(lockedToast(null)); return; }   // 해금 레벨(서버 해금 표)을 아직 모른다 — 레벨 글자를 지어내지 않는다
       toast(_lockMsg(UNLOCK_LEVEL, focusLevelMod.shownFocusLevel()));
       return;
     }

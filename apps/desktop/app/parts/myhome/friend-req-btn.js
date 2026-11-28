@@ -63,7 +63,7 @@ async function refresh(viewUid, name){
   if(!net) return;
   _askedFor = viewUid;   // 물을 수 있을 때만 적는다 — provider 가 늦게 준비되면 다음 칠하기에서 묻는다
   let fr = null, alive = null;   // 못 읽으면 null(모름)
-  try{ [fr, alive] = await Promise.all([friendsForCheck(), net.isFriendRequestAlive(viewUid, me)]); }catch(_){ alive = null; }
+  try{ [fr, alive] = await Promise.all([friendsForCheck({ quiet: true }), net.isFriendRequestAlive(viewUid, me)]); }catch(_){ alive = null; }   // quiet — 홈을 열기만 했다 · 못 읽음은 «다시 확인» 단추가 보인다
   if(seq !== _seq) return;
   if(fr && fr[viewUid]) return;   // 이미 친구
   const b = _btn(); if(!b) return;

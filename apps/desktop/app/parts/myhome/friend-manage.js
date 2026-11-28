@@ -5,7 +5,7 @@
 
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
      바뀐 것은 이름을 읽는 방법뿐이다.
-       · _myFriendRequests → _myFriendRequests() · _myHomeFriends → _myHomeFriends() · myHomeOpen → myHomeOpen()
+       · _myFriendRequests → _myFriendRequests() · myHomeOpen → myHomeOpen() · 친구 목록은 friendsForCheck(받은 목록 · 모르면 null)
          app.js 가 나중에 다시 대입하는 let 이라(요청 구독 · 친구 목록 구독 · 마이홈 열고 닫기) 값이 아니라 읽는 함수로 받는다.
        · _inboxTimeStr 의 typeof 가드는 글자 그대로 두었다(받은 것이 함수라 늘 통과한다 — 예전에도 늘 정의돼 있던 이름이다).
    ★ 밖으로 내놓는 이름은 createFriendManage 의 반환값이다 — app.js 의 부르는 곳(🖥️ 구역의 요청 구독 · 마이홈 열기 ·
@@ -26,7 +26,6 @@ const _giftStat = deps.giftStat;                 // 🎁 서브탭 줄 오른쪽
 const renderGiftBox = deps.renderGiftBox;        // 🎁 선물함 서브탭 — app.js(같은 칸 #mhFmList 를 돌려 쓴다)
 const _inboxTimeStr = deps.inboxTimeStr;
 const myHomeOpen = deps.myHomeOpen;              // 🏠 마이홈이 열려 있는가 — 읽는 함수(주인은 launcher/launcher-state.js · 다시 대입된다)
-const _myHomeFriends = deps.myHomeFriends;       // 👥 친구 목록 캐시 — app.js 의 let(구독마다 다시 대입된다)
 const _myFriendRequests = deps.myFriendRequests; // 👋 나에게 온 친구 요청 — app.js 의 let(구독마다 다시 대입된다)
 const FRIEND_MAX = deps.friendMax;               // 👥 친구 상한 — app.js 한 곳(다섯 곳이 이 값 하나를 본다)
 const requests = deps.requests;                  // 👋 친구 요청 포트(friends/friend-requests-port.js) — 읽는 함수(app.js 가 이 모듈보다 뒤에 만든다)
@@ -171,7 +170,6 @@ function _fmReqVisible(){
   return !!(on && on.dataset.tab === 'friend' && _fmTab === 'req');
 }
 // 남은 친구 자리. ⚠️ 숫자를 다시 박지 말 것 — 상한은 FRIEND_MAX 한 곳에서만 나온다.
-function _fmSeatsLeft(){ return FRIEND_MAX - Object.keys(_myHomeFriends() || {}).length; }   // 검사용(화면 캐시로 센다) — 수락 판정은 아래 _fmSeatsLeftChecked
 /* 수락 판정용 남은 자리 — 받은 목록(friendsForCheck)으로 센다. 못 읽으면 null(모름 — 빈 목록 {} 으로 치면 자리가 FRIEND_MAX 로 보여 상한을 넘는다 · 토스트는 friends-sub 한 곳) */
 async function _fmSeatsLeftChecked(){
   const fr = await friendsForCheck();
@@ -478,7 +476,7 @@ return {
   tab: ()=>_fmTab,
   picked: _fmPicked,                               // 체크된 요청 fromId(같은 Set) — 전체 선택 체크박스
   acceptOne: _fmAcceptOne,                         // 검사용(sim-friend-manage — 자리 계산)
-  seatsLeft: _fmSeatsLeft,                         // 검사용
+  seatsLeft: _fmSeatsLeftChecked,                         // 검사용
 };
 }
 

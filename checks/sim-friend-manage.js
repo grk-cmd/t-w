@@ -184,9 +184,9 @@ const probe = `
   setFriends: f => { _myHomeFriends = f; },
   picked:     () => friendManage.picked,
   setTab:     t => { friendManage.setTab(t); },
-  stubReqApi: o => Object.assign(friendRequestsApiMod, o),
+  stubReqApi: o => Object.assign(friendRequestsApiMod, o),   /* 요청 포트가 쥔 서버 provider 의 쓰기를 가짜로 — 서버 경로의 끝(로그인 통로)까지는 안 간다 */
   checkWith:  fn => { friendsSubMod.friendsForCheck = fn; },   /* 판정용 목록(friends-sub) — 받았으면 지금 목록 · 못 읽으면 null */
-  cur:        () => _myHomeFriends,   /* 요청 포트가 쥔 서버 provider 의 쓰기를 가짜로 — 서버 경로의 끝(로그인 통로)까지는 안 간다 */
+  cur:        () => _myHomeFriends,
 };`;
 
 let accepted = [];
@@ -227,7 +227,7 @@ async function runAll(){
   F.checkWith(async () => F.cur());   // 받은 목록 = 화면 캐시(구독이 받은 뒤)
   // ── (ㄱ) 지금 코드 ─────────────────────────────────────────────
   setup();
-  const seats0 = F.seatsLeft();
+  const seats0 = await F.seatsLeft();   // 판정용 목록(friendsForCheck)으로 센다
   chk(seats0 === 1, '시작 시 남은 자리가 1칸이다 (' + seats0 + ')');
   await F.bulkAccept();
   chk(accepted.length === 1, '★ 서버로 간 수락이 1건뿐이다 (' + accepted.length + '건) — 상한을 넘지 않는다');
@@ -243,7 +243,7 @@ async function runAll(){
   setup();
   let broken = 0;
   for (const id of ['c', 'b', 'a']) {
-    const r = await F.acceptOne(id, F.seatsLeft());   // ← 매번 다시 센다 (틀린 방식)
+    const r = await F.acceptOne(id, await F.seatsLeft());   // ← 매번 다시 센다 (틀린 방식)
     if (r === 'ok') broken++;
   }
   chk(broken === 3, '★ 옛 방식이면 3건이 전부 통과한다 — 상한이 조용히 뚫린다 (' + broken + '건)');
@@ -257,6 +257,7 @@ async function runAll(){
   F.checkWith(async () => null);
   await F.bulkAccept();
   chk(accepted.length === 0 && Object.keys(F.getReqs()).length === 3, '★ 모르면 하나도 수락하지 않고 요청 3건을 그대로 둔다(빈 목록으로 치지 않는다)');
+  chk((await F.seatsLeft()) === null, '  남은 자리도 null(모름) — FRIEND_MAX 로 치지 않는다');
 }
 
 (async () => {
@@ -266,7 +267,7 @@ async function runAll(){
   say('· mutation test — 남은 자리를 화면 캐시(빈 {})로 세면 잡는가');
   {
     setup(); F.setFriends({}); F.checkWith(async () => null);
-    const fm2 = FMSRC.replace('  let seats = await _fmSeatsLeftChecked();\n  if(seats == null) return;', '  let seats = _fmSeatsLeft();');
+    const fm2 = FMSRC.replace('  let seats = await _fmSeatsLeftChecked();\n  if(seats == null) return;', '  let seats = FRIEND_MAX - Object.keys(deps.myHomeFriends() || {}).length;');
     let caught = false;
     if (fm2 !== FMSRC) {
       const _l = console.log, _w = console.warn; console.log = () => {}; console.warn = () => {};

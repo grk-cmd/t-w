@@ -183,6 +183,17 @@ async function judge(S){
     chk(r === null && E.toasts.length === 1 && E.toasts[0] === FS.NOTICE.checkFail && E.sets === 0, '읽기 실패 — null(부르는 쪽은 아무것도 안 보냄) · 토스트 한 번 · 목록 안 건드림');
   }
   {
+    const E = mk(); E.start(); E.last().err(new Error('x'));
+    const p = E.mod.friendsForCheck({ quiet: true }); await flush();
+    E.fetches[0].rej(new Error('offline'));
+    const r = await p;
+    chk(r === null && E.toasts.length === 0, '  quiet(상태를 화면으로 보이는 곳 — 마이홈 [친구 신청] «다시 확인») — null · 토스트 없음');
+    const p1 = E.mod.friendsForCheck({ quiet: true }), p2 = E.mod.friendsForCheck(); await flush();
+    E.fetches[1].rej(new Error('offline'));
+    await Promise.all([p1, p2]);
+    chk(p1 === p2 && E.fetches.length === 2 && E.toasts.length === 1, '  quiet 과 보통이 같이 기다리면 읽기 1회 · 토스트 한 번(보통 쪽이 바란다)');
+  }
+  {
     const E2 = mk(); E2.start(); E2.last().err(new Error('x'));
     E2.friends = {};
     const p2 = E2.mod.friendsForCheck(); await flush();
@@ -582,9 +593,11 @@ const BREAKS = [
   ['FS', "  _setStatus(STATUS.ERROR);\n  _wake();", "  _setStatus(STATUS.ERROR);\n  _wake();\n  setTimer(()=>_attach(), 5000);", '시간 간격 재시도를 되살림'],
   ['FS', "  if(_status !== STATUS.ERROR || !_myId) return false;", "  if(!_myId) return false;", '받은 · 거는 중에도 다시 걺'],
   ['FS', "  if(_fetching){ _retryAfterFetch = true; return false; }\n", '', '읽는 중에 다시 걸어 같은 경로를 두 번 읽음'],
-  ['FS', '  if(_check) return _check;\n', '', '진행 중 판정을 같이 안 기다림(읽기 여러 번)'],
+  ['FS', '  if(_check){ if(loud) _checkLoud = true; return _check; }\n', '', '진행 중 판정을 같이 안 기다림(읽기 여러 번)'],
   ['FS', "    if(_okSeq !== seq || _status === STATUS.READY) return current() || {};", "    if(false) return current() || {};", '늦은 읽기가 구독 값을 덮음'],
-  ['FS', "    toast(NOTICE.checkFail);\n", '', '읽기 실패를 안 알림'],
+  ['FS', "    if(_checkLoud) toast(NOTICE.checkFail);", "", '읽기 실패를 안 알림'],
+  ['FS', "    if(_checkLoud) toast(NOTICE.checkFail);", "    toast(NOTICE.checkFail);", 'quiet 판정에도 실패 토스트(홈을 열기만 해도 뜸)'],
+  ['FS', "  if(_check){ if(loud) _checkLoud = true; return _check; }", "  if(_check) return _check;", '같이 기다리는 보통 판정의 토스트를 quiet 가 삼킴'],
   ['FS', "  if(!id) return null;", "  if(!id) return {};", '계정을 모를 때 판정용 목록을 빈 {} 로(모름 → 친구 없음)'],
   ['FS', '  if(_status !== STATUS.READY) return;\n  if(_onFriends)', '  if(_onFriends)', '받기 전에 이름만 와도 목록을 넘김'],
   ['FS', '  if(_detailsP) return _detailsP;\n', '', '이름 받기를 겹쳐 묻음'],

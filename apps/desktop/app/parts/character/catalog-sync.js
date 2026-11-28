@@ -221,7 +221,7 @@ function subscribeCategories(){
   });
 }
 /* 해금 레벨 — 서버 한 벌의 unlocks. 동물 캐릭터(ANIMAL_CHARACTER · animal)는 여기서, 춤 · 상호작용 책상은 applyInteractionUnlocks 로 앉힌다.
-   서버에 그 줄이 없으면 앉히지 않고 알린다(animal.js 의 처음 값이 남는다). */
+   서버에 그 줄이 없으면 앉히지 않고 알린다 — animal.js 의 처음 값은 null 이라 서버 표에 동물 줄이 없으면 계속 «해금 정보를 받는 중» 이다. */
 const ANIMAL_UNLOCK = { kind: 'ANIMAL_CHARACTER', key: 'animal' };
 function subscribeUnlocks(){
   return catalogApiMod.subscribe('unlocks', unlocks=>{
