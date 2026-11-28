@@ -1,5 +1,5 @@
 // keepalive — realtime 서버가 TCP 닫힘 없이 멈추면(컨테이너 pause) 앱이 조용함(15초) 뒤 ping 을 보내고, pong 을 5초 못 받으면 끊고
-// 다시 붙기로 넘어가는지 · 15초 넘게 못 붙으면 런처에 «다시 연결하는 중» 띠가 뜨는지 · 풀면 다시 ready 가 되고 띠가 사라지는지 본다.
+// 다시 붙기로 넘어가는지 · RECONNECT_NOTICE_MS(60초) 넘게 못 붙으면 런처에 «다시 연결하는 중» 띠가 뜨는지 · 풀면 다시 ready 가 되고 띠가 사라지는지 본다.
 // 공유 realtime 컨테이너를 멈추므로 스택 잠금 안에서만 하고, 끝나면(실패해도) 풀어 둔다.
 'use strict';
 const { run } = require('./_kit.js');
@@ -28,8 +28,8 @@ run('keepalive', async (t) => {
         // 멈춘 순간부터 조용함 15초 + pong 5초 안(마지막으로 받은 메시지가 멈추기 전이라 더 짧을 수 있다)
         t.check(r.drop.at - t0 <= 22000, `멈춘 뒤 ${r.drop.at - t0}ms 에야 끊음 — 20초 상한을 넘음`);
       });
-      await t.step('15초 넘게 못 붙으면 런처에 «다시 연결하는 중» 띠', async () => {
-        await t.poll(() => t.shown(A, '#rtBand'), 30000, '#rtBand 보임');
+      await t.step('RECONNECT_NOTICE_MS 넘게 못 붙으면 런처에 «다시 연결하는 중» 띠', async () => {
+        await t.poll(() => t.shown(A, '#rtBand'), await A.w.evaluate(() => TwRtHub.RECONNECT_NOTICE_MS) + 15000, '#rtBand 보임');
         const txt = await A.w.textContent('#rtBand');
         t.check(/다시 연결하는 중/.test(txt), '띠 글자: ' + txt);
         t.check(await A.w.evaluate(() => TwRtHub.store.state() === 'retrying'), '상태가 retrying 이 아님');

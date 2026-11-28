@@ -87,6 +87,9 @@ function unavailableDelayMs(n, r){
 }
 const BYE_WAIT_MS = 1000;        // bye 뒤 서버의 닫힘(1000)을 기다리는 시간 — 못 받으면 앱이 닫는다
 const PONG_WAIT_MS = 5000;       // checkAlive 가 보낸 ping 의 답 기다림
+// 끊긴 채 이만큼 지나야 사용자에게 «다시 연결하는 중» 을 알린다 — 방 안(room-rt.js) · 방 밖 런처 띠(rt-status-ui.js)가 이 값 하나를 받아 쓴다.
+// 서버 배포(다시 띄우기 · 방 되살리기)의 끊김(30~45초)이 이 안에 들어가게 · 방 포기(room-rt clientGiveUpMs 90초)보다 짧게
+const RECONNECT_NOTICE_MS = 60000;
 const KEEPALIVE_IDLE_MS = 15000;   // ready 인 채 이만큼 아무것도 못 받으면 checkAlive — 서버가 사라진 걸 늦어도 이 값 + PONG_WAIT_MS(약 20초) 안에 안다
 
 /* 붙을 주소 — 운영 · dev 앱. dev 서버는 이 PC 로컬(dev 용 공개 이름은 없다)이라 dev 기본은 로컬 8787 —
@@ -346,7 +349,7 @@ function bindWindowEvents(win, hub){
 }
 
 const api = { PV, KINDS, ROOM_TYPES, MESSAGE_TYPES, REQUEST_KINDS, ANSWERS, CLOSE_CODES, CLOSE_REASONS, ACTION, CLOSE_ACTIONS, closeAction, STATE, isDeviceOff, BYE_WHY,
-  START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, UNAVAILABLE_SPREAD_MS, UNAVAILABLE_BACKOFF_MS, UNAVAILABLE_STABLE_MS, unavailableDelayMs, BYE_WAIT_MS, PONG_WAIT_MS, KEEPALIVE_IDLE_MS,
+  START_WAIT_MS, RESTART_SPREAD_MS, RESTART_READY_WAIT_MS, UNAVAILABLE_SPREAD_MS, UNAVAILABLE_BACKOFF_MS, UNAVAILABLE_STABLE_MS, unavailableDelayMs, BYE_WAIT_MS, PONG_WAIT_MS, KEEPALIVE_IDLE_MS, RECONNECT_NOTICE_MS,
   REALTIME_URLS, DEV_URL_KEY, DEV_URL_RE, realtimeUrlFor, sessionIdOf, createRtHub, bindWindowEvents };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — 연결 공통부 · 토큰 · 버전은 rt-bind.js 가 bind 로 잇는다(ES 모듈이라 이 파일보다 늦게 돈다). */

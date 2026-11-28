@@ -1,6 +1,6 @@
 /* rt-status-ui.js — 🛰 realtime 연결 상태 → 사용자에게 보이는 것(설계 04-realtime-disconnect 4-D-7 V1~V6) (검사 sim-rt-status-ui.js)
    [왜] 연결 하나(rt-hub.js)는 닫힘 번호로 «다시 붙기 · 멈춤» 만 가른다. 멈춘 뒤 무엇을 보일지 · 어디로 보낼지는 화면 몫이라 여기 한 곳에 둔다.
-   [상태별] retrying 이 RETRY_BAND_MS(15초) 넘게 이어지고 방 밖이면 런처 위 작은 띠 «서버에 다시 연결하는 중…»(V1 — 붙으면 사라짐 · 방 안은 방 화면이 알린다)
+   [상태별] retrying 이 noticeMs(rt-hub RECONNECT_NOTICE_MS) 넘게 이어지고 방 밖이면 런처 위 작은 띠 «서버에 다시 연결하는 중…»(V1 — 붙으면 사라짐 · 방 안은 방 화면이 알린다)
      authFailed → E-RT-01 · 로그인 화면(V2) · accountGone → E-RT-02 · 로그아웃 처리 · 로그인 화면(V3 — 탈퇴 중이면 그 흐름이 이미 하므로 건너뜀)
      update → 업데이트 강제 창(V4 — update-flow.js forceProtocol) · maintenance → 점검 창 + [다시 시도](V5 — maintenance-gate.js serverClosed)
      closed(모르는 4000번대) → E-RT-03 · 띠에 [다시 연결](V6). 다시 붙기는 사용자 누름 · 점검 해제 때만 — 타이머로 되풀이하지 않는다.
@@ -9,7 +9,6 @@
 (function(){
 'use strict';
 
-const RETRY_BAND_MS = 15000;   // 방 안 «다시 연결 중» 과 같은 값(서버 PROTOCOL 1장 · ops) — 짧은 끊김엔 아무것도 안 보인다
 const BAND_ID = 'rtBand';      // desktop-run.js UI_HIT_SEL 에도 있어야 [다시 연결] 을 누른다
 const TEXT = Object.freeze({ RETRYING: '서버에 다시 연결하는 중…', CLOSED: '서버 연결이 끊겼어요', MAINTENANCE: '서버 점검 중이에요', RECONNECT: '다시 연결' });
 const S = Object.freeze({ READY: 'ready', OFF: 'off', CONNECTING: 'connecting', RETRYING: 'retrying', AUTH_FAILED: 'authFailed',
@@ -24,10 +23,13 @@ const S = Object.freeze({ READY: 'ready', OFF: 'off', CONNECTING: 'connecting', 
  *   withdrawing: () => boolean,     // 탈퇴 흐름이 도는 중(그 흐름이 로그아웃 · 다시 켜기를 한다)
  *   forceUpdate: () => void,        // 업데이트 강제 창(update-flow.js forceProtocol)
  *   maintenance: (retry: () => void, onDismiss: () => void) => void,   // 점검 창 + [다시 시도](maintenance-gate.js serverClosed) · «확인» 으로 닫으면 onDismiss
+ *   noticeMs: number,               // 끊긴 채 이만큼 지나면 띠(rt-hub RECONNECT_NOTICE_MS — 방 안 알림과 같은 값 한 곳)
  *   setTimeout: Function, clearTimeout: Function,
  * }} deps */
 function createRtStatusUi(deps){
   const rt = deps.rt;
+  const noticeMs = deps.noticeMs;
+  if(!(noticeMs > 0)) throw new Error('[rt-status-ui] noticeMs(rt-hub RECONNECT_NOTICE_MS)가 없다');
   const band = deps.band;
   const notifyError = deps.notifyError;
   let bandTimer = null, sawReady = false, signingOut = false;
@@ -55,7 +57,7 @@ function createRtStatusUi(deps){
       bandTimer = deps.setTimeout(() => {
         bandTimer = null;
         if(rt.state() === S.RETRYING && !deps.inRoom()) band.show({ text: TEXT.RETRYING, button: null }, () => {});
-      }, RETRY_BAND_MS);
+      }, noticeMs);
     },
     [S.AUTH_FAILED]: () => { clearBand(); if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin(); } },
     [S.ACCOUNT_GONE]: () => { clearBand(); if(!deps.withdrawing() && beginSignOut()){ notifyError('E-RT-02'); deps.toLogin(); } },
@@ -104,7 +106,7 @@ function createRtBandDom(doc){
   };
 }
 
-const api = { RETRY_BAND_MS, BAND_ID, TEXT, createRtStatusUi, createRtBandDom };
+const api = { BAND_ID, TEXT, createRtStatusUi, createRtBandDom };
 if(typeof window !== 'undefined') window.TwRtStatusUi = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

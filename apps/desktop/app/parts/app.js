@@ -3065,7 +3065,7 @@ const appVersionSyncMod = TwAppVersionSync.createAppVersionSync({
 });
 /* 🛰 realtime 끊김 화면(realtime/rt-status-ui.js) — 다시 연결 중 띠 · 로그인 풀림 · 계정 로그아웃 · 업데이트 강제 · 점검 · 모르는 닫힘 */
 TwRtStatusUi.createRtStatusUi({
-  rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document),
+  rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document), noticeMs: TwRtHub.RECONNECT_NOTICE_MS,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // 다시 켜면 게이트가 로그인 화면
   withdrawing: ()=>accountMod.withdrawing(),

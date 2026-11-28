@@ -1,7 +1,7 @@
 /* sim-rt-status-ui.js — 🛰 realtime 끊김 화면(realtime/rt-status-ui.js) 검사 — 가짜 연결 · 띠 · 시계로 상태마다 돌리고, 진짜 rt-hub 위에서도 한 번
-   ・1절: 상태 → 할 일 — 다시 연결 중 띠(방 밖 · 15초 · 한 번 붙은 뒤에만 · 붙으면 사라짐) · authFailed E-RT-01 → 로그인 · accountGone E-RT-02 → 로그인(탈퇴 중엔 없음) ·
+   ・1절: 상태 → 할 일 — 다시 연결 중 띠(방 밖 · RECONNECT_NOTICE_MS · 한 번 붙은 뒤에만 · 붙으면 사라짐) · authFailed E-RT-01 → 로그인 · accountGone E-RT-02 → 로그인(탈퇴 중엔 없음) ·
           update → 강제 업데이트 창 · maintenance → 점검 창(다시 시도 = claim 없이 start) · closed E-RT-03 + [다시 연결] · sessionLost 는 아무것도 안 함
-   ・2절: 진짜 rt-hub · realtime-link 위에서 — 서버가 4999 로 닫으면 띠 · 4001 두 번이면 로그인 · 1006 이 15초 넘으면 띠
+   ・2절: 진짜 rt-hub · realtime-link 위에서 — 서버가 4999 로 닫으면 띠 · 4001 두 번이면 로그인 · 1006 이 RECONNECT_NOTICE_MS 넘으면 띠
    ・3절: 띠 화면 — 글은 textContent · 단추는 있을 때만
    ・4절: 배선 — html 차례(rt-hub → rt-status-ui → app.js) · 클릭 통과 목록 #rtBand · app.js 가 만든다
    ・5절: mutation test */
@@ -46,6 +46,7 @@ function mkClock(){
   return c;
 }
 /* 가짜 연결(상태만) · 띠 · 기록 */
+let NOTICE = 0;   // rt-hub RECONNECT_NOTICE_MS — judge 가 진짜 rt-hub 에서 읽어 넣는다(숫자를 여기 따로 적지 않는다)
 function rig(U, o){
   o = o || {};
   const clock = mkClock(), log = [];
@@ -57,7 +58,7 @@ function rig(U, o){
     rt, inRoom: () => state.inRoom, band,
     notifyError: (c) => log.push('err:' + c), toLogin: () => log.push('toLogin'), withdrawing: () => state.withdrawing,
     forceUpdate: () => log.push('update'), maintenance: (retry, dismiss) => { log.push('maint'); state.retry = retry; state.dismiss = dismiss; },
-    setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
+    noticeMs: NOTICE, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
   });
   const set = (s) => { st = s; if(fn) fn(s); };
   return { ui, clock, log, band, state, set, press: () => press(), has: (x) => log.includes(x) };
@@ -65,31 +66,32 @@ function rig(U, o){
 
 async function judge(S){
   let U;
-  try{ U = loadMod(S.UI); }catch(e){ chk(false, '싣다 던짐 — ' + e.message); return; }
+  try{ U = loadMod(S.UI); NOTICE = loadMod(S.HUB).RECONNECT_NOTICE_MS; }catch(e){ chk(false, '싣다 던짐 — ' + e.message); return; }
+  chk(NOTICE === 60000, 'rt-hub RECONNECT_NOTICE_MS 60초 — 방 안 알림과 같은 값 한 곳');
 
   say('── 1. 상태 → 할 일');
   {
     const r = rig(U);
     r.set('connecting'); r.set('ready'); r.set('retrying');
-    await r.clock.advance(14999);
-    chk(r.band.shown === null, '다시 붙는 중 — 15초 전엔 띠 없음(짧은 끊김엔 아무것도 안 보임)');
+    await r.clock.advance(NOTICE - 1);
+    chk(r.band.shown === null, '다시 붙는 중 — RECONNECT_NOTICE_MS 전엔 띠 없음(짧은 끊김엔 아무것도 안 보임)');
     await r.clock.advance(1);
-    chk(r.band.shown && r.band.shown.text === '서버에 다시 연결하는 중…' && !r.band.shown.button, '  ↳ 15초 넘으면 방 밖에서 띠 «서버에 다시 연결하는 중…»(단추 없음)');
+    chk(r.band.shown && r.band.shown.text === '서버에 다시 연결하는 중…' && !r.band.shown.button, '  ↳ RECONNECT_NOTICE_MS 넘으면 방 밖에서 띠 «서버에 다시 연결하는 중…»(단추 없음)');
     r.set('ready');
     chk(r.band.shown === null, '  ↳ 붙으면 사라진다');
-    r.set('retrying'); await r.clock.advance(5000); r.set('ready'); await r.clock.advance(20000);
-    chk(r.band.shown === null, '  ↳ 15초 안에 붙으면 띠가 안 뜬다(타이머를 지운다)');
+    r.set('retrying'); await r.clock.advance(5000); r.set('ready'); await r.clock.advance(NOTICE + 5000);
+    chk(r.band.shown === null, '  ↳ RECONNECT_NOTICE_MS 안에 붙으면 띠가 안 뜬다(타이머를 지운다)');
     r.set('retrying'); await r.clock.advance(5000); r.set('ready'); await r.clock.advance(5000); r.set('retrying');
-    await r.clock.advance(14000);
-    chk(r.band.shown === null, '  ↳ 붙었다 다시 끊기면 15초를 처음부터 센다(앞 끊김의 타이머가 남지 않음)');
+    await r.clock.advance(NOTICE - 1000);
+    chk(r.band.shown === null, '  ↳ 붙었다 다시 끊기면 RECONNECT_NOTICE_MS 를 처음부터 센다(앞 끊김의 타이머가 남지 않음)');
     await r.clock.advance(1000);
-    chk(!!r.band.shown, '  ↳ 새로 15초가 지나면 띠');
+    chk(!!r.band.shown, '  ↳ 새로 RECONNECT_NOTICE_MS 가 지나면 띠');
     r.set('ready');
     const room = rig(U, { inRoom: true });
-    room.set('ready'); room.set('retrying'); await room.clock.advance(20000);
+    room.set('ready'); room.set('retrying'); await room.clock.advance(NOTICE + 5000);
     chk(room.band.shown === null, '  ↳ 방 안이면 띠 없음(방 화면이 «다시 연결 중» 을 보인다)');
     const boot = rig(U);
-    boot.set('connecting'); boot.set('retrying'); await boot.clock.advance(20000);
+    boot.set('connecting'); boot.set('retrying'); await boot.clock.advance(NOTICE + 5000);
     chk(boot.band.shown === null, '  ↳ 한 번도 붙지 못한 켜는 중엔 띠 없음(서버에 닿지 못한 화면 몫)');
     const offr = rig(U);
     offr.set('ready'); offr.set('off'); offr.set('retrying'); await offr.clock.advance(20000);
@@ -127,7 +129,7 @@ async function judge(S){
     sl.set('ready'); sl.set('sessionLost'); await sl.clock.advance(20000);
     chk(sl.log.length === 0 && sl.band.shown === null, 'sessionLost — 여기선 아무것도 안 한다(밀려난 기기 화면은 로그인 흐름 몫)');
     const rb = rig(U);
-    rb.set('ready'); rb.set('retrying'); await rb.clock.advance(16000); rb.set('closed');
+    rb.set('ready'); rb.set('retrying'); await rb.clock.advance(NOTICE + 1000); rb.set('closed');
     chk(rb.band.shown && rb.band.shown.button === '다시 연결', '  ↳ «다시 연결 중» 띠가 떠 있다가 멈추면 [다시 연결] 띠로 바뀐다');
   }
 
@@ -148,7 +150,7 @@ async function judge(S){
         deviceId: () => 'd', newSession: () => 's', now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} } });
       const band = { shown: null, press: null, show(v, p){ this.shown = v; this.press = p; }, hide(){ this.shown = null; } };
       U.createRtStatusUi({ rt: hub, inRoom: () => false, band, notifyError: (c) => log.push('err:' + c), toLogin: () => log.push('toLogin'), withdrawing: () => false,
-        forceUpdate: () => log.push('update'), maintenance: () => log.push('maint'), setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
+        forceUpdate: () => log.push('update'), maintenance: () => log.push('maint'), noticeMs: H.RECONNECT_NOTICE_MS, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
       const ready = async () => { await tick(); const w = socks[socks.length - 1]; w.open(); await tick(); w.msg({ t: 'ready', pv: 4, now: 0, userCode: 'u', graceMs: 20000 }); await tick(); return w; };
       return { hub, clock, socks, log, band, ready };
     };
@@ -163,8 +165,8 @@ async function judge(S){
     chk(a.log.join() === 'err:E-RT-01,toLogin', '4001 두 번 → E-RT-01 · 로그인 화면 — ' + a.log.join());
     const n = mk(); n.hub.start(); const nw = await n.ready();
     nw.kill(1006); await tick();
-    await n.clock.advance(16000);
-    chk(n.band.shown && n.band.shown.text === '서버에 다시 연결하는 중…', '1006 이 15초 넘게 이어지면 «다시 연결하는 중» 띠');
+    await n.clock.advance(NOTICE + 1000);
+    chk(n.band.shown && n.band.shown.text === '서버에 다시 연결하는 중…', '1006 이 RECONNECT_NOTICE_MS 넘게 이어지면 «다시 연결하는 중» 띠');
     const p = mk(); p.hub.start(); const pw = await p.ready();
     pw.kill(4003); await tick();
     chk(p.log.join() === 'update', '4003 → 업데이트 강제 창');
@@ -208,9 +210,9 @@ say('── 5. mutation test');
 const BREAKS = [
   ['UI', "        if(rt.state() === S.RETRYING && !deps.inRoom()) band.show(", "        if(rt.state() === S.RETRYING) band.show(", '방 안에서도 띠'],
   ['UI', "      if(bandTimer || !sawReady) return;", "      if(bandTimer) return;", '켜는 중에도 «다시 연결» 띠'],
-  ['UI', "const RETRY_BAND_MS = 15000;", "const RETRY_BAND_MS = 1000;", '짧은 끊김에도 띠'],
+  ['UI', "      }, noticeMs);", "      }, 1000);", '짧은 끊김에도 띠(noticeMs 를 안 씀)'],
   ['UI', "    [S.READY]: () => { sawReady = true; clearBand(); },", "    [S.READY]: () => { sawReady = true; },", '붙어도 띠가 남음'],
-  ['UI', "    if(bandTimer){ deps.clearTimeout(bandTimer); bandTimer = null; }\n", "", '붙어도 15초 타이머가 남아 띠'],
+  ['UI', "    if(bandTimer){ deps.clearTimeout(bandTimer); bandTimer = null; }\n", "", '붙어도 띠 타이머가 남아 띠'],
   ['UI', "if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin(); }", "if(beginSignOut()){ deps.toLogin(); }", '로그인 풀림에 번호 없음'],
   ['UI', "if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin(); }", "if(beginSignOut()){ notifyError('E-RT-01'); }", '로그인 풀림인데 로그인 화면으로 안 감'],
   ['UI', "    if(signingOut) return false;\n", "", '로그인 화면 보내기를 두 번'],

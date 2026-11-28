@@ -99,7 +99,7 @@ say('── 2. presence 가 부르는 provider 메서드 ⊆ 방 포트 provider
 const PRES = read('presence.js') || '';
 const used = [...new Set([...PRES.matchAll(/\bprovider\.(\w+)\s*\(/g)].map((m) => m[1]))];
 const hub = { onMessage(){}, onState(){}, send: () => false, request: () => Promise.resolve(null), state: () => 'off', isReady: () => false, userCode: () => null };
-const rt = R.createRoomRt({ hub, STATE: { READY: 'ready', OFF: 'off', SESSION_LOST: 'sessionLost', UPDATE: 'update', AUTH_FAILED: 'authFailed' } });
+const rt = R.createRoomRt({ hub, STATE: { READY: 'ready', OFF: 'off', SESSION_LOST: 'sessionLost', UPDATE: 'update', AUTH_FAILED: 'authFailed' }, noticeMs: 60000 });
 const prov = rt.makeProvider({}, null);
 const missing = used.filter((k) => typeof prov[k] !== 'function');
 chk(used.length >= 5 && missing.length === 0, 'presence 가 부르는 ' + used.join(' · ') + ' 를 방 포트 provider 가 다 가진다' + (missing.length ? ' — 없음: ' + missing.join(', ') : ''));
