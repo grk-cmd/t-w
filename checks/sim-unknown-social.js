@@ -7,6 +7,7 @@
    ・2절 char-code.js — 복제 코드 동물: 해금 레벨 모름이면 «받는 중» 으로 막음 · 내 레벨 모름이면 tellLevelUnknown · animal.js 가 없을 때도 모름으로 열지 않음
    ・1 · 2절의 «해금 정보를 받는 중» 문구는 room/interaction-desk.js lockedToast · lockedText 한 벌(deps) — 모듈에 따로 박으면 빨강
    ・3절 room-entry.js · frame-loop.js — 방에 실린 남의 레벨: 1 이상 정수만, 아니면 null(이름표는 이름만) · 3-2절 lv-tier.js — 모르는 레벨은 티어 클래스 없음
+   ・3-3절 app.js 연결 — createAnimal 의 iDeskMod · createCharCode 의 lockedToast 줄
    ・4절 mutation test — 옛 대신 값(50 · `|| 50` · `|| 1`)을 되살리면 빨강 */
 'use strict';
 const fs = require('fs');
@@ -16,8 +17,8 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, path.basename(f), path.join('apps', 'desktop', 'app', 'parts', f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const ANIMAL = read('character/animal.js'), CC = read('character/char-code.js'), RE = read('room/room-entry.js'), FL = read('launcher/frame-loop.js'),
-  IDESK = read('room/interaction-desk.js'), TIER = read('focus/lv-tier.js');
-if (!ANIMAL || !CC || !RE || !FL || !IDESK || !TIER) { say('  ? 원본 못 찾음 — animal.js · char-code.js · room-entry.js · frame-loop.js · interaction-desk.js · lv-tier.js'); process.exit(2); }
+  IDESK = read('room/interaction-desk.js'), TIER = read('focus/lv-tier.js'), APP = read('app.js');
+if (!ANIMAL || !CC || !RE || !FL || !IDESK || !TIER || !APP) { say('  ? 원본 못 찾음 — animal.js · char-code.js · room-entry.js · frame-loop.js · interaction-desk.js · lv-tier.js'); process.exit(2); }
 
 /* 이름 · 머리글로 덩어리 하나를 오려 낸다(중괄호 짝) */
 function cutFrom(src, head){
@@ -154,6 +155,18 @@ function tierRows(src){
   return r;
 }
 
+/* ── app.js 연결 — 위 판정은 가짜 deps 로 돌므로, 진짜 앱이 그 deps 를 넘기는지 따로 본다(줄을 지우면 앱에서 «iDeskMod is undefined») ── */
+function wireRows(app, animal, cc){
+  const r = []; const t = (ok, msg) => r.push([!!ok, msg]);
+  const block = (head) => { const i = app.indexOf(head); if (i < 0) return ''; return app.slice(i, app.indexOf('\n});', i)); };
+  const A = block('TwAnimal.createAnimal({'), C = block('const charCodeMod = TwCharCode.createCharCode({');
+  t(/\n  iDeskMod: iDeskMod,/.test(A) && /^const iDeskMod = deps\.iDeskMod;/m.test(animal) && app.indexOf('const iDeskMod = TwInteractionDesk.createInteractionDesk(') >= 0 && app.indexOf('const iDeskMod = ') < app.indexOf('TwAnimal.createAnimal({'),
+    'app.js — createAnimal 에 iDeskMod(잠긴 안내 한 벌)를 넘긴다 · animal.js 가 deps 로 받는다 · 만드는 줄보다 앞에서 만든 값');
+  t(/\n  lockedToast: \(\.\.\.a\)=>iDeskMod\.lockedToast\(\.\.\.a\),/.test(C) && /^const lockedToast = deps\.lockedToast;/m.test(cc),
+    'app.js — createCharCode 에 lockedToast 를 넘긴다 · char-code.js 가 deps 로 받는다');
+  return r;
+}
+
 const all = (rows) => rows.every(([ok]) => ok);
 say('── 1. animal.js — 동물 해금');
 animalRows(ANIMAL).forEach(([ok, m]) => chk(ok, m));
@@ -163,6 +176,9 @@ say('── 3. 남의 레벨');
 levelRows(RE, FL).forEach(([ok, m]) => chk(ok, m));
 say('── 3-2. 레벨 티어');
 tierRows(TIER).forEach(([ok, m]) => chk(ok, m));
+
+say('── 3-3. app.js 연결');
+wireRows(APP, ANIMAL, CC).forEach(([ok, m]) => chk(ok, m));
 
 say('── 4. mutation test — 하나라도 못 잡으면 빨강');
 const BREAKS = [
@@ -180,15 +196,17 @@ const BREAKS = [
   ['T', "  if(!(n >= 1)) return null;", "  if(!(n >= 1)) return 1;", '모르는 레벨을 1티어로(옛 `|| 1`)'],
   ['T', "  if(t == null) return '';   // 남의 레벨을 모름", "  if(false) return '';   // 남의 레벨을 모름", '바가 모르는 레벨에 티어 클래스를 붙임'],
   ['R', "? v : null; }", "? v : 1; }", '남의 레벨 모름을 1 로'],
+  ['W', "\n  iDeskMod: iDeskMod,\n  normalizeModel:", "\n  normalizeModel:", 'app.js 가 createAnimal 에 iDeskMod 를 안 넘김'],
+  ['W', "  focusLevelMod: ()=>focusLevelMod,\n  lockedToast: (...a)=>iDeskMod.lockedToast(...a),\n", "  focusLevelMod: ()=>focusLevelMod,\n", 'app.js 가 createCharCode 에 lockedToast 를 안 넘김'],
   ['R', 's.friendLevel=_remoteLevel(friends[id].level);', 's.friendLevel=friends[id].level||1;', '좌석에 앉힐 때 옛 `|| 1`'],
   ['F', 'lv = st ? st.lv : seat.friendLevel;', 'lv = st ? st.lv : (seat.friendLevel||1);', '이름표에 옛 `|| 1`'],
 ];
 const missed = [];
 for (const [where, from, to, what] of BREAKS){
-  const src = { A: ANIMAL, C: CC, R: RE, F: FL, T: TIER }[where];
+  const src = { A: ANIMAL, C: CC, R: RE, F: FL, T: TIER, W: APP }[where];
   if (src.indexOf(from) < 0){ missed.push(what + '(글을 못 찾음)'); continue; }
   const m = src.split(from).join(to);
-  const rows = where === 'A' ? animalRows(m) : where === 'C' ? ccRows(m) : where === 'T' ? tierRows(m) : levelRows(where === 'R' ? m : RE, where === 'F' ? m : FL);
+  const rows = where === 'W' ? wireRows(m, ANIMAL, CC) : where === 'A' ? animalRows(m) : where === 'C' ? ccRows(m) : where === 'T' ? tierRows(m) : levelRows(where === 'R' ? m : RE, where === 'F' ? m : FL);
   if (all(rows)) missed.push(what);
 }
 chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));

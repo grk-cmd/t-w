@@ -634,9 +634,9 @@ function _plSyncSel(){
 function _plFillLv(el, lv, star){
   if(!el) return;
   el.textContent = '';
-  if(lv == null && !star){ el.className = ''; _starPaint(el, null); return; }
   /* 🌟 회차면 'Lv' 자리에 별이 선다(★342) — 숫자는 **이번 바퀴** 레벨(star.lv). 배지 별은 흰색 고정(CSS .mh-flv .pre). */
-  const n = star ? star.lv : Math.max(1, parseInt(lv, 10) || 1);
+  const n = star ? star.lv : parseInt(lv, 10);
+  if(!star && !(n >= 1)){ el.className = ''; _starPaint(el, null); return; }   // 레벨을 모름(없음 · 0 · 글자) — Lv.1 로 그리지 않는다
   el.className = 'mh-flv ' + (star ? lvStarBadgeClass() : lvBadgeClass(n));
   const p = document.createElement('i');
   if(star){ p.className = 'pre'; p.textContent = lvStarStr(star.cyc); }
