@@ -119,7 +119,7 @@ const CASES = [
   ['포커스 시간이 안 쌓여요', (r) => r.answer.faq && r.answer.p === '5-3', '포커스 FAQ → 5-3. 포커싱 탭'],
   ['라이선스 키 등록', (r) => r.answer.faq && r.answer.p === '5-5', '라이선스 FAQ → 5-5 › 라이선스'],
   ['파이널판타지14 포커스가 안 잡혀요', (r) => r.answer.faq && r.answer.p === '5-3' && /관리자 권한/.test(r.answer.t), '게임 감지 FAQ → 5-3 · 관리자 권한'],
-  ['레벨이 안 올라요', (r) => r.answer.faq && r.answer.p === '5-2' && /피규어 모드/.test(r.answer.t), '레벨 안 오름 FAQ → 5-2 › 피규어 모드'],
+  ['레벨이 안 올라요', (r) => r.answer.faq && r.answer.p === '9-1' && /피규어 모드/.test(r.answer.t), '레벨 안 오름 → 레벨 FAQ 하나(오르는 법 · 안 오를 때) · 피규어 모드 안내'],
   ['아이패드 연결이 풀려요', (r) => r.answer.faq && r.answer.p === '5-7' && /연결 안 됨/.test(r.answer.t) && /QR 다시 보기/.test(r.answer.t) && /신호 보내 보기/.test(r.answer.t) && /즉시 실행/.test(r.answer.t), '태블릿 FAQ → 5-7(태블릿 · 폰 연결) · «연결 안 됨» 이면 QR(연결했으면 QR 다시 보기) · 신호 보내 보기 · «쉬는 중» 이면 단축어 설정'],
   ['창 위치 초기화', (r) => r.answer.faq && r.answer.p === '5-1', '«창 위치 초기화» → 모니터 FAQ'],
   ['창이 화면 밖으로 나갔어요', (r) => r.answer.faq && r.answer.p === '5-1' && /창 위치 초기화/.test(r.answer.t), '창 밖 → 모니터 FAQ(창 위치 초기화)'],
