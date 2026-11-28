@@ -27,6 +27,7 @@ const SRC = {
 for(const k of Object.keys(SRC)) if(!SRC[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const apiErr = (status, code, kind) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: kind || (status >= 500 ? 'unavailable' : 'request') });
 const ME = (premium) => ({ userCode: 'u12345678', friendCode: 'MATE-AAAA', version: 1, premium, admin: false });
+const quietWarn = async (fn) => { const w = console.warn; console.warn = () => {}; try{ return await fn(); }finally{ console.warn = w; } };   // 서버 답에 판정이 없을 때의 경고 한 줄을 숨긴다
 const lic = (ids, status) => ({ licenseId: 'L', status: status || 'VALID', devices: ids.map((id) => ({ deviceId: id, name: 'Mac', registeredAt: '', lastSeenAt: '' })) });
 const withPremium = (l, p) => (p === undefined ? l : Object.assign(l, { premium: p }));
 const ID = 'dev-mine0001', NAME = 'Mac';
@@ -78,6 +79,15 @@ async function judge(S){
     const r = await e.boot(ME(true));
     t(r === true && e.sets.join() === 'true' && !e.calls.includes('mine') && !e.calls.includes('me'), '프리미엄 참 → 알린다(참) 한 번 · 내 라이선스를 읽지도 확인을 다시 묻지도 않는다');
     t(e.handlers.length === 1 && e.handlers[0][0] === 'license', '  서버 알림 license 를 건다(한 번)');
+    {
+      /* ★ 서버 답에 판정(premium)이 없으면 «아님» 으로 치지 않는다 — setPremium 을 부르지 않아 «모름»(premiumKnown 거짓)이 남는다(CLAUDE.md «모르는 값») */
+      const eu = env(LP, { me: [ME(undefined)], mine: null });
+      await quietWarn(() => eu.mod.start(ME(undefined)));
+      t(eu.sets.length === 0 && eu.premium === false, '★ 서버 답에 premium 이 없으면 setPremium 을 안 부른다(«아님» 이 아니라 «모름» 그대로)');
+      const en = env(LP, { me: [ME('yes')], mine: null });
+      await quietWarn(() => en.mod.start(ME('yes')));
+      t(en.sets.length === 0, '  참 · 거짓이 아닌 값(글자)도 «모름» 그대로');
+    }
 
     const AUTO = '🎫 계정에 등록된 라이선스를 이 PC에서도 켰어요';
     const puts = (x) => x.calls.filter((c) => c.startsWith('put:')).length;
@@ -546,7 +556,8 @@ async function judge(S){
   say('── 6. mutation test — 하나라도 못 잡으면 빨강');
   const mut = (k, f) => Object.assign({}, SRC, { [k]: f(SRC[k]) });
   const breaks = [
-    ['프리미엄을 확인 응답이 오기 전에 먼저 켬', mut('LP', (s) => s.replace("function settle(me){\n    setPremium(me.premium === true);", "function settle(me){\n    setPremium(true);\n    setPremium(me.premium === true);"))],
+    ['★ 판정 없는 서버 답을 «아님» 으로(옛 모양 me.premium === true)', mut('LP', (s) => s.replace("    if(typeof me.premium !== 'boolean'){", "    if(false){"))],
+    ['프리미엄을 확인 응답이 오기 전에 먼저 켬', mut('LP', (s) => s.replace("    setPremium(me.premium);\n    return me.premium;", "    setPremium(true);\n    setPremium(me.premium);\n    return me.premium;"))],
     ['켤 때 자동 등록을 안 함', mut('LP', (s) => s.replace("      return autoRegister(g, raw);\n", "      return on;\n"))],
     ['자동 등록 성공에 토스트를 안 띄움', mut('LP', (s) => s.replace("if(on && g === gen) deps.toast(AUTO_ON);", ""))],
     ['자동 등록 실패에도 토스트를 띄움', mut('LP', (s) => s.replace("console.warn('[라이선스] 이 기기를 자동으로 등록하지 못했어요', e);", "deps.toast(AUTO_ON);"))],

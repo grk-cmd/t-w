@@ -108,7 +108,7 @@ const probe = `
   renderLauncher = ()=>{};
   saveSlots = ()=>{};
   saveCurSlot = ()=>{};
-  globalThis.premiumKnown = true;   // 서버가 프리미엄을 확인해 준 뒤(account-state.js) — 모름은 아래 (ㅁ) 에서 따로 본다
+  _setPremium(false);   // 서버가 프리미엄을 확인해 준 뒤(account-state.js — 아님) — 모름은 아래 (ㅁ) 에서 따로 본다
   decryptCode = async (code)=>{
     if(!/^DCC1\\./.test(code)) throw new Error('format');
     return { type:'creator', skin:0, face:{}, blink:{}, top:'#fff', bot:'#fff' };
@@ -119,7 +119,7 @@ const probe = `
     setCur:(v)=>{ curSlot = v; },
     getCur:()=>curSlot,
     setRaceTarget:(v)=>{ _raceTargetSlot = v; },
-    setKnown:(v)=>{ globalThis.premiumKnown = v; },
+    setKnown:(v)=>{ if(v) _setPremium(false); else resetPremium(); },
     importCloneCode,
     decryptCommission,
     commGo: document.getElementById('commImpGo').onclick,

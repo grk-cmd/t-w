@@ -81,10 +81,14 @@ function createLicensePremium(deps){
     deps.notifyError('E-LIC-01', e);   // 번호는 글자 그대로(sim-error-codes 가 찾는다)
   }
 
-  /* 서버 확인(me)을 그대로 반영한다. 끝나면 premiumKnown 이 참이다. 던지지 않는다. */
+  /* 서버 확인(me)을 그대로 반영한다. premium 이 참 · 거짓으로 왔을 때만 premiumKnown 이 참이 된다(없으면 «모름» 그대로). 던지지 않는다. */
   function settle(me){
-    setPremium(me.premium === true);
-    return me.premium === true;
+    if(typeof me.premium !== 'boolean'){   // 서버 답에 판정이 없다 — «아님» 으로 치지 않고 «모름» 그대로(premiumKnown 이 거짓으로 남는다)
+      console.warn('[라이선스] 서버 답에 프리미엄 판정이 없어요 — 모름으로 둬요');
+      return isPremium();
+    }
+    setPremium(me.premium);
+    return me.premium;
   }
 
   async function once(given, g){

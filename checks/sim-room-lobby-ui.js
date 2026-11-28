@@ -163,13 +163,14 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     const timers = new Map(); let tid = 0;
     global.setInterval = (f) => { timers.set(++tid, f); return tid; };
     global.clearInterval = (id) => { timers.delete(id); };
-    const U = classic(U_SRC, 'TwRoomLobbyUi');
+    const U = classic(o.src || U_SRC, 'TwRoomLobbyUi');
     U.createRoomLobbyUi({
       model: M,
       provider: { listRooms: async (ch) => { log.lists.push(ch); return typeof o.list === 'function' ? o.list(ch) : (o.list === undefined ? node : o.list); },
         mySecretRoom: async () => o.secret ? { code: o.secret.code, name: o.secret.name } : null,
         secretGuests: async () => (o.secret ? o.secret.guests : null) },
-      inRoom: () => !!o.inRoom, twNav: nav, maxPeople: () => 10, isLicensed: () => !!o.licensed,
+      inRoom: () => !!o.inRoom, twNav: nav, maxPeople: () => (o.cap === undefined ? 10 : o.cap), isLicensed: () => !!o.licensed,
+      premiumBlocked: (locked) => { if(o.unknown){ log.told = (log.told || 0) + 1; return 'unknown'; } if(locked) locked(); return 'locked'; }, premiumKnown: () => !o.unknown,
       isBlocked: o.isBlocked || NOBLOCK,
       joinRoom: async (c) => { log.joins.push(c); await tick(); },
       openCreate: (ch) => log.creates.push(ch), toast: (m) => log.toasts.push(m), notifyError: (c) => log.errors.push(c),
@@ -222,6 +223,23 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   await tick(); await tick();
   t.$('lobbyCreate').onclick();
   chk(t.log.lists.join() === 'workingroom,togetherroom' && t.log.creates.length === 1 && /라이선스/.test(t.log.toasts.pop()), '★ 투게더룸 탭 — 다시 읽고 · 보유자가 아니면 만들기 대신 안내');
+  /* ★ 모르는 값 — 라이선스 · 정원을 서버에서 못 받았으면 짐작하지 않는다(CLAUDE.md «모르는 값») */
+  async function unknownProbe(src){
+    const u = await mkUi({ src, unknown: true, cap: null, secret: { code: 'SCRT-ABCD', name: '우리', guests: 2 } });
+    await u.open();
+    const cs = u.$('lobbyGrid').children;
+    const cc = cs.find((c) => c.textContent.includes('CC33'));   // 방 최대 인원(max)이 없는 방 — 정원을 모르면 칸 수를 모른다
+    const capOk = cs.length === 5 && cs.every((c) => !/\/null|\/0\b/.test(c.textContent)) && !!cc && !cc.disabled && !cc.className.includes('full') && /7명/.test(cc.textContent)
+      && u.$('lobbySecretCount').textContent === '손님 2';
+    u.$('lobbyTabTogether').onclick(); await tick(); await tick();
+    const titleOk = u.$('lobbyCreate').title === '';
+    u.$('lobbyCreate').onclick();
+    const tellOk = u.log.told === 1 && !u.log.toasts.length && !u.log.creates.length;
+    return { capOk, titleOk, tellOk };
+  }
+  { const r0 = await unknownProbe();
+    chk(r0.capOk, '★ 정원을 모르면 방 최대 인원이 없는 카드는 «n명» 만 · «가득 참» 으로 막지 않는다(판정은 방 서버 — 방 max 가 있는 방은 그대로) · 시크릿룸 줄은 손님 수만');
+    chk(r0.titleOk && r0.tellOk, '★ 라이선스를 모르면 투게더룸 [방 만들기] 가 «라이선스가 있어야» 대신 «확인 중» 한 번(창도 안 연다)'); }
 
   t = await mkUi({ list: null });
   await t.open();
@@ -301,6 +319,13 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
       const pv3 = classic(noGen, 'TwRoomLobbyProvider').createRoomLobbyProvider({ apiGet: async () => { await gt; return { code: 'SCRT-AAAA' }; }, peek: async () => null, roomCode: () => null, myUserId: () => who, now: () => now });
       const rd = pv3.mySecretRoom(); who = 'B'; pv3.reset(); rel(); let ok = true; try{ await rd; }catch(_){ ok = false; }
       chk(noGen !== P_SRC && ok, '세대 확인을 빼면 2절 «읽는 중 계정이 바뀌면 던진다» 가 빨강'); }
+    { const um = U_SRC.replace("premiumBlocked(() => toast(TEXT.togetherLocked));", 'toast(TEXT.togetherLocked);');
+      chk(um !== U_SRC && !(await unknownProbe(um)).tellOk, '★ 모르는 라이선스에 «라이선스가 있어야» 를 띄우면 3절 «확인 중» 이 빨강'); }
+    { const um = U_SRC.replace("c.max != null ? c.n + '/' + c.max : c.n + '명'", "c.n + '/' + c.max");
+      chk(um !== U_SRC && !(await unknownProbe(um)).capOk, '모르는 정원을 «n/null» 로 적으면 3절이 빨강'); }
+    { const RS2 = RS_SRC.replace('  if(cap == null) return mOk ? m : null;\n', '');
+      const rs2 = classic(RS2, 'TwRoomSettings'); const m2 = classic(M_SRC, 'TwRoomLobbyModel', { TwRoomSettings: rs2 });
+      chk(RS2 !== RS_SRC && m2.cardsFrom(node, { now, cap: null, isBlocked: NOBLOCK }).list.some((c) => c.full && c.n < 10), '★ 모르는 정원을 0 으로 치면(roomCap — Math.min(m, null)) 1절 카드가 «가득 참» 으로 빨강'); }
     const noCap = model(M_SRC.replace('const max = roomCap({ max: r.max }, cap);', 'const max = Number.isInteger(r.max) ? r.max : cap;'));
     chk(noCap.cardsFrom(node, { now, cap: 10, isBlocked: NOBLOCK }).list.find((c) => c.code === 'WORK-FF66').max !== 10, '정원 규칙(roomCap)을 안 거치면 1절 «정원보다 큰 max» 가 빨강');
   }

@@ -31,6 +31,7 @@ const _officeHidden = deps._officeHidden;   // 읽는 함수
 const _seatHidden = deps._seatHidden;   // 🙈 숨긴 좌석(hidden-seats.js)
 const _pickUnlockedDance = deps._pickUnlockedDance;
 const _premiumOn = deps._premiumOn;
+const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» · 아니면 넘긴 잠금(account-state.js)
 const _rollRoulette = deps._rollRoulette;
 const backToLauncher = deps.backToLauncher;
 const camera = deps.camera;
@@ -682,7 +683,7 @@ function updateMyStatusChipPosition(){
   function _closeCustomStatusBox(){ if(customStatusBox) customStatusBox.classList.add('hidden'); }
   function _openCustomStatusBox(){
     if(!customStatusBox) return;
-    if(!_premiumOn()){ toast('✨ 커스텀 상태는 프리미엄 전용이에요'); return; }
+    if(!_premiumOn()){ premiumBlocked(() => toast('✨ 커스텀 상태는 프리미엄 전용이에요')); return; }
     _closeChipPopups('myCustomStatusBox');   // 다른 칩 팝업(상태 메뉴·더보기·채팅)은 닫고 이것만 띄움
     // 지금 등록돼 있는 값을 입력창에 미리 채워둠 (수정하기 편하게)
     if(customStatusEmoIn)  customStatusEmoIn.value  = customStatusConf().emo  || '';

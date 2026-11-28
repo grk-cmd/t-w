@@ -5927,7 +5927,7 @@
   <!-- ── 탭 4 · 방 연결 ── -->
   <div class="fs-tabpage" id="fsTabMulti" style="display:none;">
     <div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;line-height:1.5;">
-      같은 방 코드로 연결하면, 서로의 이미지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)
+      같은 방 코드로 연결하면, 서로의 이미지가 옆자리에 나타나 상태를 실시간으로 공유해요.<span data-tw-max-people></span>
     </div>
     <div id="fsInviteIdle">
       <button class="lc-btn" id="fsInviteCreate" style="margin-bottom:4px;">방 만들기 (코드 생성)</button>
@@ -8641,7 +8641,7 @@
 <div id="inviteOverlay">
   <div id="inviteModal">
     <h2><span>방 찾기 · 만들기</span><button type="button" class="lb-x" id="inviteClose" aria-label="닫기" title="닫기">✕</button></h2>
-    <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)</p>
+    <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.<span data-tw-max-people></span></p>
     <div id="inviteIdle">
       <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 API(GET /v2/rooms/lobby — realtime 서버가 지금 연 방)를 모달을 열 때 · 새로 고침 · 탭을 바꿀 때 · 방을 나와 로비가 다시 보일 때 읽는다(주기 갱신 없음)
            ⚠️ 코드 칸(.lb-join)도 로비 안에 둔다 — [방 만들기] 창(room-create-ui.js)이 둘을 같이 숨긴다. -->
@@ -8718,9 +8718,10 @@
           <span class="rc-lbl">최대 인원</span>
           <div class="rc-max">
             <button type="button" id="rcMaxDown" aria-label="한 명 줄이기">−</button>
-            <output id="rcMax">10명</output>
+            <output id="rcMax"></output>
             <button type="button" id="rcMaxUp" aria-label="한 명 늘리기">+</button>
             <span id="rcMaxHint" class="rc-hint"></span>
+            <button type="button" id="rcMaxRetry" class="rc-retry" hidden>다시 시도</button>
           </div>
         </div>
         <label class="rc-pub"><input type="checkbox" id="rcOpen" checked><span>방 목록에 공개</span></label>

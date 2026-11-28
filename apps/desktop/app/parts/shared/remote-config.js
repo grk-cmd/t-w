@@ -3,9 +3,17 @@
    [읽는 곳] 서버 GET /v2/config 하나(로그인 없이 · 몇백 바이트) — data 모양
      { room:{ limits:{workingroom, togetherroom}, maxPeople, timing:{joinWaitMs, clientGiveUpMs}, minVersion, bannedWords }, app:{ minVersion },
        user:{ inviteGate }, bug:{ dailyMax, report:{ notice, link } }, guestbook:{ clapDailyMax }, gift:{ dailySendMax } }.
-     못 받으면 이 PC 저장값(CACHE_KEY · 마지막으로 받은 값) → 그것도 없으면 DEFAULTS. Firebase config 칸은 읽지 않는다(0.13 · 서버가 원본).
+     못 받으면 이 PC 저장값(CACHE_KEY · 마지막으로 받은 값 — 출처가 서버라 «모름» 이 아니다) → 그것도 없으면 DEFAULTS. Firebase config 칸은 읽지 않는다(0.13 · 서버가 원본).
      ★ 최소 버전(minVersion)은 저장값을 쓰지 않는다 — 이번 실행에 받은 값으로만 막는다(못 받으면 막지 않는다).
      범위 밖 · 타입이 다른 값은 그 칸만 기본값. 범위는 서버 설정 키 표와 같다.
+   [모름 — CLAUDE.md «모르는 값을 그럴듯한 값으로 바꾸지 않는다»] DEFAULTS 는 칸마다 둘 중 하나다.
+     · 서버가 판정하는 값 → 기본값이 null(«모름»): roomLimits(채널 방 상한 — channelFull) · roomMaxPeople(정원 — 방 서버 full) ·
+       bugDailyMax · clapDailyMax · giftDailySendMax(하루 상한 — 서버가 센다). 쓰는 쪽은 null 이면 숫자를 적지 않고(«최대 10명» 같은 짐작 없음) ·
+       그 값으로 막거나 자르지 않는다(방 만들기 창은 «정원을 불러오는 중» · 만들기 단추 꺼짐 · 친구 자리는 자르지 않음).
+     · 앱 쪽만 다루는 값 · 설계된 게이트 → 기본값 그대로: inviteGate(true — 모르면 막는 쪽으로만 · 초대 게이트 «설계된 것») ·
+       minVersion(null — 모르면 막지 않음 · 업데이트 최소 버전) · roomServerTiming(앱이 기다리는 시간만 다룸 — 서버 판정 아님) ·
+       bannedWords([] — 앱이 미리 거르는 것뿐 · 제목 판정은 서버 forbidden/title) · bugReport(빈 글 — 안내 · 링크 미리 채우기만, 없으면 안 보임).
+     못 받은 채 남지 않게 API 복귀 알림(shared/api-health.js onRecover)에 이번 실행에 받은 적이 없으면 한 번 다시 묻는다(health 를 넘겼을 때).
    [언제] 켤 때 한 번 · 창이 다시 보일 때(STALE_MS 넘었으면) · realtime 알림 config(rt-hub.js — 서버가 바꿨다고 알림 · 오래 끊겼다 붙음). 주기 다시 읽기는 없다(0.13 — 바뀌면 서버가 알린다).
      방 입장 · 제보 전에는 STALE_MS 넘었을 때만(refresh({ maxAgeMs })). 같은 값이면 API 통로가 ETag 304 로 받는다(api-client.js).
    API 는 앱 공통 통로(api-client.js · window.TwApi.client — 시간 제한 · 봉투 · 실패 한 모양 · 죽었을 때 쉬기)로 부른다.
@@ -20,7 +28,6 @@ const STALE_MS = 60 * 1000;
 
 const CHANNELS = ['workingroom', 'togetherroom'];
 const ROOM_LIMIT_MIN = 1, ROOM_LIMIT_MAX = 10000;
-const ROOM_LIMIT_DEFAULT = 500;   // 채널마다 방 개수 상한 기본값(서버 room.limits 기본값과 같다)
 const MAX_PEOPLE_MIN = 2, MAX_PEOPLE_MAX = 50;
 const BUG_DAILY_MIN = 1, BUG_DAILY_MAX = 100;
 const CLAP_DAILY_MIN = 1, CLAP_DAILY_MAX = 100;
@@ -35,16 +42,16 @@ const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'roomServerTiming', '
 const BANNED_WORDS_MAX = 500;     // 금칙어 줄 수 상한(서버 room.bannedWords 500 · 판정 banned-words.js BANNED_MAX 와 같은 값)
 const BANNED_WORD_LEN_MAX = 20;   // 한 낱말 길이 상한(서버와 같은 값)
 const DEFAULTS = Object.freeze({
-  roomLimits: Object.freeze({ workingroom: ROOM_LIMIT_DEFAULT, togetherroom: ROOM_LIMIT_DEFAULT }),
-  roomMaxPeople: 10,
+  roomLimits: Object.freeze({ workingroom: null, togetherroom: null }),   // 서버 판정(channelFull) — 모르면 null(위 [모름])
+  roomMaxPeople: null,             // 정원 — 서버(방 서버 full)가 판정 · 모르면 null
   inviteGate: true,
   roomServerTiming: Object.freeze({ joinWaitMs: TIMING_RANGES.joinWaitMs[2], clientGiveUpMs: TIMING_RANGES.clientGiveUpMs[2] }),
   minVersion: Object.freeze({ app: null, room: null }),
-  bugDailyMax: 5,
+  bugDailyMax: null,               // 제보 하루 상한 — 서버가 센다 · 모르면 null
   bannedWords: Object.freeze([]),  // 방 제목 금칙어 원문(웹 관리자) — 맞추기 · 판정은 shared/banned-words.js 한 곳
-  clapDailyMax: 5,                 // 방명록 박수 하루 상한(한 홈마다) — 판정은 서버, 앱은 문구에만
+  clapDailyMax: null,              // 방명록 박수 하루 상한(한 홈마다) — 판정은 서버, 앱은 문구에만 · 모르면 null
   bugReport: Object.freeze({ notice: '', link: '' }),   // 제보 안내 글 · 오픈카톡 기본 링크(답변 칸 [💬 오픈카톡] 이 채움) — 저장은 관리자 폼(bug-api.js)
-  giftDailySendMax: 10,            // 선물 하루 보내기 상한 — 판정은 서버, 앱은 문구에만
+  giftDailySendMax: null,          // 선물 하루 보내기 상한 — 판정은 서버, 앱은 문구에만 · 모르면 null
 });
 
 const isInt = (v) => typeof v === 'number' && isFinite(v) && v % 1 === 0;
@@ -113,6 +120,7 @@ function createRemoteConfig(){
   let src = 'default';          // 지금 값의 출처 — 'api' | 'cache' | 'default'
   let opts = null;              // start 가 받은 것 { api, storage, now, win, rt }
   let lastTry = 0, inflight = null;
+  let recoverArmed = false;    // 복귀 다시 묻기를 아직 안 썼다 — 실패 한 묶음에 한 번(복귀로 묻다 또 실패하면 다음 실패 전까지 다시 열지 않는다 · load-state.js 와 같은 규칙)
   const listeners = [], waiters = [];
   const now = () => (opts && opts.now) ? opts.now() : Date.now();
   const warn = (...a) => { try{ console.warn('[원격 설정]', ...a); }catch(_){} };
@@ -160,6 +168,7 @@ function createRemoteConfig(){
   /* 다시 읽기. maxAgeMs 를 주면 마지막 시도가 그보다 최근이면 묻지 않는다(성공이든 실패든 — 멈췄을 때 입장마다 기다리지 않게). */
   function refresh(o){
     const maxAge = (o && o.maxAgeMs) || 0;
+    const byRecover = !!(o && o.recover);
     if(!opts || !opts.api){ answer(); return Promise.resolve(cur); }
     if(inflight) return inflight;
     if(maxAge && lastTry && now() - lastTry < maxAge) return Promise.resolve(cur);
@@ -170,12 +179,12 @@ function createRemoteConfig(){
         src = 'api';
         apply(data, false); saveCache(data);
       })
-      .catch((e) => { warn('API 를 못 읽음 — ' + (src === 'cache' ? '저장값' : src === 'default' ? '기본값' : '지난 값') + ' 그대로', (e && (e.code || e.message)) || e); })
+      .catch((e) => { if(!byRecover) recoverArmed = true; warn('API 를 못 읽음 — ' + (src === 'cache' ? '저장값' : src === 'default' ? '기본값' : '지난 값') + ' 그대로', (e && (e.code || e.message)) || e); })
       .then(() => { inflight = null; answer(); return cur; });
     return inflight;
   }
 
-  /** deps: { api(TwApi.client — get(path)), now, win, rt(TwRtHub.store — on('config', fn)) } — app.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
+  /** deps: { api(TwApi.client — get(path)), now, win, rt(TwRtHub.store — on('config', fn)), health?(TwApi.health — onRecover(fn)) } — app.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
   function start(deps){
     if(opts) return refresh({ maxAgeMs: STALE_MS });
     opts = Object.assign({}, deps || {});
@@ -190,6 +199,7 @@ function createRemoteConfig(){
       if(w && w.addEventListener) w.addEventListener('focus', again);
     }catch(_){}
     if(opts.rt) opts.rt.on('config', () => { refresh(); });   // 서버가 바꿨다는 알림 · 오래 끊겼다 붙음 — 기다리지 않고 묻는다(304 면 그대로)
+    if(opts.health) opts.health.onRecover(() => { if(src === 'api' || !recoverArmed) return; recoverArmed = false; refresh({ recover: true }); });   // API 가 돌아왔다 — 이번 실행에 받은 적이 없고(저장값 · 기본값) 받기가 실패해 있으면 한 번 묻는다. 확인 요청(api-health)도 같은 /v2/config 지만 ETag 304 라 본문은 다시 안 받는다
     return p;
   }
 
@@ -212,8 +222,8 @@ function createRemoteConfig(){
     set, apply, start, refresh, onChange, ready,
     answered: () => answered,
     source: () => src,
-    roomLimitOf: (ch) => cur.roomLimits[ch] || cur.roomLimits.workingroom,
-    maxPeople: () => cur.roomMaxPeople,
+    roomLimitOf: (ch) => (CHANNELS.indexOf(ch) >= 0 ? cur.roomLimits[ch] : cur.roomLimits.workingroom),   // 모르면 null(다른 채널 값으로 대신하지 않는다)
+    maxPeople: () => cur.roomMaxPeople,   // 모르면 null
     inviteGate: () => cur.inviteGate,
     roomServerTiming: () => cur.roomServerTiming,
     minAppVer: () => cur.minVersion.app,
@@ -227,7 +237,7 @@ function createRemoteConfig(){
 }
 
 const api = { CONFIG_PATH, CACHE_KEY, CACHE_VERSION, STALE_MS,
-  KEYS, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, ROOM_LIMIT_DEFAULT, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
+  KEYS, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
   CLAP_DAILY_MIN, CLAP_DAILY_MAX, GIFT_DAILY_MIN, GIFT_DAILY_MAX,
   cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanClapDailyMax, cleanGiftDailySendMax, cleanBugReport, cleanMinVersion, cleanTiming,
   cleanBannedWords, BANNED_WORDS_MAX, BANNED_WORD_LEN_MAX, fieldsOf, looksLikeConfig,

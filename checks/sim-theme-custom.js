@@ -79,19 +79,20 @@ function mkEnv(opt){
   const root = mkEl('html');
   const document = { documentElement: root, activeElement: null, getElementById: (id) => els[id], createElement: () => mkEl() };
   const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-  const env = { els, store, saved, notes, root, premium: !!opt.premium, srv: opt.srv };
+  const env = { els, store, saved, notes, root, premium: !!opt.premium, srv: opt.srv, unknown: !!opt.unknown, told: 0 };
   const g = globalThis;
   g.document = document; g.localStorage = ls; g.TwSafeHtml = { text: s => String(s), cssColor: s => String(s) };
   g.TwErrorCodes = { notify: (c) => notes.push(c) };
   g.getComputedStyle = () => ({ getPropertyValue: (k) => (k === '--acc-d' ? '#000080' : k === '--acc-m' ? '#1084D0' : '') });
   const win = {};
   new Function('window', 'module', SRC.theme)(win, undefined);
-  new Function('window', 'module', SRC.ui)(win, undefined);
+  new Function('window', 'module', opt.uiSrc || SRC.ui)(win, undefined);
   const th = win.TwTheme.createTheme({ _premiumOn: () => env.premium });
   const ui = win.TwThemeUi.createThemeUi({
     ACCENT_KEY: th.ACCENT_KEY, THEME_COLORS: th.THEME_COLORS, THEME_DEFAULT_ACCENT: th.THEME_DEFAULT_ACCENT, THEME_KEY: th.THEME_KEY,
     applyTheme: th.applyTheme, getAccent: th.getAccent, getTheme: th.getTheme, onApplied: th.onApplied,
     CUSTOM_ID: th.CUSTOM_ID, getCustom: th.getCustom, customUsable: th.customUsable, setCustom: th.setCustom, _premiumOn: () => env.premium,
+    premiumBlocked: (locked) => { if(env.unknown){ env.told++; return 'unknown'; } if(locked) locked(); return 'locked'; },
     getMyUserId: () => opt.uid === undefined ? 'uA' : opt.uid,
     serverOn: () => opt.serverOn !== false,
     loadCustom: async () => env.srv, saveCustom: async (uid, o) => { saved.push([uid, JSON.parse(JSON.stringify(o))]); return opt.saveResult || (opt.saveOk !== false ? 'saved' : 'failed'); },
@@ -128,6 +129,12 @@ say('── 3. 설정 칸 · 만들기(theme-ui.js)');
     '★ 여섯째 칸 · 이름 자리는 «👑» 하나(칸 위에 왕관 없음) · 아직 없으면 빗금 ＋');
   chip.onclick();
   chk(e.els.themeCxLock.style.display === 'block' && e.els.themeCxBox.style.display !== 'block', '프리미엄이 아니면 잠금 안내만 · 만들기 상자는 안 연다');
+  {
+    /* ★ 라이선스를 모르면(서버 확인 전) 잠금 안내 대신 «확인 중» — CLAUDE.md «모르는 값» */
+    const cxUnknown = (uiSrc) => { const x = mkEnv({ unknown: true, uiSrc }); x.ui.bindThemeUI(); x.els.themeColorRow.children[5].onclick(); return x.els.themeCxLock.style.display !== 'block' && x.els.themeCxBox.style.display !== 'block' && x.told === 1; };
+    chk(cxUnknown(), '★ 라이선스를 모르면 잠금 안내 대신 «확인 중» 한 번(만들기 상자도 안 연다)');
+    chk(!cxUnknown(SRC.ui.replace("premiumBlocked(() => { if(lock) lock.style.display = 'block'; });", "{ if(lock) lock.style.display = 'block'; }")), '  mutation test — «모름» 갈래를 빼면 잠금 안내가 뜬다(빨강)');
+  }
   e = mkEnv({ premium: true });
   e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick();
   chk(e.els.themeCxBox.style.display === 'block' && e.els.themeCxAHex.value === '#000080' && e.els.themeCxBHex.value === '#1084D0', '프리미엄 — 만들기 상자 · 지금 칸 색에서 시작');

@@ -104,7 +104,7 @@ function mkEnv(opt){
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(SRC['paging.js'], ctx, { filename: 'paging.js' });   // 📄 쪽 규칙 공용 — html 이 gacha-album.js 앞에 싣는 진짜
   vm.runInContext(SRC['gacha-album.js'], ctx, { filename: 'gacha-album.js' });   // 📚 도감 규칙 — html 이 gacha.js 앞에 싣는 진짜
-  vm.runInContext(MOD, ctx, { filename: 'gacha.js' });
+  vm.runInContext(opt.src || MOD, ctx, { filename: 'gacha.js' });   // opt.src — 8절 mutation test 가 바꾼 판
   env.ctx = ctx; env.els = els;
   env.mk = () => { const m = ctx.TwGacha.createGacha({
     toast: (m) => env.toasts.push(m),
@@ -193,7 +193,7 @@ await sec('── 1. 만들 때 · 시작', async () => {
 await sec('── 2. 셈 — 보유 · 색상 해금 · 풀 · 남은 뽑기', async () => {
   const e = mkEnv({ saved: [G('a'), G('b'), G('n', { noColor: true }), G('w', { season: 'winter' }), G('s', { season: 'spring' }), { id: 'x', cat: 'hat' }] });
   const M0 = e.mk();
-  chk(M0.ticketsEarned() === 0 && M0.ticketsLeft() === 0 && M0.seasonNow() === null && M0.bonus() === 0, '받기 전 — 뽑기 수 0 · 시즌 null(이 PC 레벨 · 시계로 세지 않는다)');
+  chk(M0.ticketsEarned() === null && M0.ticketsLeft() === null && M0.seasonNow() === null && M0.bonus() === null, '받기 전 — 뽑기 수 · 보너스 · 시즌 null(«모름» — 0 회로 세지 않는다 · 이 PC 레벨 · 시계로 세지 않는다)');
   chk(M0.isGachaColorUnlocked('a') === false, '  받기 전엔 해금도 «아직»');
   const M = await ready(e, ST({ a: 4, b: 1, n: 1 }, { unlocked: { a: true, n: true }, earned: 9, bonus: 5, left: 3 }));
   chk(M.isGachaPart(G('a')) && !M.isGachaPart({ id: 'x' }) && !M.isGachaPart(null), 'isGachaPart — rec.gacha 만');
@@ -206,7 +206,7 @@ await sec('── 2. 셈 — 보유 · 색상 해금 · 풀 · 남은 뽑기', a
   const nx = M.nextTicketLevel;
   chk(nx(92, 999) === 95 && nx(90, 999) === 95 && nx(94, 999) === 95 && nx(1, 999) === 5 && nx(0, 999) === 5,
       '다음 뽑기 레벨 — 92·90·94 → 95 · 1·0 → 5(딱 5의 배수면 그다음 배수)');
-  chk(nx(994, 999) === 995 && nx(995, 999) === null && nx(999, 999) === null && nx('x', 999) === 5, '  상한(999)을 넘는 레벨은 null · 숫자 아님은 0 으로');
+  chk(nx(994, 999) === 995 && nx(995, 999) === null && nx(999, 999) === null && nx('x', 999) === null && nx(null, 999) === null && nx(undefined, 999) === null, '  상한(999)을 넘는 레벨은 null · ★ 숫자 아님 · 모름은 null(0 레벨로 «Lv 5» 를 짐작하지 않는다)');
   chk(nx(990, 995) === 995 && nx(994, 995) === 995 && nx(995, 995) === null, '  상한이 5의 배수면 상한 레벨까지는 보이고(995) 그 위는 null');
   e.hostOn = true;
   e.level = 23; M.renderGachaInv();
@@ -312,7 +312,7 @@ await sec('── 4. 받기 — 상태 · 실패 · 경합 · 신호 · 회수',
   /* 로그아웃 지우기 */
   e = mkEnv({ saved: [G('a')] }); M = await ready(e, ST({ a: 1 }, { bonus: 2 }));
   M.resetMemory();
-  chk(JSON.stringify(M.owned()) === '{}' && M.state.load() === 'idle' && M.bonus() === 0 && M.ticketsLeft() === 0 && M.seasonNow() === null, '로그아웃 지우기 — 보유 · 뽑기 수 · 보너스 · 받음 상태를 비운다');
+  chk(JSON.stringify(M.owned()) === '{}' && M.state.load() === 'idle' && M.bonus() === null && M.ticketsLeft() === null && M.seasonNow() === null, '로그아웃 지우기 — 보유 · 뽑기 수 · 보너스 · 받음 상태를 비운다');
   /* 지우는 사이 나간 받기는 새 계정 값을 덮지 않는다 */
   e = mkEnv({ saved: [G('a')] }); e.gs = ST({ a: 1 }); M = e.mk();
   e.gsHold = new Promise(r => { release = r; });
@@ -532,6 +532,59 @@ await sec('── 7. app.js 배선', () => {
   const wire = (APP.match(/const GACHA_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   let got = null; try{ got = vm.runInNewContext(wire + '\ngachaMod;', { seats: [], slots: [], Presence: {}, GACHA_OWNED_KEY: 'a', GACHA_TS_KEY: 'b', GACHA_BONUS_KEY: 'c' }); }catch(_){}
   chk(/^const gachaMod = TwGacha\.createGacha\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
+});
+
+/* ── 8. 모르는 뽑기 수 — 받기 전 · 못 받음을 0 회로 그리지 않는다(CLAUDE.md «모르는 값») · mutation test ── */
+const findId = (el, id) => { if(!el) return null; if(el.id === id) return el; for(const c of el.children || []){ const f = findId(c, id); if(f) return f; } return null; };
+async function judgeUnknown(src, ck){
+  let e = mkEnv({ src, saved: [G('a')] }); let M = e.mk();
+  ck(M.ticketsLeft() === null && M.ticketsEarned() === null && M.bonus() === null, '받기 전 — 남은 뽑기 · 총 · 보너스가 null(0 이 아니다)');
+  let rel = null; e.gs = ST({}, { earned: 3, left: 3 }); e.gsLoadFail = true; e.gsHold = new Promise((r) => { rel = r; });   // 창을 열면 받기가 나가고(idle) 답을 붙잡아 «불러오는 중» 을 본다 — 풀면 실패
+  e.els.gachaGoDraw.onclick();
+  const bar = () => e.els.gachaDrawBar.textContent + e.els.gachaDrawBar.innerHTML, stage = () => e.els.gachaDrawStage.textContent + e.els.gachaDrawStage.innerHTML;
+  ck(/불러오는 중/.test(bar()) && !/0회/.test(bar()), '받기 전 뽑기 창 정보줄 — «불러오는 중» · «0회» 가 아니다');
+  ck(e.els.gachaDraw1.disabled === true && e.els.gachaDraw5.disabled === true, '  모르는 동안 뽑기 버튼은 누를 수 없다');
+  ck(/불러오는 중/.test(stage()) && !/남은 뽑기가 없어요|컴플리트/.test(stage()), '  무대 — «불러오는 중» · «남은 뽑기가 없어요» 를 말하지 않는다');
+  e.hostOn = true; M.renderGachaInv();
+  ck(/불러오는 중/.test(e.els.gachaInvBar.innerHTML) && !/0회/.test(e.els.gachaInvBar.innerHTML), '  도감 아래 줄도 «불러오는 중» · «0회» 가 아니다');
+  e.gsHold = null; if(rel) rel(); await flush(); await flush();
+  ck(M.state.load() === 'failed' && /못 불러왔어요/.test(bar()) && e.els.gachaDraw1.disabled === true, '못 받음 — 정보줄 «못 불러왔어요» · 버튼 꺼짐');
+  ck(/못 불러왔어요/.test(e.els.gachaInvBar.innerHTML), '  도감 아래 줄도 «못 불러왔어요»');
+  const rb = findId(e.els.gachaDrawStage, 'gachaDrawRetry');
+  ck(!!rb && typeof rb.onclick === 'function', '  무대에 [다시 시도]');
+  e.gsLoadFail = false; const n0 = e.gsLoads;
+  if(rb && rb.onclick) rb.onclick(); await flush(); await flush();
+  ck(e.gsLoads === n0 + 1 && M.state.load() === 'ready', '[다시 시도] — 서버에서 한 번 받는다');
+  ck(/남은 뽑기 <b>3회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && e.els.gachaDraw1.disabled === false && /gc-cap-wrap idle/.test(e.els.gachaDrawStage.innerHTML), '  받으면 열린 뽑기 창이 받은 값으로 다시 그려진다(3회 · 버튼 켜짐 · 대기 캡슐)');
+  e = mkEnv({ src, saved: [G('a')] }); M = e.mk(); e.gs = ST({}); e.gsLoadFail = true; await M.pullGacha(false);
+  e.gsLoadFail = false; const n1 = e.gsLoads; e.els.gachaGoDraw.onclick(); await flush(); await flush();
+  ck(e.gsLoads === n1 + 1 && M.state.load() === 'ready', '못 받은 채로 뽑기 창을 열면 그때 다시 받는다');
+  e = mkEnv({ src, saved: [G('a')] }); M = e.mk(); e.gs = ST({}, { earned: 2, left: 2 });
+  e.els.gachaGoDraw.onclick(); await flush(); await flush();
+  ck(e.gsLoads === 1 && M.state.load() === 'ready' && /남은 뽑기 <b>2회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && !e.errs.length, '★ 아직 안 받은(idle) 채로 뽑기 창을 열어도 그때 받는다(«불러오는 중» 에 머물지 않음 · 오류 번호 없음)');
+  ck(M.nextTicketLevel(null, 999) === null && M.nextTicketLevel('x', 999) === null && M.nextTicketLevel(7, 999) === 10, '다음 뽑기 레벨 — 레벨을 모르면 null(0 레벨로 짐작하지 않는다)');
+}
+await sec('── 8. 모르는 뽑기 수(받기 전 · 못 받음)', async () => {
+  await judgeUnknown(null, chk);
+  const BREAKS = [
+    ["function _srvNum(k){ return (_gachaLoad === 'ready' && _srvState) ? Number(_srvState[k]) : null; }", "function _srvNum(k){ return (_gachaLoad === 'ready' && _srvState) ? Number(_srvState[k]) : 0; }", '★ 모르는 뽑기 수를 0 으로(옛 모양)'],
+    ["  if(left == null){   // 뽑기 수를 모른다", "  if(false){   // 뽑기 수를 모른다", '정보줄이 «모름» 을 따로 안 그림'],
+    ["  if(left == null){ _gachaUnknownStage(); return; }", "", '무대가 «모름» 을 따로 안 그림'],
+    ["rb.id = 'gachaDrawRetry';", "rb.id = 'x';", '무대에 [다시 시도] 가 없음'],
+    ["  if(wasUnknown && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);", "", '받은 뒤 열린 뽑기 창을 안 다시 그림'],
+    ["    if(_gachaLoad === 'failed' || _gachaLoad === 'idle') pullGacha(_gachaLoad === 'failed');", "    if(_gachaLoad === 'failed') pullGacha(true);", '★ 아직 안 받은(idle) 채로 창을 열면 안 받음(«불러오는 중» 에 머묾)'],
+    ["    if(_gachaLoad === 'failed' || _gachaLoad === 'idle') pullGacha(_gachaLoad === 'failed');", "    if(_gachaLoad === 'idle') pullGacha(false);", '못 받은 채로 창을 열어도 안 받음'],
+    ["(left == null ? '🎰 ' + _gachaLeftUnknownText() : ", "(false ? '' : ", '도감 아래 줄이 «0회» 로'],
+    ["  if(level == null || !Number.isFinite(n)) return null;\n", "", '★ 모르는 레벨을 0 으로(옛 모양 Number(level) || 0)'],
+  ];
+  const missed = [];
+  for(const [from, to, what] of BREAKS){
+    if(MOD.indexOf(from) < 0){ chk(false, '깨 볼 글을 못 찾음 — ' + what); continue; }
+    let bad = 0;
+    try{ await judgeUnknown(MOD.split(from).join(to), (ok) => { if(!ok) bad++; }); }catch(_){ bad++; }
+    if(!bad) missed.push(what);
+  }
+  chk(!missed.length, 'mutation test ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 });
 
 say('');

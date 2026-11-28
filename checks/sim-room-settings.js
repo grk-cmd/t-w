@@ -75,6 +75,9 @@ say('── 2. room-settings.js — 순수 규칙');
   chk(RS.roomCap({ max: 4 }, 10) === 4 && RS.roomCap({ max: 20 }, 10) === 10, '★ 방 정원 = 방 최대 인원과 원격 정원 중 작은 쪽');
   chk(RS.roomCap(null, 10) === 10 && RS.roomCap({}, 10) === 10 && RS.roomCap({ max: 1 }, 10) === 10 && RS.roomCap({ max: 2.5 }, 10) === 10, '  max 가 없거나 범위 밖(옛 방 · 잘못 쓴 값)이면 정원');
   chk(RS.roomCap({ max: 2 }, 10) === 2 && RS.roomCap({ max: 50 }, 60) === 50, '  경계 2 · 50');
+  chk(RS.roomCap({ max: 4 }, null) === 4 && RS.roomCap({}, null) === null && RS.roomCap(null, null) === null && RS.roomCap({ max: 1 }, null) === null, '★ 정원을 모르면(null) 방 최대 인원 그대로 · 그것도 없으면 null(0 · 10 으로 짐작하지 않는다)');
+  chk(RS.clampMax(5, null) === 5 && RS.clampMax(50, null) === 50 && RS.clampMax(51, null) === null && RS.clampMax(1, null) === null && RS.clampMax(undefined, null) === null && RS.clampMax('x', null) === null && RS.clampMax(3.7, null) === 3,
+    '★ 정원을 모르면 최대 인원은 2 ~ 50 안의 정수만 그대로 · 아니면 null(칸을 싣지 않아 서버 기본값 — 2 로 줄이지 않는다)');
   chk(RS.hostNameOf('  새벽작업러 ') === '새벽작업러' && RS.hostNameOf('가'.repeat(25)).length === 20, '방장 닉네임: 공백 걷고 20자까지');
   chk(RS.hostNameOf('') === null && RS.hostNameOf('   ') === null && RS.hostNameOf(null) === null, '  비면 null(칸을 쓰지 않는다)');
 }
@@ -97,14 +100,18 @@ say('── 4. room-create-ui.js — 가짜 DOM');
       addEventListener(t, f){ this.listeners[t] = f; } });
     global.document = { getElementById: el };
     global.window = {};
-    new Function('window', UI_SRC)(global.window);
+    new Function('window', o.src || UI_SRC)(global.window);
     const made = [];
-    let lic = !!o.licensed;
+    let lic = !!o.licensed, cap = o.cap === undefined ? (o.capNull ? null : 10) : o.cap, answered = !!o.answered, unknownLic = !!o.unknownLic, told = 0, refreshes = 0, release = null;
+    const changeFns = [], readyQ = [];
     const ui = global.window.TwRoomCreateUi.createRoomCreateUi({
-      roomSettings: RS, bannedWords: BW, rcStore: () => ({ bannedWords: () => o.banned || [] }),
-      maxPeople: () => o.cap || 10, isLicensed: () => lic, listenEnabled: o.listen !== false, onCreate: (ch, s) => made.push([ch, s]),
+      roomSettings: RS, bannedWords: BW,
+      rcStore: () => ({ bannedWords: () => o.banned || [], answered: () => answered, ready: (w, ms) => new Promise((res) => { readyQ.push(res); }), refresh: () => { refreshes++; return new Promise((res) => { release = res; }); }, onChange: (fn) => { changeFns.push(fn); } }),
+      maxPeople: () => (cap === undefined ? 10 : cap), isLicensed: () => lic, listenEnabled: o.listen !== false, onCreate: (ch, s) => made.push([ch, s]),
+      premiumBlocked: (locked) => { if(unknownLic){ told++; return 'unknown'; } if(locked) locked(); return 'locked'; }, premiumKnown: () => !unknownLic,
     });
-    return { ui, el, made, setLic: (v) => { lic = v; } };
+    return { ui, el, made, setLic: (v) => { lic = v; }, setCap: (v) => { cap = v; changeFns.forEach((f) => f({}, 'roomMaxPeople')); }, setAnswered: (v) => { answered = v; },
+      setUnknownLic: (v) => { unknownLic = v; }, firstAnswer: () => { answered = true; readyQ.splice(0).forEach((f) => f()); },   /* 첫 답이 왔다(실패 — 값은 그대로라 onChange 없음) */ told: () => told, refreshes: () => refreshes, release: () => release && release() };
   }
   let t = mk({ cap: 8 });
   t.ui.open('workingroom');
@@ -157,6 +164,55 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   t.ui.open('workingroom');
   t.el('inviteClose').listeners.click();
   chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  모달을 닫으면 다음엔 로비부터');
+
+  /* ★ 정원을 모르면(원격 설정 못 받음) — «최대 10명» 으로 짐작하지 않는다(CLAUDE.md «모르는 값») */
+  async function capUnknown(src){
+    const out = {};
+    let u = mk({ src, capNull: true });
+    u.ui.open('workingroom');
+    out.loading = u.el('rcMax').textContent === '' && /불러오는 중/.test(u.el('rcMaxHint').textContent) && u.el('rcCreate').disabled === true && u.el('rcMaxUp').disabled && u.el('rcMaxDown').disabled && u.el('rcMaxRetry').hidden === true;
+    u.el('rcTitle').value = '공부방'; u.el('rcCreate').onclick(); u.el('rcTitle').onkeydown({ key: 'Enter', preventDefault(){} });
+    out.noCreate = u.made.length === 0;
+    u.setCap(8);
+    out.arrive = u.el('rcMax').textContent === '8명' && u.el('rcCreate').disabled === false && /8명까지/.test(u.el('rcMaxHint').textContent);
+    /* 첫 받기 실패 — 새 창(가짜 DOM 이 바뀌므로 위 창 판정 뒤에) */
+    { const f = mk({ src, capNull: true }); f.ui.open('workingroom'); f.firstAnswer(); await new Promise((r) => setImmediate(r));
+      out.firstFail = /불러오지 못했어요/.test(f.el('rcMaxHint').textContent) && f.el('rcMaxRetry').hidden === false; }
+    u = mk({ src, capNull: true, answered: true });
+    u.ui.open('workingroom');
+    out.failed = /불러오지 못했어요/.test(u.el('rcMaxHint').textContent) && u.el('rcMaxRetry').hidden === false && u.el('rcCreate').disabled === true;
+    u.el('rcMaxRetry').onclick();
+    out.retry = u.refreshes() === 1 && /불러오는 중/.test(u.el('rcMaxHint').textContent);
+    u.release(); await new Promise((r) => setImmediate(r));
+    out.retryEnd = /불러오지 못했어요/.test(u.el('rcMaxHint').textContent);
+    u = mk({ src, unknownLic: true });
+    u.ui.open('workingroom');
+    out.lic = u.el('rcChTogether').disabled === false;
+    u.el('rcChTogether').onclick();
+    out.lic = out.lic && u.told() === 1 && u.el('rcChWorking').classList.contains('on');
+    return out;
+  }
+  const cu = await capUnknown();
+  chk(cu.loading && cu.noCreate, '★ 정원을 모르면 «정원을 불러오는 중» · 인원 칸 비움 · + − [방 만들기] 꺼짐 · Enter 로도 안 만든다');
+  chk(cu.firstFail, '★ 창을 연 채 첫 받기가 실패하면(저장값도 없음 — 값이 안 바뀌어 onChange 없음) 첫 답(ready) 때 «불러오지 못했어요 [다시 시도]» 로 다시 그린다');
+  chk(cu.arrive, '  창을 연 채 정원이 오면(onChange) 처음 값 = 정원으로 다시 그린다');
+  chk(cu.failed && cu.retry && cu.retryEnd, '★ 첫 답이 왔는데도 모르면 «정원을 불러오지 못했어요 · [다시 시도]» — 누르면 한 번 다시 묻고(그 동안 «불러오는 중»)');
+  chk(cu.lic, '★ 라이선스를 모르면 투게더룸 버튼을 잠그지 않고 누르면 «확인 중» 안내(채널은 그대로)');
+  const CU_BREAKS = [
+    ["  if(cap == null){ paintCapUnknown(); return; }", "", 'loading', '★ 모르는 정원을 따로 안 그림(옛 모양 — «undefined명»)'],
+    ["  if(cap == null || max == null) return;   // 정원을 모른다", "  if(false) return;   // 정원을 모른다", 'noCreate', '모르는 정원으로도 만듦'],
+    ["  const failed = !retrying && rcStore().answered();", "  const failed = false;", 'failed', '못 받음을 «불러오는 중» 으로 뭉갬'],
+    ["  if(max == null && !rcStore().answered()) rcStore().ready(null, CAP_WAIT_MS)", "  if(false) rcStore().ready(null, CAP_WAIT_MS)", 'firstFail', '★ 첫 받기 실패를 기다리지 않음(«불러오는 중» 에 머묾)'],
+    ["rcStore().onChange((c, key) => { if(key === 'roomMaxPeople' && !$('roomCreatePanel').hidden) paint(); });", "", 'arrive', '정원이 와도 다시 안 그림'],
+    ["$('rcChTogether').disabled = !isLicensed() && premiumKnown();", "$('rcChTogether').disabled = !isLicensed();", 'lic', '★ 모르는 라이선스에 투게더룸을 잠금(옛 모양)'],
+  ];
+  const cuMissed = [];
+  for(const [from, to, key, what] of CU_BREAKS){
+    if(UI_SRC.indexOf(from) < 0){ cuMissed.push('글 못 찾음: ' + what); continue; }
+    let rr; try{ rr = await capUnknown(UI_SRC.split(from).join(to)); }catch(_){ rr = {}; }
+    if(rr[key]) cuMissed.push(what);
+  }
+  chk(!cuMissed.length, 'mutation test ' + CU_BREAKS.length + '가지를 다 잡는다' + (cuMissed.length ? ' — 못 잡음: ' + cuMissed.join(' · ') : ''));
   delete global.document; delete global.window;
 }
 
@@ -169,7 +225,7 @@ say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다'
     const log = { started: [] };
     const f = new Function('window', 'genRoomCode', 'startRoom', 'roomSettings', 'maxPeople',
       'let _pendingExtra = null;\n' + fn + '\nreturn { go: _createRoomInChannel, extra: () => _pendingExtra };')(
-      win, (ch) => (ch === 'togetherroom' ? 'PLAY-' : 'WORK-') + 'AB12', (c) => log.started.push(c), RS, () => o.cap || 10);
+      win, (ch) => (ch === 'togetherroom' ? 'PLAY-' : 'WORK-') + 'AB12', (c) => log.started.push(c), RS, () => (o.cap === undefined ? 10 : o.cap));
     f.go(o.ch, o.settings);
     return { win, log, extra: f.extra() };
   };
@@ -179,6 +235,9 @@ say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다'
   r = run({ ch: 'workingroom', settings: { title: '', max: 99, open: false }, cap: 6 });
   chk(JSON.stringify(r.extra) === '{"max":6,"title":null,"music":false}' && r.win._pendingRoomOpen === false, '  빈 제목은 null · 최대 인원은 정원 안으로');
   chk(!/getRoomCount|roomLimitOf\(channel\)/.test(fn), '  방 개수를 앱이 세지 않는다(상한은 서버 channelFull)');
+  r = run({ ch: 'workingroom', settings: { title: '', open: true }, cap: null });
+  const r2 = run({ ch: 'workingroom', settings: { title: '', max: 30, open: true }, cap: null });
+  chk(r.extra.max === null && r2.extra.max === 30, '★ 정원을 모르면 최대 인원을 짐작하지 않는다 — 고른 값이 없으면 null(서버 기본값) · 있으면 그대로(정원 판정은 서버)');
   chk(!/chRandOpen/.test(RE_SRC), '  옛 «랜덤 참여 허용» 토글을 읽지 않는다(창의 «방 목록에 공개» 로)');
 }
 
@@ -228,8 +287,12 @@ say('── 7. remote-config — 금칙어 원문');
 
 say('── 8. mutation test');
 {
-  const broken = classic(RS_SRC.replace('if(Number.isInteger(m) && m >= ROOM_MAX_MIN && m <= ROOM_MAX_MAX) return Math.min(m, cap);', ''), 'TwRoomSettings');
+  const broken = classic(RS_SRC.replace('  if(mOk) return Math.min(m, cap);\n', ''), 'TwRoomSettings');
   chk(broken.roomCap({ max: 4 }, 10) === 10, '방 최대 인원을 안 보면 2절 «작은 쪽» 이 빨강이 된다');
+  const capGuess = classic(RS_SRC.replace('  if(cap == null) return mOk ? m : null;\n', ''), 'TwRoomSettings');
+  chk(capGuess.roomCap({ max: 4 }, null) !== 4, '★ 모르는 정원 갈래를 빼면(Math.min(m, null) = 0) 2절 «정원을 모르면» 이 빨강');
+  const clampGuess = classic(RS_SRC.replace(/  if\(cap == null\)\{ const k = [^\n]*\n/, ''), 'TwRoomSettings');
+  chk(clampGuess.clampMax(undefined, null) !== null, '★ 모르는 정원에 최대 인원을 짐작하면(2) 2절이 빨강');
   const noBan = classic(RS_SRC.replace("if(bw.hasBannedWord(title, banned)) return { ok: false, reason: 'banned' };", ''), 'TwRoomSettings');
   chk(noBan.checkTitle('나쁜말', ['나쁜말'], BW).ok === true, '금칙어 확인을 빼면 2절 «banned» 가 빨강이 된다');
   const noStrip = classic(BW_APP.replace(".replace(/[^\\p{L}]/gu, '')", ''), 'TwBannedWords');

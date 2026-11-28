@@ -24,7 +24,7 @@ const lockedToast = deps.lockedToast;   // 🔒 잠긴 안내 한 벌(room/inter
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
-const premiumKnown = deps.premiumKnown;   // 읽는 함수 — 서버가 프리미엄을 확인해 준 적이 있나(account-state.js)
+const premiumBlocked = deps.premiumBlocked;   // 프리미엄이 아니라 못 열 때 — 모르면 «라이선스 확인 중» 을 알리고 'unknown'(account-state.js)
 const layoutSeats = deps.layoutSeats;
 const loadCharGLB = deps.loadCharGLB;
 const overheadMod = deps.overheadMod;
@@ -66,7 +66,7 @@ document.getElementById('codeCancel').onclick=()=>document.getElementById('codeO
 async function importCloneCode(v, p, forceSlot){
   /* 서버가 프리미엄을 확인해 주기 전(모름)에는 불러오지 않는다 — 아래에서 «프리미엄 아님» 으로 읽으면 파츠를 지우고 저장해 되돌릴 수 없다.
      코드 불러오기는 사용자가 누를 때만 도는 길이라(커미션 불러오기 commission-import.js 도 여기로 온다) 안내만 하고 일찍 끝낸다. */
-  if(!premiumKnown()){ toast('라이선스 확인 중이에요 — 잠시 뒤 다시 눌러 주세요'); return false; }
+  if(!isPremium() && premiumBlocked() === 'unknown') return false;   // 모르면 «라이선스 확인 중»(글은 account-state.js 한 곳) · 확인된 «아님» 이면 아래 파츠 걸러 내기로
   if(!(window.crypto&&crypto.subtle)){toast('이 환경에선 암호화를 쓸 수 없어요 (로컬/앱에서 열어주세요)');return false;}
   /* 🔬 진단 — **이 한 줄이 제보를 못 풀게 하고 있었다.**
      decryptCode() 는 (1) 형식 판별 (2) base64 (3) AES 복호 (4) JSON (5) 얼굴 이미지 로드

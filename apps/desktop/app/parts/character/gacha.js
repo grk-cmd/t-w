@@ -133,12 +133,20 @@ function gachaSeasonParts(){
   const season = gachaSeasonNow();
   return savedParts().filter(p => isGachaPart(p) && (!p.season || p.season === season));
 }
-function gachaTicketsEarned(){ return _srvState ? _srvState.earned : 0; }
-function gachaTicketsLeft(){ return _srvState ? Number(_srvState.left) : 0; }
-function gachaBonusNow(){ return _srvState ? Number(_srvState.bonus) : 0; }
-/* 다음 뽑기가 생기는 레벨 — 레벨로 받는 몫만 센다(👑 보상은 레벨과 무관). 상한을 넘으면 null. */
+/* 뽑기 수 — 서버가 센 값. 받기 전 · 받는 중 · 못 받음이면 null(«모름» — 0 회로 그리거나 버튼을 «남은 뽑기 없음» 으로 끄지 않는다 · CLAUDE.md «모르는 값») */
+function _srvNum(k){ return (_gachaLoad === 'ready' && _srvState) ? Number(_srvState[k]) : null; }
+function gachaTicketsEarned(){ return _srvNum('earned'); }
+function gachaTicketsLeft(){ return _srvNum('left'); }
+function gachaBonusNow(){ return _srvNum('bonus'); }
+/* 뽑기 수를 모를 때 보일 글 — 받는 중이면 «불러오는 중», 못 받았으면 «못 불러왔어요»(뽑기 창 · 도감 아래 줄이 같이 쓴다) */
+const GACHA_LEFT_LOADING = '남은 뽑기를 불러오는 중…';
+const GACHA_LEFT_FAILED = '남은 뽑기를 못 불러왔어요';
+function _gachaLeftUnknownText(){ return _gachaLoad === 'failed' ? GACHA_LEFT_FAILED : GACHA_LEFT_LOADING; }
+/* 다음 뽑기가 생기는 레벨 — 레벨로 받는 몫만 센다(👑 보상은 레벨과 무관). 상한을 넘으면 null · 레벨이 숫자가 아니면(모름) null(0 레벨로 치지 않는다). */
 function gachaNextTicketLevel(level, cap){
-  const lv = Math.max(0, Math.floor(Number(level) || 0));
+  const n = Number(level);
+  if(level == null || !Number.isFinite(n)) return null;
+  const lv = Math.max(0, Math.floor(n));
   const next = (Math.floor(lv / GACHA_LEVELS_PER_TICKET) + 1) * GACHA_LEVELS_PER_TICKET;
   return next <= cap ? next : null;
 }
@@ -146,11 +154,13 @@ const _nextLv = () => { const lv = shownFocusLevel(); return lv == null ? null :
 
 /* 서버 상태를 그대로 받는다(갈아 끼움) — 이 PC 에만 있는 뽑기는 없다. */
 function _adoptServerState(st){
+  const wasUnknown = _gachaLoad !== 'ready';
   gachaOwned = st.owned;
   _gachaUnlocked = st.unlocked;
   _srvState = { earned: st.earned, bonus: st.bonus, left: st.left, season: st.season };
   _gachaLoad = 'ready';
   if(_gachaInvOpen()) renderGachaInv();
+  if(wasUnknown && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);   // 뽑기 창이 «불러오는 중 · 못 불러옴» 이었다 — 받은 값으로 다시 그린다(뽑기 연출 중이면 그쪽이 그린다)
 }
 /* 서버 결과 줄에 카탈로그 항목을 붙인다 — 연출 · 이름 · 그림이 rec 를 읽는다. 카탈로그에 없으면 이름 없는 칸으로. */
 function _withRec(out){
@@ -259,7 +269,7 @@ async function pullGacha(notify){
   if(!getMyUserId()) return 'skipped';
   if(_gachaPulling){ _gachaPullAgain = true; return 'skipped'; }
   _gachaPulling = true;
-  if(_gachaLoad !== 'ready'){ _gachaLoad = 'loading'; if(_gachaInvOpen()) renderGachaInv(); }
+  if(_gachaLoad !== 'ready'){ _gachaLoad = 'loading'; if(_gachaInvOpen()) renderGachaInv(); if(_gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null); }
   let res = 'failed';
   try{
     const gen = _gachaPullGen;
@@ -279,7 +289,10 @@ async function pullGacha(notify){
     _gachaPulling = false;
     if(res === 'ready'){
       try{ pruneUnownedGachaParts(); }catch(e){ console.warn('[가챠] 미보유 파츠 정리 실패', e); }
-    }else if(_gachaInvOpen()) renderGachaInv();
+    }else{
+      if(_gachaInvOpen()) renderGachaInv();
+      if(_gachaLoad !== 'ready' && _gachaDrawOpen() && !_gachaDrawing) renderGachaDraw(null);   // 뽑기 창도 «못 불러왔어요 · 다시 시도» 로
+    }
     const again = _gachaPullAgain; _gachaPullAgain = false;
     if(again && res !== 'failed') pullGacha(false);   // 실패 뒤에는 되풀이하지 않는다 — 삼켜진 요청도 같이 버린다
   }
@@ -362,9 +375,10 @@ function _renderGachaFoot(){
   if(bar){
     const season = gachaSeasonNow();
     const nextLv = _nextLv();
-    bar.innerHTML = '🎰 남은 뽑기 <b>' + gachaTicketsLeft() + '회</b>' + (nextLv ? ' · 다음 뽑기 <b>Lv ' + nextLv + '</b>' : '')
+    const left = gachaTicketsLeft(), bonus = gachaBonusNow();
+    bar.innerHTML = (left == null ? '🎰 ' + _gachaLeftUnknownText() : '🎰 남은 뽑기 <b>' + left + '회</b>') + (nextLv ? ' · 다음 뽑기 <b>Lv ' + nextLv + '</b>' : '')
       + (season ? ' · ' + escHtml(GACHA_SEASON_LABEL[season] || season) + ' 시즌' : '');
-    bar.title = GACHA_LEVELS_PER_TICKET + '레벨마다 뽑기 1회' + (gachaBonusNow() > 0 ? ' + 👑 달성표 ' + gachaBonusNow() + '회' : '');
+    bar.title = GACHA_LEVELS_PER_TICKET + '레벨마다 뽑기 1회' + (bonus > 0 ? ' + 👑 달성표 ' + bonus + '회' : '');
   }
   _renderGachaAdminFoot();
 }
@@ -694,6 +708,20 @@ function _gachaMsg(text){
   d.style.whiteSpace = 'pre-line'; d.textContent = text;
   s.appendChild(d);
 }
+/* 뽑기 수를 모를 때 무대 — 받는 중이면 «불러오는 중…», 못 받았으면 «못 불러왔어요» + [다시 시도](오류 번호가 보이는 받기 — 도감의 다시 시도와 같다) */
+function _gachaUnknownStage(){
+  const s = _gachaStage(); if(!s) return;
+  s.innerHTML = '';
+  const d = document.createElement('div'); d.className = 'gc-empty';
+  if(_gachaLoad === 'failed'){
+    d.textContent = GACHA_LEFT_FAILED + ' · ';
+    const rb = document.createElement('button');
+    rb.id = 'gachaDrawRetry'; rb.type = 'button'; rb.className = 'btn'; rb.textContent = '다시 시도';
+    rb.onclick = ()=>{ pullGacha(true); };
+    d.appendChild(rb);
+  }else d.textContent = GACHA_LEFT_LOADING;
+  s.appendChild(d);
+}
 // 대기 — 캡슐 하나가 부르르 떨고만 있다.
 function _gachaStageIdle(){
   const s = _gachaStage(); if(!s) return;
@@ -820,6 +848,12 @@ function renderGachaDrawBar(){
   if(!bar) return;
   const left = gachaTicketsLeft(), pool = gachaPool();
   const nextLv = _nextLv();
+  if(left == null){   // 뽑기 수를 모른다 — 0 회로 적지도 «남은 뽑기 없음» 으로 끄지도 않고, 모르는 동안은 누를 수 없다(서버가 받기 전엔 굴리지 않는다 — gachaDraw)
+    bar.textContent = _gachaLeftUnknownText();
+    if(b1) b1.disabled = true;
+    if(b5){ b5.textContent = '5연속 뽑기'; b5.disabled = true; b5.title = ''; }
+    return;
+  }
   bar.innerHTML = '남은 뽑기 <b>' + left + '회</b>' + (nextLv ? ' · 다음 뽑기 <b>Lv ' + nextLv + '</b>' : '') + ' · 이번 시즌 <b>'
     + (GACHA_SEASON_LABEL[gachaSeasonNow()] || '') + '</b> 가챠 <b>' + pool.length + '종</b>';
   if(b1) b1.disabled = (left <= 0 || !pool.length);
@@ -842,6 +876,7 @@ function renderGachaDraw(results){
   const stage = _gachaStage(); if(!stage) return;
   _gachaAnimToken++;                       // 이전 시퀀스의 늦은 타이머를 무효화
   const left = gachaTicketsLeft(), pool = gachaPool();
+  if(left == null){ _gachaUnknownStage(); return; }   // 받기 전 · 못 받음 — 풀(보유분)도 모르니 «컴플리트» · «남은 뽑기 없음» 을 말하지 않는다
   if(!pool.length){
     _gachaMsg(gachaSeasonParts().length
       ? '이번 시즌 컴플리트 — 티켓은 그대로 보관돼요.\n다음 시즌에 쓸 수 있어요.'
@@ -945,6 +980,7 @@ function _gachaDrawOpen(){ const ov=document.getElementById('gachaDrawOverlay');
     dw.style.display='block';
     _gachaRestorePos('draw', q('gachaDrawWin'));
     renderGachaDraw(null);
+    if(_gachaLoad === 'failed' || _gachaLoad === 'idle') pullGacha(_gachaLoad === 'failed');   // 못 받았거나 아직 안 받았으면 지금 받는다(못 받음이면 «다시 시도» — 오류 번호도) — 받는 동안 무대는 «불러오는 중»
   };
   if(q('gachaBackInv')) q('gachaBackInv').onclick = ()=>{
     closeGachaDraw();
