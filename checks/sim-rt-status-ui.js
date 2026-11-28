@@ -94,7 +94,7 @@ async function judge(S){
     boot.set('connecting'); boot.set('retrying'); await boot.clock.advance(NOTICE + 5000);
     chk(boot.band.shown === null, '  ↳ 한 번도 붙지 못한 켜는 중엔 띠 없음(서버에 닿지 못한 화면 몫)');
     const offr = rig(U);
-    offr.set('ready'); offr.set('off'); offr.set('retrying'); await offr.clock.advance(20000);
+    offr.set('ready'); offr.set('off'); offr.set('retrying'); await offr.clock.advance(NOTICE + 5000);
     chk(offr.band.shown === null, '  ↳ 끈(off) 뒤엔 «붙은 적 있음» 을 지운다');
 
     const a = rig(U);
@@ -210,6 +210,7 @@ say('── 5. mutation test');
 const BREAKS = [
   ['UI', "        if(rt.state() === S.RETRYING && !deps.inRoom()) band.show(", "        if(rt.state() === S.RETRYING) band.show(", '방 안에서도 띠'],
   ['UI', "      if(bandTimer || !sawReady) return;", "      if(bandTimer) return;", '켜는 중에도 «다시 연결» 띠'],
+  ['UI', "[S.OFF]: () => { sawReady = false; clearBand(); }", "[S.OFF]: () => { clearBand(); }", '끈(off) 뒤에도 «붙은 적 있음» 이 남아 띠'],
   ['UI', "      }, noticeMs);", "      }, 1000);", '짧은 끊김에도 띠(noticeMs 를 안 씀)'],
   ['UI', "    [S.READY]: () => { sawReady = true; clearBand(); },", "    [S.READY]: () => { sawReady = true; },", '붙어도 띠가 남음'],
   ['UI', "    if(bandTimer){ deps.clearTimeout(bandTimer); bandTimer = null; }\n", "", '붙어도 띠 타이머가 남아 띠'],

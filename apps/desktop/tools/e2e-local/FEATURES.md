@@ -149,7 +149,7 @@ sim 가운데 구조 · 빌드 · 진단 · 서버 함수만 보는 것(`app-siz
 | 기능 | e2e | sim | 상태 |
 |---|---|---|---|
 | 오프라인 → 온라인 다시 잇기 | `core/boot-offline-online.js`(크로미움 오프라인 + realtime 컨테이너 멈춤 → retrying · API 막힘 → 풀고 online 이벤트 → 5초 안에 ready) | `rt-hub` `rt-status-ui` `realtime-link` `net-ready` | e2e |
-| keepalive(조용하면 ping · 응답 없으면 끊고 다시 잇기) | `core/keepalive.js`(realtime 컨테이너 pause → 조용함 뒤 ping · 5초 뒤 끊음 · 20초 안 · 15초 넘게 못 붙으면 «다시 연결하는 중» 띠 · unpause → ready · 띠 사라짐 · presenceGet 답) | `rt-hub` `realtime-link` `heartbeat` `heartbeat-policy` | e2e |
+| keepalive(조용하면 ping · 응답 없으면 끊고 다시 잇기) | `core/keepalive.js`(realtime 컨테이너 pause → 조용함 뒤 ping · 5초 뒤 끊음 · 20초 안 · RECONNECT_NOTICE_MS(60초) 넘게 못 붙으면 «다시 연결하는 중» 띠 · unpause → ready · 띠 사라짐 · presenceGet 답) | `rt-hub` `realtime-link` `heartbeat` `heartbeat-policy` | e2e |
 | 3D 장치 끊김 복구 | `core/gl-recover.js`(WEBGL_lose_context — 6초 안 복구면 그대로 · 안 돌아오면 6초 뒤 다시 켜기 · 10분 안 또 끊기면 안내 창) | `gl-recover` `gl-context` | e2e |
 
 ## 관리자(앱 안)
