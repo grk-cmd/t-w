@@ -3,7 +3,7 @@
    ・2절: 연결 전 입장 — 붙으면 그때 join · 연결이 꺼져 있으면 바로 'off' · 안 붙으면 시간 초과
    ・3절: 보내기 — 바뀐 칸만 · 집중 상태 1초에 한 번 · def 따로 · 탭 말풍선 tab:'S1' · 받은 patch 의 탭은 앱 id
    ・4절: 찌르기 — 방 전원 찌르기 all · 나 찌르기 · 끊긴 동안 들고 있다가 다시 붙으면 보냄(15초 넘은 것은 버림)
-   ・5절: 끊김 — 다시 붙으면 resume · resumed 면 전체 다시 · 15초 알림 · 돌아오면 거둠 · 90초 포기(onLost unreachable)
+   ・5절: 끊김 — 다시 붙으면 resume · resumed 면 전체 다시 · 60초 알림 · 돌아오면 거둠 · 90초 포기(onLost unreachable)
    ・6절: 서버 판정 — 정원 거절 · resumeFailed → 전체 join · meta 기다리기(된 · 거절 · 이미 그 값) · music stale · 밀려남 · 관리자 종료 · 해산
    ・7절: 방 밖 — random(rid) · peek · 못 물으면 null · 배선(html 차례 · TwRoomRt.store)
    ・8절: mutation test */
@@ -233,10 +233,10 @@ async function judge(S){
     const J = await joined(S);
     const { ws, e, hl } = J;
     ws.kill(1006); await tick();
-    await e.clock.advance(14000);
-    chk(hl.L.indexOf('re:true') < 0, '15초 전엔 조용히');
+    await e.clock.advance(59000);
+    chk(hl.L.indexOf('re:true') < 0, '60초 전엔 조용히(서버 배포 끊김)');
     await e.clock.advance(1500);
-    chk(hl.L.indexOf('re:true') >= 0, '15초 넘게 못 돌아오면 «다시 연결 중» 알림');
+    chk(hl.L.indexOf('re:true') >= 0, '60초 넘게 못 돌아오면 «다시 연결 중» 알림');
     let ws2 = null;
     for(let i = 0; i < 10 && !ws2; i++){ await e.clock.advance(1000); if(e.socks.length > 1 && !e.last().closed) ws2 = e.last(); }
     ws2 = await readyOn(e);
