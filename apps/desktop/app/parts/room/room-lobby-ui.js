@@ -25,6 +25,8 @@ const TEXT = Object.freeze({
  *   twNav: typeof window.TwNav,
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
+ *   premiumGate: () => 'ok'|'no'|'unknown',
+ *   tellPremiumUnknown: () => unknown,
  *   isBlocked: (card: { music: boolean }) => boolean,
  *   joinRoom: (code: string) => Promise<void>,
  *   openCreate: (channel: string) => void,
@@ -41,6 +43,8 @@ const inRoom = deps.inRoom;   // 방 안이면 모달은 «연결된 방» 화�
 const twNav = deps.twNav;     // 방을 나와 로비가 다시 보이면 room-entry 가 NAV.ROOM_LOBBY 로 알린다(서로를 모르게)
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
+const premiumGate = deps.premiumGate;   // () => 'ok'|'no'|'unknown' — 프리미엄을 모르면 «전용이에요» 대신 «확인 중»(account-state.js)
+const tellPremiumUnknown = deps.tellPremiumUnknown;   // «라이선스 확인 중» 안내 한 줄(app.js)
 const joinRoom = deps.joinRoom;
 const isBlocked = deps.isBlocked;   // 🎧 들어가지 못하는 방인가(listen-model.js isBlockedRoom) — 목록에서 뺀다
 const openCreate = deps.openCreate;
@@ -83,7 +87,7 @@ function cardEl(c){
   mid.appendChild(top);
   mid.appendChild(el('span', 'lb-host', c.host ? c.hostLabel + ' ' + c.host : c.hostLabel + ' —'));
   body.appendChild(mid);
-  body.appendChild(el('span', 'lb-count', c.n + '/' + c.max));
+  body.appendChild(el('span', 'lb-count', c.max != null ? c.n + '/' + c.max : c.n + '명'));   // 정원을 모르면 인원만
   b.appendChild(body);
   if(!c.full) b.onclick = () => join(c.code);
   return b;
@@ -130,7 +134,7 @@ function paint(){
   $('lobbyPage').textContent = (pg.page + 1) + ' / ' + pg.pages;
   $('lobbyPrev').disabled = pg.page <= 0;
   $('lobbyNext').disabled = pg.page >= pg.pages - 1;
-  $('lobbyCreate').title = (st.channel === 'togetherroom' && !isLicensed()) ? TEXT.togetherLocked : '';
+  $('lobbyCreate').title = (st.channel === 'togetherroom' && !isLicensed() && premiumGate() !== 'unknown') ? TEXT.togetherLocked : '';
   st.cards = r.list;
   st.state = st.loading ? null : r.state;
   measureTitles();
@@ -163,7 +167,8 @@ async function paintSecret(){
   $('lobbySecretJoin').onclick = () => join(s.code);
   let g = null;
   try{ g = await provider.secretGuests(s.code); }catch(_){ g = null; }
-  if(my === st.secretSeq && g != null) $('lobbySecretCount').textContent = '손님 ' + g + '/' + Math.max(0, maxPeople() - 1);
+  const cap = maxPeople();
+  if(my === st.secretSeq && g != null) $('lobbySecretCount').textContent = '손님 ' + g + (cap != null ? '/' + Math.max(0, cap - 1) : '');   // 정원을 모르면 손님 수만
 }
 
 // 연달아 눌러도 한 번 — 막기는 room-entry joinRoom 한 곳(코드 칸 · 최근 방과 같은 깃발)
@@ -193,7 +198,7 @@ $('lobbyRefresh').onclick = () => refresh();
 $('lobbyPrev').onclick = () => { st.page--; paint(); };
 $('lobbyNext').onclick = () => { st.page++; paint(); };
 $('lobbyCreate').onclick = () => {
-  if(st.channel === 'togetherroom' && !isLicensed()){ toast(TEXT.togetherLocked); return; }
+  if(st.channel === 'togetherroom' && !isLicensed()){ if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast(TEXT.togetherLocked); return; }   // 라이선스를 모르면 «있어야 만들 수 있어요» 가 아니다
   openCreate(st.channel);
 };
 $('lobbyQuick').onclick = () => {

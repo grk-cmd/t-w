@@ -49,6 +49,8 @@ const _mhStickerDragDist = deps.mhStickerDragDist;       // 드래그 이동거�
 const _setMhStickerDragDist = deps.setMhStickerDragDist;
 const isPremium = deps.isPremium;                        // 👑 라이선스 · 관리자 — app.js 의 let(로그인 뒤 정해진다)
 const isAdmin = deps.isAdmin;
+const premiumGate = deps.premiumGate;   // () => 'ok'|'no'|'unknown' — 프리미엄을 모르면 «전용이에요» 대신 «확인 중»(account-state.js)
+const tellPremiumUnknown = deps.tellPremiumUnknown;   // «라이선스 확인 중» 안내 한 줄(app.js)
 const USER_NAME_MAX = deps.userNameMax;                  // 닉네임 길이 상한 — app.js 의 const(이 묶음보다 뒤에 선언돼 읽는 함수로)
 const myHomeSticker = deps.myHomeSticker;                // 🎨 스티커 관리 창(myhome-sticker.js) — 앞에서 만든 값
 const STICKER_MAX = deps.stickerMax;
@@ -686,6 +688,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     editBtn.addEventListener('click', e=>{
       e.stopPropagation();
       if(isPremium() || isAdmin()){ bgMenu.classList.remove('on'); _mhOpenDesignStudio(); return; }
+      if(premiumGate() === 'unknown'){ tellPremiumUnknown(); return; }   // 라이선스를 모른다 — 무료 메뉴로 짐작해 열지 않는다
       bgMenu.classList.toggle('on');
     });
     document.addEventListener('click', e=>{

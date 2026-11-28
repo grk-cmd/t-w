@@ -104,7 +104,7 @@ function mkEnv(S, o){
     notifyError: (c) => log.push('error ' + c), toast: (m) => log.push('toast ' + m) });
   const giftBox = loadMod(S.BOX).createGiftBox({ api: boxApi, giftLib: GL, errs: AE, apiErrors: { notify: (e) => log.push('common ' + (e && e.code)) },
     notifyError: (c) => log.push('error ' + c), toast: (m) => log.push('toast ' + m), rtOn: () => () => {}, requestIds: ids });
-  const m = ctx.TwMallang.createMallang({ toast: (t) => log.push('toast ' + t), getMyUserId: () => 'me', premiumOn: () => o.premium !== false, mallangStore, giftBox });
+  const m = ctx.TwMallang.createMallang({ toast: (t) => log.push('toast ' + t), getMyUserId: () => 'me', premiumOn: () => o.premium !== false, premiumGate: () => (o.premium !== false ? 'ok' : 'no'), tellPremiumUnknown: () => log.push('told'), mallangStore, giftBox });
   const cells = () => (byId.mlGiftGrid ? byId.mlGiftGrid.children : []);
   const note = () => (byId.mlGift ? byId.mlGift.innerHTML : '');
   return { m, log, byId, srv, sendBodies, holds, saveHolds, mallangStore, giftBox, cells, note, grid: () => byId.mlGiftGrid };

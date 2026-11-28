@@ -75,6 +75,7 @@ function mkEnv(opt){
   env.mk = () => ctx.TwWeeklyChallenge.createWeeklyChallenge({
     chalStore: store, toast: (m) => env.toasts.push(m), escHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'), formatHMS: (s) => 'T' + s,
     premiumOn: () => env.premium, appMode: () => 'run',
+    premiumGate: () => (env.unknown ? 'unknown' : (env.premium ? 'ok' : 'no')), tellPremiumUnknown: () => { env.told = (env.told || 0) + 1; },
   });
   env.fire = (e) => env.onEvent.forEach(f => f(e));
   env.change = () => env.onChange.forEach(f => f());
@@ -114,6 +115,8 @@ await sec('── 2. 만들 때 · 서랍 열기', async () => {
   chk(!e.els.focusLogWin.classList.contains('pomo-on'), '  열면 🍅 서랍은 닫힌다(같은 자리 · 하나만)');
   e = mkEnv({ premium: false }); e.mk(); e.els.chalBtn.click();
   chk(!e.els.focusLogWin.classList.contains('chal-on') && e.toasts.length === 1 && /프리미엄/.test(e.toasts[0]) && !e.calls.length, '프리미엄이 아니면 열지 않고 안내(요청 0)');
+  e = mkEnv({ premium: false }); e.unknown = true; e.mk(); e.els.chalBtn.click();
+  chk(!e.els.focusLogWin.classList.contains('chal-on') && !e.toasts.length && e.told === 1 && !e.calls.length, '★ 라이선스를 모르면(서버 확인 전) «프리미엄 전용» 대신 «확인 중» 한 번 · 열지 않음(요청 0)');
   e = mkEnv({ view: { load: 'locked' } }); e.mk(); e.els.chalBtn.click();
   chk(!e.els.focusLogWin.classList.contains('chal-on') && /프리미엄/.test(e.toasts[0]), '서버가 «프리미엄 아님» 이라 한 뒤에도 같다(잠김)');
   e = mkEnv({ noDom: true }); let ok = true; try{ e.mk(); }catch(_){ ok = false; }
@@ -128,6 +131,8 @@ await sec('── 3. 화면', async () => {
   e.els.chalRetryBtn.click(); chk(e.calls.some(c => c[0] === 'reload' && c[1] === true), '  [다시 시도] → store.reload(사용자가 누름)');
   e = mkEnv({ view: { load: 'locked', premium: false, phase: null } }); W = e.mk(); W.open(true);
   chk(/프리미엄 전용/.test(e.els.chalStateMsg.textContent) && e.els.chalRetryBtn.style.display === 'none', '잠김 — 프리미엄 안내(실패 아님 · 다시 시도 없음)');
+  e = mkEnv({ view: { load: 'idle', premium: false, phase: null } }); e.unknown = true; W = e.mk(); W.open(true);
+  chk(/확인하는 중/.test(e.els.chalStateMsg.textContent) && !/프리미엄 전용/.test(e.els.chalStateMsg.textContent), '★ 라이선스를 모르면 상태 줄도 «확인하는 중» — «프리미엄 전용» 이 아니다');
   e = mkEnv({ view: runView({ earlyGot: true }) }); W = e.mk(); W.open(true);
   const wk = e.els.chalWeek.innerHTML;
   chk(e.els.chalState.style.display === 'none' && e.els.chalRun.style.display === 'block' && e.els.chalPick.style.display === 'none', '진행 중 — 표 화면');
@@ -272,6 +277,7 @@ await sec('── 7. 배선', () => {
 
 await sec('── 8. mutation test', async () => {
   const probes = {
+    gateUnknown: async (src) => { const e = mkEnv({ src, premium: false }); e.unknown = true; e.mk(); e.els.chalBtn.click(); const e2 = mkEnv({ src, view: { load: 'idle', premium: false, phase: null } }); e2.unknown = true; e2.mk().open(true); return !e.toasts.length && e.told === 1 && /확인하는 중/.test(e2.els.chalStateMsg.textContent); },
     gate: async (src) => { const e = mkEnv({ src, premium: false }); e.mk(); e.els.chalBtn.click(); return !e.els.focusLogWin.classList.contains('chal-on'); },
     foreign: async (src) => { const e = mkEnv({ src, view: runView() }); const W = e.mk(); W.setKeyPlatform('mac'); W.focusTick({ key: 'win:chrome.exe' }, 1); return !e.calls.some(c => c[0] === 'addFocusSec'); },
     desktop: async (src) => { const e = mkEnv({ src, view: runView() }); const W = e.mk(); W.focusTick({ key: 'win:chrome.exe', desktop: true }, 1); return !e.calls.some(c => c[0] === 'addFocusSec'); },
@@ -280,7 +286,9 @@ await sec('── 8. mutation test', async () => {
     giveup: async (src) => { const e = mkEnv({ src, view: runView() }); e.mk().open(true); e.els.chalGiveupBtn.click(); pbox(e.popups[0]).querySelectorAll('[data-a]').find(b => b.getAttribute('data-a') === 'no').click(); await flush(); return !e.calls.some(c => c[0] === 'giveUp'); },
   };
   const BREAKS = [
-    ['gate', "if(!_premiumOn()){ try{ toast('👑 달성표는 프리미엄 전용이에요'); }catch(_){} return; }", '', '프리미엄 게이트를 지움'],
+    ['gate', "if(!_premiumOn()){ try{ if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast('👑 달성표는 프리미엄 전용이에요'); }catch(_){} return; }", '', '프리미엄 게이트를 지움'],
+    ['gateUnknown', "try{ if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast('👑 달성표는 프리미엄 전용이에요'); }", "try{ toast('👑 달성표는 프리미엄 전용이에요'); }", '★ 모르는 라이선스에 «프리미엄 전용» 안내(옛 모양)'],
+    ['gateUnknown', "(premiumGate() === 'unknown' ? '라이선스를 확인하는 중이에요…' : '👑 달성표는 프리미엄 전용이에요')", "'👑 달성표는 프리미엄 전용이에요'", '모르는 라이선스에 상태 줄이 «프리미엄 전용»'],
     ['foreign', "if(_chalKeyForeign) return;", '', '다른 플랫폼 조건을 센 척함'],
     ['desktop', "  if(state && state.desktop) return;\n", '', '바탕화면 · 작업표시줄에서도 셈'],
     ['keep', "    if(r.ok){\n      /* [수정]은", "    if(true){\n      /* [수정]은", '저장 실패에도 초안을 닫음'],

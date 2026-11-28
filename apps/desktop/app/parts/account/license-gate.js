@@ -32,6 +32,7 @@ const googleConfirmMod = deps.googleConfirmMod;   // 🔑 구글을 붙이기 �
 const refreshTheme = deps.refreshTheme;   // 👑 테마 내 색 — 프리미엄일 때만 보인다(다시 걸고 설정 칸 다시 그리기)
 const refreshFont = deps.refreshFont;   // 🔤 창 글꼴 — 내 PC 글꼴은 프리미엄일 때만(다시 걸고 칸 다시 그리기)
 const refreshLicenseUI = deps.refreshLicenseUI;
+const paintLicenseLabel = deps.paintLicenseLabel;   // 런처 [라이선스] 단추 글(license-ui.js) — 모르면 «확인 중»
 const refreshLauncherPreview = deps.refreshLauncherPreview;   // 런처가 열려 있으면 미리보기(전용 책상 · 아이템)를 다시 그린다
 const renderCrItems = deps.renderCrItems;
 const seats = deps.seats;
@@ -454,6 +455,7 @@ async function _inviteConfirmIssue(){
 /* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 — 바꾸는 쪽은 서버 확인을 반영하는 license-premium.js */
 onPremiumChanged(_refreshPremiumGatedUI);   // 프리미엄이 바뀌면(account-state.js _setPremium) 내 좌석 책상 · 아이템 · 전용 칸을 다시 그린다
 function _refreshPremiumGatedUI(){
+  try{ paintLicenseLabel(); }catch(e){ console.warn('[라이선스] 런처 단추 글 다시 그리기 실패', e); }   // «확인 중» → 등록됨 · 등록(처음 확인될 때도 온다 — account-state.js _setPremium)
   refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
   try{ if(typeof awayPicMod()._awayRenderUI === 'function') awayPicMod()._awayRenderUI(null); }catch(_){}        // 👑 자리비움 그림 등록 칸(프리미엄 전용)
   /* 🪑 저장값(접어 둔 책상 · 아이템)을 맞추는 일은 여기서 하지 않는다 — 그 기준인 서버 locked 는 카탈로그를 다시 받아야 바뀌므로(realtime license → 다시 받기)

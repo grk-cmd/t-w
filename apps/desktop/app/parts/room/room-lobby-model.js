@@ -25,7 +25,7 @@ function cardOf(code, row, cap){
     hostLabel: r.mu === true ? '현재 DJ' : '현재 방장',
     music: r.mu === true,
     n, max,
-    full: n >= max,
+    full: max != null && n >= max,   // 정원을 모르면 «가득» 으로 치지 않는다(판정은 방 서버)
     since: Number(r.since) || 0,
   };
 }

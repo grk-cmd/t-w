@@ -495,7 +495,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `remote-config.js` — ⚙️ 원격 설정(`GET /v2/config` 하나)
 
-- **책임**: 운영 값(방 상한 · 정원 · 방 연결 시간 · 앱 · 방 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 서버 `GET /v2/config` 한 곳에서 받아 칸마다 씻어 둔다. 못 받으면 이 PC 저장값(2판) → 기본값. Firebase config 칸은 읽지 않는다. ⚠️ 저장값도 없을 때의 코드 기본값(DEFAULTS — 인원 10 등)은 CLAUDE.md «모르는 값을 그럴듯한 값으로 바꾸지 않는다» 에 어긋난다 — 0.14.0 에서 «모름» 으로 고친다(초대 게이트 · 최소 버전처럼 설계된 게이트는 그대로).
+- **책임**: 운영 값(방 상한 · 정원 · 방 연결 시간 · 앱 · 방 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 서버 `GET /v2/config` 한 곳에서 받아 칸마다 씻어 둔다. 못 받으면 이 PC 저장값(2판) → 기본값. Firebase config 칸은 읽지 않는다. 저장값도 없으면 칸마다 다르다(CLAUDE.md «모르는 값을 그럴듯한 값으로 바꾸지 않는다»): 서버가 판정하는 값(방 상한 `roomLimits` · 정원 `roomMaxPeople` · 제보 · 박수 · 선물 하루 상한)은 `null`(«모름» — 쓰는 쪽은 숫자를 적지 않고 그 값으로 막거나 자르지 않는다), 앱 쪽만 다루는 값 · 설계된 게이트(초대 게이트 `true` · 최소 버전 `null` · 방 연결 시간 · 금칙어 `[]` · 제보 안내 빈 글)는 기본값 그대로. 까닭은 파일 머리말 [모름]. `start` 에 `health`(TwApi.health)를 넘기면 이번 실행에 받은 적이 없을 때 API 복귀 알림에 한 번 다시 묻는다.
 - **쓰는 법**: `TwRemoteConfig.store` — `maxPeople()` · `roomLimitOf(채널)` · `inviteGate()` · `roomServerTiming()` · `minAppVer()` · `minRoomVer()` · `bugDailyMax()` · `bannedWords()` · `clapDailyMax()` · `giftDailySendMax()` · `onChange(fn)` · `ready(_, ms)` · `refresh({ maxAgeMs })`.
 - **다시 읽기**: 5분마다 · 창이 다시 보일 때(1분 넘었으면) · realtime 알림 `config`(rt-hub.js — 서버가 바꿨다 · 오래 끊겼다 붙음). 같은 값이면 API 통로가 ETag 304 로 받는다.
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.

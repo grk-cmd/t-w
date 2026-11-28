@@ -117,8 +117,12 @@ function makeRoomProvider(create){
 const ROOM_CONNECTING_TOAST_MS = 1000;   // 이만큼 지나도 못 붙었으면 «연결 중» 을 보인다(바로 붙으면 안 띄운다)
 /* 입장 실패 코드(room-rt join · 서버 규약 7장) → 안내 문구. 판정 거절만 문구 · 그 밖은 null(E-ROOM-08) */
 function _roomJoinMessage(code, isSecret){
-  if(code === 'full') return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
-                                      : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)');
+  if(code === 'full'){
+    const cap = maxPeople();   // 모르면 숫자를 적지 않는다(판정은 서버가 했다)
+    if(cap == null) return isSecret ? '이 방은 손님 자리가 다 찼어요' : '이 방은 이미 가득 찼어요';
+    return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(cap-1)+'명)')
+                    : ('이 방은 이미 가득 찼어요(최대 '+cap+'명)');
+  }
   if(code === 'channelFull'){
     const ch = window._pendingRoomChannel || (_myRoomLicensed() ? 'togetherroom' : 'workingroom');
     return _channelFullMsg(ch);
@@ -286,7 +290,8 @@ function _applyRemoteRides(){
 const syncFriendSeatsTimed = runCost.timed('sync', syncFriendSeats);
 function syncFriendSeats(friends){
   friends=friends||{};
-  const ids=Object.keys(friends).slice(0, maxPeople()-1);   // 친구는 최대 9(나 제외)
+  const _cap=maxPeople();
+  const ids=_cap == null ? Object.keys(friends) : Object.keys(friends).slice(0, _cap-1);   // 친구는 정원-1(나 제외) · 정원을 모르면 자르지 않는다(방에 누가 있는지는 방 서버가 정했다)
   const have={}; seats.filter(s=>s.remote).forEach(s=>{ have[s.friendId]=s; });
   Object.keys(have).forEach(id=>{ if(!friends[id]){ const s=have[id]; scene.remove(s.group); removeSeatLabels(s); const ix=seats.indexOf(s); if(ix>=0)seats.splice(ix,1); } });
   ids.forEach(id=>{ let s=have[id];
@@ -671,12 +676,13 @@ function roomLimitOf(channel){ return _rcStore().roomLimitOf(channel); }
 /* 꽉 찼을 때 문구 — 서버 channelFull(방 만들기 · 빈 방 열기)이 쓴다. */
 function _channelFullMsg(channel){
   const limit = roomLimitOf(channel), name = CHANNEL_NAMES[channel] || '방';
-  return `${name}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`;
+  return `${name}이 지금 꽉 찼어요${limit != null ? `(${limit}/${limit})` : ''} — 잠시 후 다시 시도해 주세요`;   // 상한을 모르면 숫자 없이(판정은 서버 channelFull)
 }
-/* 설정이 바뀌면 «최대 N명» 자리만 고친다(읽기 없음). */
+/* 설정이 바뀌면 «(최대 N명)» 자리만 고친다(읽기 없음). 정원을 모르면 비운다(«최대 10명» 으로 짐작하지 않는다). */
 function _paintMaxPeople(){
-  const n = String(maxPeople());
-  document.querySelectorAll('[data-tw-max-people]').forEach(el=>{ el.textContent = n; });
+  const n = maxPeople();
+  const t = n == null ? '' : '(최대 ' + n + '명)';
+  document.querySelectorAll('[data-tw-max-people]').forEach(el=>{ el.textContent = t; });
 }
 (function _watchRemoteRoomConfig(){
   const s = _rcStore(); if(!s) return;

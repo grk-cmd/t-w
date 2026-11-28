@@ -194,6 +194,8 @@ function mkEnv(opt){
     setMhStickerDragDist: (v) => { env.dragDist = v; env.dragSets.push(v); },
     isPremium: () => env.premium,
     isAdmin: () => env.admin,
+    premiumGate: () => (env.premiumUnknown ? 'unknown' : (env.premium ? 'ok' : 'no')),   // 🔓 프리미엄 문(account-state.js) — premiumUnknown 이면 서버가 아직 확인 전
+    tellPremiumUnknown: () => { env.toldUnknown = (env.toldUnknown || 0) + 1; },
     userNameMax: () => { if(!env.nameMaxReady) throw new ReferenceError("Cannot access 'USER_NAME_MAX' before initialization"); return 20; },
     myHomeSticker: { open: () => env.sticker.open++, render: () => env.sticker.render++ },
     stickerMax: 3, stickerImgMaxW: 400,
@@ -477,6 +479,9 @@ await sec('── 7. 바깥 배경 · 테마 · [✎ 마이홈 수정]', async (
   chk(menu.classList.contains('on') && !e.opened.length, '라이선스 없으면 — 바깥 배경 메뉴');
   (e.docL.click || []).forEach(f => f({ target: { closest: () => null } }));
   chk(!menu.classList.contains('on'), '  바깥을 누르면 닫힘');
+  const editUnknown = (src) => { const x = mkEnv({ src }); x.mk(); x.premiumUnknown = true; x.els.mhEditHomeBtn.fire('click', {}); return !x.els.mhBgMenu.classList.contains('on') && !x.opened.length && x.toldUnknown === 1; };
+  chk(editUnknown(), '★ 라이선스를 모르면(서버 확인 전) — 무료 메뉴로 짐작해 열지 않고 «확인 중» 안내');
+  chk(!editUnknown(MOD.replace("      if(premiumGate() === 'unknown'){ tellPremiumUnknown(); return; }", '')), '  mutation test — «모름» 갈래를 빼면 무료 메뉴가 열린다(빨강)');
   e.premium = true; btn.fire('click', {});
   chk(!menu.classList.contains('on') && e.opened.length === 1, '★ 라이선스(읽는 함수 — 로그인 뒤 바뀐 값) — 👑 디자인 스튜디오');
   e.premium = false; e.admin = true; e.child.closed = true; btn.fire('click', {});
@@ -589,8 +594,8 @@ await sec('── 9. app.js 배선', () => {
   const setters = ['setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },'];
   const vals = ['myhomeEditAccountStore: accountStoreMod,', 'myhomeStore: myhomeStoreMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
   chk(deps.includes('installMacTip: (...a)=>TwMacTooltip.installChild(...a),'), '맥 말풍선은 shared/mac-tooltip.js 의 installChild 로 잇는다');
-  chk(deps.length === 33 && fnDeps.length === 17 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
-      'deps 33개 — 함수 17은 화살표 · 읽는 함수 6 · 쓰는 함수 1 · 앞에 선언된 const 9는 값(상태 주인 · 계정 칸 포함) (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 35 && fnDeps.length === 19 && deps.some(l => /^premiumGate: \(\.\.\.a\)=>(acctStateMod\.)?premiumGate\(\.\.\.a\),$/.test(l)) && deps.some(l => /^tellPremiumUnknown: \(\.\.\.a\)=>(acctStateMod\.)?tellPremiumUnknown\(\.\.\.a\),$/.test(l)) && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
+      'deps 35개 — 함수 19는 화살표(🔓 프리미엄 문 · «확인 중» 안내 포함) · 읽는 함수 6 · 쓰는 함수 1 · 앞에 선언된 const 9는 값(상태 주인 · 계정 칸 포함) (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   const before = (n) => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; };
   chk(['myhomeStoreMod', 'myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
   chk(!before('USER_NAME_MAX') && APP.search(/^const USER_NAME_MAX\s*=/m) > iMk, '  ★ USER_NAME_MAX 는 만드는 줄보다 뒤 — 그래서 읽는 함수');

@@ -20,13 +20,13 @@ const MOD = ["status-chip.js","parts/status/status-chip.js","app/parts/status/st
 if(!MOD){ say('  ? 원본 못 찾음 — status-chip.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_charProjSane","_closeChipPopups","_lowestDanceReq","lockedToast","levelUnknown","tellLevelUnknown","_seatHidden","_pickUnlockedDance","_premiumOn","_rollRoulette","backToLauncher","measureBodyBox","saveCustomStatusConf","setUserStatus","startMyDance","toast"];
+const FN_DEPS = ["_charProjSane","_closeChipPopups","_lowestDanceReq","lockedToast","levelUnknown","tellLevelUnknown","_seatHidden","_pickUnlockedDance","_premiumOn","premiumGate","tellPremiumUnknown","_rollRoulette","backToLauncher","measureBodyBox","saveCustomStatusConf","setUserStatus","startMyDance","toast"];
 const VAL_DEPS = ["CUSTOM_STATUS_MAXLEN","_CHIP_POPUPS","camera","clickPolicy","renderer","rideBenchMod","seats"];
 const GET_DEPS = ["settingsPanel","Presence","_charBadWhy","_charBoundsLatest","_danceCmdCooldownAt","_moveModeJustToggled","_officeHidden","chatUiMod","customStatusConf","moveMode","userStatus"];
 const SET_DEPS = ["_charBadWhy","_charBoundsLatest","_danceCmdCooldownAt","_moveModeJustToggled","moveMode"];
 const EXPORTS = ["_positionCascade","_positionInputBelowChar","_repositionOpenChipPopups","_tabHintTimer","setTabHintTimer","_wpTmp3","hexToRgba","otherSeatRegions","otherSeatCircles","setSeatDeskEmoji","uiIconEl","updateMyStatusChipPosition"];   // otherSeatCircles — 🖊️ 남의 좌석 원(동작은 sim-pen-forward.js)
 const MOVED = ["hexToRgba","_positionCascade","UI_FOLLOW_WHILE_RIDING","_CHIP_METRIC_MS","CHIP_METRIC_HOLD_MS","_chipOriginTmp","_chipBoxTmp","_chipMeshBoxTmp","_isPartSubtree","_expandVisibleBox","_chipCharMetrics","_uiAnchorSeat","_uiAnchorWorld","_positionInputBelowChar","_repositionOpenChipPopups","_repositionOpenChipInputs","_lastChipPlaceRight","_wpTmp","_wpTmp2","_wpTmp3","CHIP_VERT_TOP_RATIO","CHIP_GAP_CHAR_RATIO","updateMyStatusChipPosition","_tabHintTimer","_emojiTexCache","EMOJI_TEX_IMG","UI_ICON","UI_ICON_ALT","uiIconEl","_applyUiIcons","makeEmojiTexture","DESK_EMOJI_Y_OFFSET","DESK_EMOJI_Z_OFFSET","DESK_EMOJI_SIZE","ensureSeatDeskEmoji","setSeatDeskEmoji"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  settingsPanel: ()=>settingsMod,","  CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,","  Presence: ()=>Presence,","  _CHIP_POPUPS: _CHIP_POPUPS,","  _charBadWhy: ()=>_charBadWhy,","  _charBoundsLatest: ()=>_charBoundsLatest,","  _charProjSane: (...a)=>_charProjSane(...a),","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  _danceCmdCooldownAt: ()=>_danceCmdCooldownAt,","  _lowestDanceReq: (...a)=>_lowestDanceReq(...a),","  lockedToast: (...a)=>lockedToast(...a),","  levelUnknown: (...a)=>levelUnknown(...a),","  tellLevelUnknown: (...a)=>tellLevelUnknown(...a),","  _moveModeJustToggled: ()=>_moveModeJustToggled,","  _officeHidden: ()=>_officeHidden,","  _seatHidden: (...a)=>_seatHidden(...a),","  _pickUnlockedDance: (...a)=>_pickUnlockedDance(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  _rollRoulette: (...a)=>_rollRoulette(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  chatUiMod: ()=>chatUiMod,","  clickPolicy: TwClickThroughPolicy,","  customStatusConf: ()=>customStatusConf,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  moveMode: ()=>moveMode,","  renderer: renderer,","  rideBenchMod: rideBenchMod,","  saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  startMyDance: (...a)=>startMyDance(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  setCharBadWhy: (v)=>{ _charBadWhy = v; },","  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },","  setDanceCmdCooldownAt: (v)=>{ _danceCmdCooldownAt = v; },","  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },","  setMoveMode: (v)=>{ moveMode = v; },"];
+const GLUE = ["  settingsPanel: ()=>settingsMod,","  CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,","  Presence: ()=>Presence,","  _CHIP_POPUPS: _CHIP_POPUPS,","  _charBadWhy: ()=>_charBadWhy,","  _charBoundsLatest: ()=>_charBoundsLatest,","  _charProjSane: (...a)=>_charProjSane(...a),","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  _danceCmdCooldownAt: ()=>_danceCmdCooldownAt,","  _lowestDanceReq: (...a)=>_lowestDanceReq(...a),","  lockedToast: (...a)=>lockedToast(...a),","  levelUnknown: (...a)=>levelUnknown(...a),","  tellLevelUnknown: (...a)=>tellLevelUnknown(...a),","  _moveModeJustToggled: ()=>_moveModeJustToggled,","  _officeHidden: ()=>_officeHidden,","  _seatHidden: (...a)=>_seatHidden(...a),","  _pickUnlockedDance: (...a)=>_pickUnlockedDance(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  premiumGate: (...a)=>acctStateMod.premiumGate(...a),","  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),","  _rollRoulette: (...a)=>_rollRoulette(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  chatUiMod: ()=>chatUiMod,","  clickPolicy: TwClickThroughPolicy,","  customStatusConf: ()=>customStatusConf,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  moveMode: ()=>moveMode,","  renderer: renderer,","  rideBenchMod: rideBenchMod,","  saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  startMyDance: (...a)=>startMyDance(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  setCharBadWhy: (v)=>{ _charBadWhy = v; },","  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },","  setDanceCmdCooldownAt: (v)=>{ _danceCmdCooldownAt = v; },","  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },","  setMoveMode: (v)=>{ moveMode = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -185,5 +185,25 @@ function chipRectReads(src){
   const r2 = broken !== MOD ? chipRectReads(broken) : { n: 0 };
   chk(broken !== MOD && r2.n === 2, 'mutation test — 두 번 재던 옛 길이면 ' + r2.n + '번');
 }
+say('── 4. ✨ 커스텀 상태 열기 — 라이선스를 모르면 «프리미엄 전용» 대신 «확인 중»(CLAUDE.md «모르는 값»)');
+/* 함수 하나(_openCustomStatusBox)를 떼어 가짜 deps 로 굴린다 — 프리미엄 갈래는 DOM 을 만지기 전에 끝난다 */
+function openBoxRun(src, gate){
+  const i = src.indexOf('  function _openCustomStatusBox(){');
+  if(i < 0) return null;
+  let d = 0, j = src.indexOf('{', i);
+  for(let k = j; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}'){ d--; if(d === 0){ j = k + 1; break; } } }
+  const fn = src.slice(i, j);
+  const log = { toasts: [], told: 0, opened: 0 };
+  const run = new Function('customStatusBox', '_premiumOn', 'premiumGate', 'tellPremiumUnknown', 'toast', '_closeChipPopups', fn + '\nreturn _openCustomStatusBox;')(
+    {}, () => gate === 'ok', () => gate, () => { log.told++; }, (m) => log.toasts.push(m), () => { log.opened++; throw new Error('stop'); });
+  try{ run(); }catch(_){}
+  return log;
+}
+function judgeBox(src){
+  const u = openBoxRun(src, 'unknown'), n = openBoxRun(src, 'no');
+  return !!u && !!n && u.told === 1 && !u.toasts.length && !u.opened && n.told === 0 && n.toasts.length === 1 && /프리미엄 전용/.test(n.toasts[0]) && !n.opened;
+}
+chk(judgeBox(MOD), '모르면 «확인 중» 한 번(상자 안 엶) · 아니면 «✨ 커스텀 상태는 프리미엄 전용이에요»');
+chk(!judgeBox(MOD.replace("if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast(", "toast(")), '  mutation test — «모름» 갈래를 빼면 모르는 사람에게 «프리미엄 전용» (빨강)');
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

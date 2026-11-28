@@ -8,7 +8,7 @@
           말랑이 칸은 D7-3 부터 칸 상태 주인(mallang-store.js — 진짜 모듈 · 가짜 서버 경로)으로 받는다 — 받는 줄이 getMallangImgs 대신 fetchMine · fetchOf 다.
           선물(받은 선물 · 치움 · 지우기 · 봤음 · 보내기 창)은 아직 옛 길이라 줄이 D7-2 그대로다(칸 상태 주인 검사는 sim-mallang-store.js).
    ・3절: 프리미엄 — deps premiumOn 이 폴더 · 보내기 창을 정한다(window._premiumOn 을 읽지 않는다)
-   ・4절: 배선 — app.js 는 만드는 줄 하나(수령함 · 창 · 친구 홈 구경보다 먼저 · deps 5 — 칸 상태 주인은 그보다 먼저) · 세 모듈은 deps mallangMod · window._mallang* 없음 · html · smoke 순서
+   ・4절: 배선 — app.js 는 만드는 줄 하나(수령함 · 창 · 친구 홈 구경보다 먼저 · deps 7 — 칸 상태 주인은 그보다 먼저) · 세 모듈은 deps mallangMod · window._mallang* 없음 · html · smoke 순서
    ・5절: mutation test
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
@@ -121,6 +121,7 @@ function mkEnv(src, o){
     toast: (m) => log.push('toast ' + m),
     getMyUserId: () => 'me',
     premiumOn: () => !!o.premium,
+    premiumGate: () => (o.unknown ? 'unknown' : (o.premium ? 'ok' : 'no')), tellPremiumUnknown: () => log.push('told 확인 중'),
     mallangStore,
     giftBox,
   };
@@ -245,9 +246,11 @@ const GOLDEN = [
       '  보내기 창도 안내만 · 서버 요청 없음');
     const yes = await drive(SRC.ML, { premium: true, windowPremium: false });
     chk(yes.log.includes('state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X'), 'deps premiumOn 이 참이면 보임(window._premiumOn 이 거짓이어도)');
-    const e = mkEnv(SRC.ML.replace('const premiumOn = deps.premiumOn;', 'const premiumOn = ()=>{ throw new Error(\'x\'); };'), {});
-    await e.m.onOpen('me', false); await flush(); e.state('던짐');
-    chk(e.log.some(l => l.startsWith('state 던짐 폴더=X ')), '  판정이 던지면 «아님»(예전 try 그대로)');
+    chk(!/function hasLicense\(\)\{[^\n]*catch/.test(SRC.ML), '  ★ 판정이 던져도 «아님» 으로 삼키지 않는다(catch → false 없음 — CLAUDE.md «모르는 값»)');
+    const unk = await drive(SRC.ML, { premium: false, unknown: true });
+    chk(unk.log.includes('told 확인 중') && !unk.log.includes('toast 👑 말랑이 선물은 라이선스 보유자 전용이에요') && !unk.log.includes('api fetchSentToday'), '  ★ 라이선스를 모르면 보내기 창이 «전용이에요» 대신 «확인 중» · 서버 요청 없음');
+    const unkBroke = await drive(SRC.ML.replace("if(premiumGate() === 'unknown') tellPremiumUnknown(); else toast(", 'toast('), { premium: false, unknown: true });
+    chk(!unkBroke.log.includes('told 확인 중'), '  mutation test — «모름» 갈래를 빼면 모르는 사람에게 «전용이에요»(빨강)');
   }
 
   say('── 4. 배선');
@@ -296,7 +299,7 @@ const GOLDEN = [
     }
     chk(await brk('새 선물 띄우기', SRC.ML.replace("    syncBadge();\n    syncGifts();", "    syncBadge();")), '선물함이 바뀌어도 화면을 안 맞추면(새 선물 · 치움 · 지우기) 빨강');
     {
-      const r = await drive(SRC.ML.replace('function hasLicense(){ try{ return !!premiumOn(); }', 'function hasLicense(){ try{ return !!window._premiumOn(); }'), { premium: false, windowPremium: true });
+      const r = await drive(SRC.ML.replace('function hasLicense(){ return !!premiumOn(); }', 'function hasLicense(){ return !!window._premiumOn(); }'), { premium: false, windowPremium: true });
       chk(!r.log.includes('state 내 집 열기 폴더=X 말랑이=2 배지=🎁2 선물창=X'), '전역 window._premiumOn 을 다시 읽으면 빨강');
     }
     {
@@ -310,7 +313,7 @@ const GOLDEN = [
     const late = SRC.APP.replace(block, '').replace('\nconst mhStateMod = ', block + '\nconst mhStateMod = ');
     chk(w({ APP: late }), '만드는 줄이 수령함 · 창보다 뒤로 가면 빨강(값으로 넘기면 TDZ)');
     chk(w({ INBOX: SRC.INBOX.replace('mallangMod.openGift(fid', 'window._mallangOpenGift(fid') }), 'window._mallang* 고리가 다시 생기면 빨강');
-    chk(w({ ML: SRC.ML.replace('function hasLicense(){ try{ return !!premiumOn(); }', 'function hasLicense(){ try{ return !!window._premiumOn(); }') }), '전역 프리미엄 읽기가 글에 다시 생기면 빨강');
+    chk(w({ ML: SRC.ML.replace('function hasLicense(){ return !!premiumOn(); }', 'function hasLicense(){ return !!window._premiumOn(); }') }), '전역 프리미엄 읽기가 글에 다시 생기면 빨강');
     chk(w({ HTML: SRC.HTML.replace(/<script src="parts\/myhome\/mallang\.js"><\/script>[^\n]*\n/, '').replace('<script src="parts/myhome/myhome-desktop.js"></script>', '<script src="parts/myhome/mallang.js"></script>\n<script src="parts/myhome/myhome-desktop.js"></script>') }), 'html 에서 app.js 뒤로 가면 빨강');
     chk(w({ VISIT: SRC.VISIT.replace('Promise.resolve(mallangMod.applyVisit(', 'if(mallangMod) Promise.resolve(mallangMod.applyVisit(').replace("    Promise.resolve(mallangMod.applyVisit", "    if(typeof mallangMod.applyVisit === 'function') Promise.resolve(mallangMod.applyVisit") }), '«있으면 부르기» 가드가 생기면 빨강');
   }
@@ -333,8 +336,8 @@ function wiring(S, loud){
   t((A.match(/TwMallang\.createMallang\(/g) || []).length === 1 && iMk > 0, 'app.js 가 만드는 곳은 한 곳(const mallangMod)');
   const call = (S.APP.match(/const mallangMod = TwMallang\.createMallang\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
-  t(JSON.stringify(deps) === JSON.stringify(['toast: (...a)=>toast(...a),', 'getMyUserId: (...a)=>getMyUserId(...a),', 'premiumOn: (...a)=>_premiumOn(...a),', 'mallangStore: mallangStoreMod,', 'giftBox: giftBoxMod,']),
-    '  deps 5 — toast · getMyUserId · premiumOn(_premiumOn) · mallangStore(칸 상태 주인) · giftBox(선물 상태 주인) — 함수는 화살표');
+  t(JSON.stringify(deps) === JSON.stringify(['toast: (...a)=>toast(...a),', 'getMyUserId: (...a)=>getMyUserId(...a),', 'premiumOn: (...a)=>_premiumOn(...a),', 'premiumGate: (...a)=>acctStateMod.premiumGate(...a),', 'tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),', 'mallangStore: mallangStoreMod,', 'giftBox: giftBoxMod,']),
+    '  deps 7 — toast · getMyUserId · premiumOn(_premiumOn) · premiumGate · tellPremiumUnknown(모르면 «확인 중») · mallangStore(칸 상태 주인) · giftBox(선물 상태 주인) — 함수는 화살표');
   const iSt = A.indexOf('const mallangStoreMod = TwMallangStore.createMallangStore(');
   t(iSt > 0 && iSt < iMk, '  칸 상태 주인(mallangStoreMod)을 말랑이 화면보다 먼저 만든다');
   const users = ['TwMyHomeInbox.createMyHomeInbox(', 'TwMyHomeUi.createMyHomeUi(', 'TwMyHomeVisit.createMyHomeVisit('];

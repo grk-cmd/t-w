@@ -824,6 +824,8 @@ const statusChipMod = TwStatusChip.createStatusChip({
   _seatHidden: (...a)=>hiddenSeatsMod._seatHidden(...a),
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
+  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
+  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
   _rollRoulette: (...a)=>rouletteMod._rollRoulette(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
@@ -1544,6 +1546,8 @@ const mallangMod = TwMallang.createMallang({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   premiumOn: (...a)=>_premiumOn(...a),
+  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
+  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
   mallangStore: mallangStoreMod,
   giftBox: giftBoxMod,
 });
@@ -1804,6 +1808,8 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
+  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
+  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
   userNameMax: ()=>userNameMod.USER_NAME_MAX,
   myHomeSticker,
   stickerMax: mhStLayoutMod.STICKER_MAX,
@@ -2914,6 +2920,7 @@ const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
   setIsPremium: (v)=>{ isPremium = v; },
+  toast: (...a)=>toast(...a),   // «라이선스 확인 중» 안내(tellPremiumUnknown)
 });
 /* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v2/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
 const userApiMod = TwUserApi.store;   // 🪪 계정 provider(account/user-api.js) — 서버 user · invite 길 · 화면 문구
@@ -3009,6 +3016,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
   refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
+  paintLicenseLabel: (...a)=>licenseUiMod.paintLicenseLabel(...a),
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   seats: seats,
   toast: (...a)=>toast(...a),
@@ -3578,9 +3586,9 @@ const isLauncherShown = ()=>document.getElementById('launcher').classList.contai
    💰 이 숫자는 곧 비용이다 — 한 멤버가 1바이트를 쓰면 방의 나머지 인원수만큼 내려간다
       (_diffRoomPayload 주석의 실측 ×4.0). 6→8은 꽉 찬 방 기준 다운로드가 약 1.4배다.
       8→10 은 꽉 찬 방 기준 약 1.6배다(인원×(인원−1): 56 → 90). */
-/* ★ 정원은 원격 설정 roomMaxPeople(remote-config.js · API · 2~50 · 없으면 10) — 바뀌면 다음 판정부터 바로 따른다.
+/* ★ 정원은 원격 설정 roomMaxPeople(remote-config.js · API · 2~50) — 바뀌면 다음 판정부터 바로 따른다. 못 받았으면 null(«모름» — 10 이 아니다 · 판정은 방 서버).
    firebase-init.js(joinRoom 리스너)의 정원 초과 자기 퇴장도 같은 store 를 읽는다 — 숫자를 두 곳에 적지 않는다. */
-function maxPeople(){ const s = acctStateMod._rcStore(); return s ? s.maxPeople() : 10; }
+function maxPeople(){ const s = acctStateMod._rcStore(); return s ? s.maxPeople() : null; }
 /* ═══ 🛰 방 접속 상태(Presence) ═══ */
 /* 본문은 room/presence.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -3713,7 +3721,7 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
   maxPeople: ()=>maxPeople(),
-  isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  isLicensed: ()=>roomEntryMod._myRoomLicensed(), premiumGate: (...a)=>acctStateMod.premiumGate(...a), tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
   listenEnabled: TwListenModel.ENABLED,
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
 });
@@ -3724,7 +3732,7 @@ TwRoomLobbyUi.createRoomLobbyUi({
   inRoom: ()=>Presence.active(),
   twNav: twNav,
   maxPeople: ()=>maxPeople(),
-  isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  isLicensed: ()=>roomEntryMod._myRoomLicensed(), premiumGate: (...a)=>acctStateMod.premiumGate(...a), tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
   isBlocked: (card)=>TwListenModel.isBlockedRoom(card),
   joinRoom: (code)=>roomEntryMod.joinRoom(code),   // 입장 중 막기는 room-entry 한 깃발(코드 칸 · 최근 방과 같이)
   openCreate: (ch)=>roomCreateUi.open(ch),
@@ -3928,6 +3936,7 @@ const licenseScreenMod = TwLicenseScreen.createLicenseScreen({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseUiMod = TwLicenseUi.createLicenseUi({
   isPremium: ()=>isPremium,
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   licenseScreenMod: licenseScreenMod,
 });
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
@@ -4018,7 +4027,7 @@ function _showUpdateNoticeOnce(notice, done){   // done — 창이 닫히거나 
 // 켤 때 공지를 받는다 — 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않는다(로그인 화면 위에도 업데이트 공지가 뜬다). 이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js
 TwNetReady.whenNetReady(()=>noticeFeed.start());
 /* ⚙️ 원격 설정 시작 — 읽는 차례 · 주기는 remote-config.js 머리. API 통로 · 이 PC 저장 · realtime 알림만 잇는다. */
-TwNetReady.whenNetReady(()=>TwRemoteConfig.store.start({ api: TwApi.client, win: window, rt: TwRtHub.store }));
+TwNetReady.whenNetReady(()=>TwRemoteConfig.store.start({ api: TwApi.client, win: window, rt: TwRtHub.store, health: TwApi.health }));   // health — 못 받은 채 켜졌으면 API 복귀 때 한 번 다시
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.
@@ -4833,6 +4842,8 @@ const themeUiMod = TwThemeUi.createThemeUi({
   customUsable: (...a)=>themeMod.customUsable(...a),
   setCustom: (...a)=>themeMod.setCustom(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
+  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
+  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   serverOn: ()=>TwServerFeatures.on('themeCustomSave'),   // 계정 저장을 끄면 이 PC 에만
   loadCustom: (...a)=>TwUserApi.themeCustom.load(...a),   // 👑 GET · PUT /v2/me/theme-custom(account/user-api.js — 판은 provider 가 든다)
@@ -4845,7 +4856,7 @@ themeMod.onApplied(()=>helpTabMod.themeChanged());   // 📘 연 도움말 틀�
 themeMod.applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
 themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
 /* 🔤 창 글꼴 — 테마처럼 파싱 즉시 건다(늦으면 기본 글꼴이 번쩍인다) */
-const fontUiMod = TwFontUi.createFontUi({ _premiumOn: (...a)=>_premiumOn(...a), refreshChildren: (...a)=>themeMod.applyTheme(...a) });
+const fontUiMod = TwFontUi.createFontUi({ _premiumOn: (...a)=>_premiumOn(...a), premiumGate: (...a)=>acctStateMod.premiumGate(...a), tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a), refreshChildren: (...a)=>themeMod.applyTheme(...a) });
 fontUiMod.apply(); fontUiMod.bind();
 TwNetReady.whenNetReady(()=>{ themeUiMod.pullCustom(); });   // 👑 내 색 — 계정 사본 받기(서버 길이 없으면 pullCustom 이 바로 돌아간다)
 
@@ -4897,6 +4908,8 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   escHtml: (...a)=>escHtml(...a),
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   premiumOn: ()=>_premiumOn(),
+  premiumGate: (...a)=>acctStateMod.premiumGate(...a),
+  tellPremiumUnknown: (...a)=>acctStateMod.tellPremiumUnknown(...a),
   appMode: ()=>launcherStateMod.appMode(),
 });
 focusTotalMod.onDayEnd(()=>{ weeklyChal.dayEnded(); });   // 하루가 바뀐 때 달성표도 이번 주를 다시 받는다
@@ -4988,7 +5001,7 @@ const runBoot = TwRunBoot.createRunBoot({
       /* 🗂️ 로비는 여닫는 길이 여럿(런처 · F1 · ✕ · 방 나간 뒤 다시 열기)이라 길마다 부르지 않고 .on 이 바뀔 때 창 크기를 다시 맞춘다 */
       const ov=document.getElementById('inviteOverlay'); if(ov) new MutationObserver(()=>applyDesktopRunClass()).observe(ov, { attributes:true, attributeFilter:['class'] }); },
     adminUi: ()=>{ if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility(); },   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
-    licenseLabel: ()=>{ const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; },
+    licenseLabel: ()=>licenseUiMod.paintLicenseLabel(),   // 런처 [라이선스] 단추 글 — 서버 확인 전엔 «확인 중»(license-ui.js)
     /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독)은 계정 확인 뒤 app-boot 의 mhInit 차례다. */
     frameLoop: ()=>{ requestAnimationFrame(frame); },
     launcherLoop: ()=>launcherPrevMod.startLauncherLoop(),

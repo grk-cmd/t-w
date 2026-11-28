@@ -39,18 +39,23 @@ function displayTitle(t, hn, banned, bw){
   return { text: name ? name + ' 님의 방' : '이름 없는 방', isDefault: true };
 }
 
-/** 방 만들기 창의 최대 인원 — 2 ~ 정원(cap) 안의 정수로. 숫자가 아니면 정원. */
+/** 방 만들기 창의 최대 인원 — 2 ~ 정원(cap) 안의 정수로. 숫자가 아니면 정원.
+ *  정원을 모르면(cap == null — 원격 설정을 못 받음) 짐작하지 않는다: 2 ~ 50 안의 정수면 그대로(정원 판정은 서버) · 아니면 null(칸을 싣지 않아 서버 기본값). */
 function clampMax(v, cap){
+  if(cap == null){ const k = Math.floor(Number(v)); return (Number.isFinite(k) && k >= ROOM_MAX_MIN && k <= ROOM_MAX_MAX) ? k : null; }
   const hi = Math.max(ROOM_MAX_MIN, Math.min(ROOM_MAX_MAX, Math.floor(Number(cap)) || ROOM_MAX_MIN));
   const n = Math.floor(Number(v));
   if(!Number.isFinite(n)) return hi;
   return Math.max(ROOM_MAX_MIN, Math.min(hi, n));
 }
 
-/** 이 방에 들어갈 수 있는 사람 수 — 방 최대 인원(_meta.max)과 정원(원격 설정) 중 작은 쪽. max 가 없거나 범위 밖이면 정원. */
+/** 이 방에 들어갈 수 있는 사람 수 — 방 최대 인원(_meta.max)과 정원(원격 설정) 중 작은 쪽. max 가 없거나 범위 밖이면 정원.
+ *  정원을 모르면(cap == null) 방 최대 인원 그대로 · 그것도 없으면 null(«모름» — 0 · 10 으로 짐작하지 않는다). */
 function roomCap(meta, cap){
   const m = meta && meta.max;
-  if(Number.isInteger(m) && m >= ROOM_MAX_MIN && m <= ROOM_MAX_MAX) return Math.min(m, cap);
+  const mOk = Number.isInteger(m) && m >= ROOM_MAX_MIN && m <= ROOM_MAX_MAX;
+  if(cap == null) return mOk ? m : null;
+  if(mOk) return Math.min(m, cap);
   return cap;
 }
 
