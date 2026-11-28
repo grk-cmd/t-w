@@ -318,6 +318,15 @@
       if(first) location.href = first.href;
     });
   }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
-  else mount();
+  /* FAQ 서랍 — 주소의 #fN(검색 결과 · 밖에서 온 링크)이 가리키는 질문은 펴서 보인다 */
+  function openTarget(){
+    var id = window.location.hash.slice(1);
+    var t = id ? document.getElementById(id) : null;
+    var d = t ? t.closest('details') : null;
+    if(d && !d.open){ d.open = true; t.scrollIntoView(); }
+  }
+  window.addEventListener('hashchange', openTarget);
+  function boot(){ mount(); openTarget(); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
