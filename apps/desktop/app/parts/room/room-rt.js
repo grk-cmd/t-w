@@ -25,8 +25,9 @@ const HELD_TTL_MS = 15 * 1000;
    clientGiveUpMs : 방 안에서 끊긴 뒤 이만큼 못 돌아오면 그 방은 포기한다(onLost 'unreachable'). 서버 규약 1장 «방 안 90초».
      hooks.keepOnUnreachable 이 참인 방(시크릿룸)은 포기하지 않고 다시 붙기를 기다린다. */
 const TIMING_DEFAULTS = Object.freeze({ joinWaitMs: 10 * 1000, clientGiveUpMs: 90 * 1000 });
-// 방 안에서 끊긴 채 이만큼 지나면 «다시 연결 중» 을 알린다 — 짧은 끊김은 조용히 이어 붙는다
-const RECONNECT_NOTICE_MS = 15 * 1000;
+// 방 안에서 끊긴 채 이만큼 지나면 «다시 연결 중» 을 알린다 — 짧은 끊김은 조용히 이어 붙는다.
+// 서버 배포(다시 띄우기 · 방 되살리기)의 끊김이 이 안에 들어가게 · clientGiveUpMs(90초)보다 짧게
+const RECONNECT_NOTICE_MS = 60 * 1000;
 
 // 서버가 받는 멤버 칸(서버 규약 3장). 모르는 칸이 하나라도 있으면 patch 통째로 거절되므로 여기서 거른다.
 // name · level 은 서버가 계정에서 채운다(pv 4) — 실으면 badRequest 라 여기 넣지 않는다. 받는 멤버 · patch 의 name 은 문자열 | null(이름 없음).
