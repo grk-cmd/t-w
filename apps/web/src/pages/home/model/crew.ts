@@ -2,8 +2,8 @@
     이름은 고유 이름이라 언어마다 같다(역할 · 대사는 문구 crew).
     headX = 그림 폭에서 머리 가운데 자리(0~1) — 말풍선 꼬리가 머리를 가리키게(그림이 머리 한쪽에 소품을 둬서 가운데가 아니다) */
 export const CREW = [
-  { key: 'admin', name: '고로케', src: '/crew/admin.webp', w: 275, h: 351, headX: 0.59 },
   { key: 'dev', name: 'Noodle', src: '/crew/dev.webp', w: 400, h: 351, headX: 0.64 },
+  { key: 'admin', name: '고로케', src: '/crew/admin.webp', w: 275, h: 351, headX: 0.59 },
 ] as const;
 
 /** 이 시간 안에 FLY_TAPS 번 누르면 날아간다(연타) — 그보다 느리면 한 번씩 말풍선 */
