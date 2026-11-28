@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BOP_MS, bopFrames, bubbleShift, nextTap } from '../model/crew';
 
 /** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS 애니메이션 길이도 이 값 — --fly-ms) */
@@ -24,6 +24,14 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
   // 다음에 보일 대사 — 말풍선이 사라져도 이어진다(천천히 눌러도 다음 대사)
   const nextLine = useRef(0);
   const bubble = useRef<HTMLSpanElement>(null);
+  const live = useRef<HTMLSpanElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  // ⚠️ 홈페이지 CSP 는 style-src 'self' — 마크업의 style="" 속성은 막힌다(미리 그린 HTML · 하이드레이션 모두).
+  //    자리 · 날기 길이는 스크립트(CSSOM)로 넣는다 — 말풍선보다 먼저(아래 효과가 이 자리를 잰다)
+  useLayoutEffect(() => {
+    if (live.current) live.current.style.left = `${headX * 100}%`;
+    btn.current?.style.setProperty('--fly-ms', `${FLY_MS}ms`);
+  }, [headX]);
   // 도트 테두리(border-image 아홉 조각)는 반 픽셀에 앉으면 조각이 안 맞아 흐려진다 — 앱(_bubSnapTransform)처럼 정수 px 로 맞춘다
   useLayoutEffect(() => {
     const el = bubble.current;
@@ -81,7 +89,7 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
   return (
     <figure className="crew-mate">
       {/* 알리는 칸은 늘 있어야 화면 낭독기가 새 대사를 읽는다 — 말풍선 모양은 안쪽에만 */}
-      <span className="crew-live" aria-live="polite" style={{ left: `${headX * 100}%` }}>
+      <span ref={live} className="crew-live" aria-live="polite">
         {say !== null && (
           <span ref={bubble} className="crew-say">
             {lines[say]}
@@ -90,8 +98,8 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
       </span>
       <button
         type="button"
+        ref={btn}
         className={flying ? 'crew-btn fly' : 'crew-btn'}
-        style={{ '--fly-ms': `${FLY_MS}ms` } as CSSProperties}
         onClick={tap}
         aria-label={`${role} ${name}`}
       >
