@@ -324,25 +324,21 @@ h3 {
   height: 176px;
   width: auto;
   max-width: 100%;
-  /* 가만히 있을 때 숨쉬기 — 정수 px 로 뚝뚝 끊어(steps) 도트 그림이 흐려지지 않게 */
-  animation: crew-idle 2.4s steps(1, end) infinite;
+  /* 가만히 있을 때 숨쉬기 — 발밑을 축으로 살짝 커졌다 작아진다(위아래로 움직이지 않게) */
+  transform-origin: 50% 100%;
+  animation: crew-idle 2.8s ease-in-out infinite;
 }
 /* 두 사람은 박자를 엇갈린다 */
 .crew-mate + .crew-mate .crew {
-  animation-delay: -1.2s;
+  animation-delay: -1.4s;
 }
 @keyframes crew-idle {
-  0% {
+  0%,
+  100% {
     transform: none;
   }
-  25% {
-    transform: translateY(-1px);
-  }
   50% {
-    transform: translateY(-3px);
-  }
-  75% {
-    transform: translateY(-1px);
+    transform: scale(1.015, 1.03);
   }
 }
 @media (prefers-reduced-motion: reduce) {
