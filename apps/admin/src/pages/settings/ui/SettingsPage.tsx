@@ -1,5 +1,6 @@
 import { AdBannerCard } from '@/features/settings/edit-ad-banner';
 import { MinVersionCard } from '@/features/settings/set-min-version';
+import { WebDownloadCard } from '@/features/settings/set-web-download';
 import { GameConfigCard } from '@/features/settings/edit-game-config';
 import { BugDailyMaxCard } from '@/features/settings/set-bug-daily-max';
 import { BannedWordsCard } from '@/features/settings/edit-banned-words';
@@ -19,6 +20,7 @@ export function SettingsPage() {
     <>
       {maintenance && <MaintenanceCard />}
       <AdBannerCard />
+      <WebDownloadCard />
       <GameConfigCard />
       <BugDailyMaxCard />
       <ChatKeepDaysCard />
