@@ -46,9 +46,10 @@ function faqPage(faq, pages, chunks){
     return '<p><a class="xref" href="/' + p + (a ? '#' + a : '') + '">🔗 ' + esc(where) + '</a></p>';
   };
   const items = faq.map((f, i) => {
-    const head = '<h2 id="f' + (i + 1) + '">' + esc(f.h) + '</h2>\n<p>' + esc(f.t) + '</p>';
+    // 서랍(details) — 닫힌 채 질문만 보이고 누르면 답이 펴진다. 검색 결과 · 주소의 #fN 으로 오면 search.js 가 그 서랍을 편다
+    const head = '<details class="faq">\n<summary><span class="faq-n">Q' + (i + 1) + '.</span><h2 id="f' + (i + 1) + '">' + esc(f.h) + '</h2></summary>\n<p>' + esc(f.t) + '</p>';
     const links = (f.p === 'faq' ? [] : [link(f.p, f.a)]).concat((f.m || []).map(x => link(x.p, x.a)));
-    return links.length ? head + '\n' + links.join('\n') : head;
+    return head + (links.length ? '\n' + links.join('\n') : '') + '\n</details>';
   }).join('\n\n');
   return ['<!doctype html>', '<html lang="ko">', '<head>', '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="referrer" content="no-referrer">',
@@ -56,7 +57,7 @@ function faqPage(faq, pages, chunks){
     '<link rel="stylesheet" href="/tokens.css">', '<link rel="stylesheet" href="/fonts/nanum-gothic.css">', '<link rel="stylesheet" href="/help.css">',
     '<script src="/theme.js"></script>', '<script src="/embed.js" defer></script>', '<script src="/search.js" defer></script>',
     '</head>', '<body>', header('faq'), '<main>', '<h1>자주 묻는 질문</h1>',
-    '<p class="lead">많이 물어보는 것을 모았어요. 더 자세한 설명은 아래 링크에서 볼 수 있어요.</p>', '',
+    '<p class="lead">많이 물어보는 것을 모았어요. 질문을 누르면 답이 펴져요.</p>', '',
     items, '',
     '<p class="foot">찾는 내용이 없으면 위 검색창에 물어보거나 마이홈 › 버그제보에 남겨 주세요.</p>',
     '</main>', '</body>', '</html>', ''].join('\n');

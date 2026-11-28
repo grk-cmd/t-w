@@ -279,7 +279,7 @@
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 249 | **41227cb39ede** |
 | **sim-help-deploy-guard.js** | 119 | **db7ad2627cbf** |
-| **sim-help-search.js** | 198 | **779351c04dcd** |
+| **sim-help-search.js** | 224 | **4918686ad8f5** |
 | **sim-help-tab.js** | 215 | **776d0178e83c** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
 | **sim-purikura-fish.js** | 158 | **0ae74aa664f8** |
