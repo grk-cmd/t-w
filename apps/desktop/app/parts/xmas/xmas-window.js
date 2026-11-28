@@ -140,11 +140,28 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     pick.insertBefore(b, $('xmasUpLab'));
     return b;
   }
+  const basePick = {};   // 기본 장식 단추 — 종류 → 단추
   [['bulb', '전구'], ['star', '별'], ['sock', '양말'], ['cane', '지팡이 사탕'], ['gift', '선물']].forEach(([k, l]) => {
     const c = deps.treeMod.baseCanvas(k, doc);
     const b = addPick(k, c && c.toDataURL ? c.toDataURL() : '', l, null);
+    basePick[k] = b;
     if (k === 'star') choose(b, k, null);
   });
+  /* 고르는 줄을 지금 걸린 내 장식에 맞춘다 — 창을 다시 열 때 별로 돌아가 «한마디만 고쳐 걸기» 가 그림을 별로 바꾸던 것.
+     내 그림은 IndexedDB 사본(트리 그림과 같은 것)으로 «내 그림» 칸 하나를 다시 붙인다. 그림을 못 받았으면 고른 것을 건드리지 않는다(별로 덮어 걸지 않게). */
+  let minePick = null, minePickImg = null;   // 다시 붙인 «내 그림» 칸 · 그 안 그림 — 불러올 때마다 새로 만들지 않고 그림만 바꾼다
+  function syncPickToMine(imgData){
+    if (!mine || mine.t !== treeNo || !mine.k) return;
+    $('xmasWord').value = typeof mine.w === 'string' ? mine.w : '';   // 지금 걸린 한마디 — 고쳐 걸기 쉽게
+    if (mine.k === 'img'){
+      const d = TwSafeHtml.safeUrl(imgData, 'image');
+      if (!d) return;
+      if (minePick) minePickImg.src = d;
+      else { minePick = addPick('img', d, '내 그림', d); minePickImg = minePick.children[0]; }
+      minePick.onclick = () => choose(minePick, 'img', d);
+      choose(minePick, 'img', d);
+    } else if (basePick[mine.k]) choose(basePick[mine.k], mine.k, null);
+  }
   /** 올린 그림 → 64px(넘치면 48 · 32) PNG data URL. 정사각형 가운데를 자른다 */
   function shrink(img){
     for (const px of [rules.IMG_PX, 48, 32]){
@@ -235,6 +252,7 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     setCount(rules.countOf(tr.o));
     setState(list.length ? '' : '아직 장식이 없어요. 첫 장식을 달아 보세요!');
     $('xmasHang').textContent = mine ? '내 장식 바꾸기' : '내 장식 달기';
+    syncPickToMine(mine ? cache[String(mine.s)] : null);
   }
 
   /** 목록(서버 캐시 — 몇 초 늦을 수 있음)에 내 장식이 없거나 옛 판이면 내 몫(GET /v2/me/xmas 의 mine — 캐시 없음)으로 덮는다.
@@ -367,6 +385,8 @@ const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 맨 앞에 붙
     if (gotTimer){ win.clearTimeout(gotTimer); gotTimer = null; }
     waiting = []; seenMail.clear();
     mine = null; treeNo = 0; ornList = []; lastHangAt = NaN; repSlot = null;
+    if (minePick) pick.removeChild(minePick);   // 앞 계정의 그림 · 한마디를 다음 계정에 남기지 않는다
+    minePick = null; minePickImg = null; $('xmasWord').value = ''; choose(basePick.star, 'star', null);
     letter.reset();
   }
 
