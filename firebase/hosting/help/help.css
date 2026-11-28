@@ -74,3 +74,18 @@ h2:target,h3:target{background:var(--bg-select)}
 [data-embed] .note,[data-embed] table{font-size:12px}
 [data-embed] .path{font-size:12px}
 [data-embed] .pn{margin-top:var(--space-7);font-size:12px}
+/* 단계 안내(5-7 폰 연결) — 한 단계 = «어디» 한 줄 + «칸 → 넣을 값» 표 + 짧은 덧말. 값은 고정폭 글자로 */
+.steps > li{margin:var(--space-5) 0}
+.steps .do,.steps .sub,.sub{display:block}
+.sub{font-size:13px;color:var(--ink-soft);font-weight:normal;margin-top:var(--space-1)}
+.steps .kv{margin:var(--space-3) 0}
+.kv th{width:1%;white-space:nowrap}
+main code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;padding:0 var(--space-2);background:var(--bg-field);border:1px solid var(--line);word-break:break-all}
+.os{margin-top:var(--space-7);padding-left:var(--space-3);border-left:3px solid var(--ink-accent)}
+.tip{font-size:14px;color:var(--ink-soft)}
+.warn{background:var(--bg-select);border:1px solid var(--line-strong);border-left-width:4px;padding:var(--space-3) var(--space-5);font-size:14px}
+details{margin:var(--space-3) 0;padding:0 var(--space-5);background:var(--bg-face-2);border:1px solid var(--line);font-size:14px}
+details[open]{padding-bottom:var(--space-2)}
+summary{cursor:pointer;padding:var(--space-3) 0;font-weight:bold}
+figure.shot[hidden]{display:none}
+[data-embed] details,[data-embed] .warn,[data-embed] .tip,[data-embed] .sub{font-size:12px}
