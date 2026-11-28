@@ -112,7 +112,7 @@ export interface Messages {
   landSound: string;
   landOk: string;
   newsTitle: string;
-  /** 소식 창 아래 도트 그림 — 개발자 */
+  /** 소식 창 아래 그림 — 개발자 */
   crewDevAlt: string;
   newsEmpty: string;
   creator: CreatorMessages;

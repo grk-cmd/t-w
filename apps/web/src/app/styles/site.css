@@ -285,7 +285,7 @@ h3 {
   padding-block: 36px 40px;
   overflow: hidden;
 }
-/* 왼쪽 소개 글 · 오른쪽 📰 소식 창 — 좁으면 위아래. 소식 창은 위에 붙인다(그 아래는 사람 도트 그림 — .hero-side) */
+/* 왼쪽 소개 글 · 오른쪽 📰 소식 창 — 좁으면 위아래. 소식 창은 위에 붙인다(그 아래는 사람 그림 — .hero-side) */
 .hero .wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -296,19 +296,19 @@ h3 {
   color: var(--on-desk);
   max-width: 560px;
 }
-/* 오른쪽: 소식 창 · 그 아래 사람들 도트 그림 */
+/* 오른쪽: 소식 창 · 그 아래 사람 그림 */
 .hero-side {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
 }
-/* 96px 도트 그림을 두 배로 — 픽셀이 뭉개지지 않게 */
+/* 그림 파일은 두 배 크기(400px) — 선명한 화면에서도 또렷하게 절반으로 보인다 */
 .crew {
   align-self: flex-end;
-  width: 192px;
+  width: 200px;
+  max-width: 100%;
   height: auto;
-  image-rendering: pixelated;
 }
 .news .body {
   padding: 6px;
