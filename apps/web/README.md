@@ -26,6 +26,7 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | `src/entities/character/` | 코어 한 벌(몸 · 얼굴 · 톤 · 앞모습 지도)을 만드는 `loadCharKit` · 3D 미리보기. 빛 · 재질 고치기는 코어 한 벌(`@tw/char-core` 의 `lighting.ts` — 앱 생성기 · 실행 화면과 같은 숫자) |
 | `src/shared/i18n/` | 언어(`ko` 기본 · `en` · `ja`) · 주소(`/` · `/en/` · `/ja/`) · 화면 글(`messages.ts` — 언어마다 같은 모양, 빠지면 타입 검사가 잡는다) |
 | `src/shared/config/` | 바깥 주소 한 곳(도움말 · 자체 서버 API `API_ORIGIN` · 파츠 그림을 바로 받는 Storage `STORAGE_ORIGIN` · `STORAGE_BUCKET`(운영 버킷). API 는 홈페이지 CSP connect-src · img-src 에, Storage 는 img-src 에 같은 주소 — 우리 도메인이 아닌 것은 Storage 하나) |
+| `src/shared/api/` | 우리 서버 공개 GET 한 벌(`getPublic` — 토큰 · 쿠키 안 실음 · 봉투 `{ success, data }` · 6초 · 실패와 없음을 가름). 공개 길을 읽는 곳(카탈로그 · `/v2/site`)은 모두 이것을 부른다 |
 | `src/shared/lib/html-template/` | 빌드한 `index.html` 틀의 자리표 셋(`%TW_LANG%` · `<!--tw-head-->` · `<!--tw-body-->`)을 채운다 — 하나라도 빠지면 던진다 |
 | `scripts/prerender.mjs` | SSR 빌드를 불러 `dist/index.html` · `dist/en/index.html` · `dist/ja/index.html` 을 쓴다 |
 | `public/` | 아이콘(앱 것을 복사 — `apps/desktop/app/assets/icon/tw-mini.png` · `apps/desktop/build/icon.iconset/icon_256x256.png`) · 글꼴 라이선스 · 첫 화면 사람 그림 `crew/`(사용자가 준 관리자 · 개발자 그림 — 둘레 빛번짐을 잘라 화면 두 배 크기 webp 로 · 차례 · 크기는 `pages/home/model/crew.ts`) · 소개 칸 앱 화면 `features/`(도움말 캡처 `firebase/hosting/help/img` 의 사본 — 도움말 캡처를 다시 찍으면 여기도 바꾸고 `pages/home/model/feature-shots.ts` 의 크기도 맞춘다 · 순서는 문구 `features` 와 같다) |
