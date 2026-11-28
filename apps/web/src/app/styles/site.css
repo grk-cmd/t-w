@@ -324,6 +324,25 @@ h3 {
   height: 176px;
   width: auto;
   max-width: 100%;
+  animation: crew-idle 2.4s steps(1, end) infinite;
+}
+/* 가만히 있을 때 숨쉬기 — 정수 px 로 뚝뚝 끊어(steps) 도트 그림이 흐려지지 않게 · 두 사람은 박자를 엇갈린다 */
+.crew-mate + .crew-mate .crew {
+  animation-delay: -1.2s;
+}
+@keyframes crew-idle {
+  0% {
+    transform: none;
+  }
+  25% {
+    transform: translateY(-1px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+  75% {
+    transform: translateY(-1px);
+  }
 }
 /* 사람 하나: 그림 단추 · 위 말풍선 · 아래 이름표 */
 .crew-mate {
@@ -605,7 +624,8 @@ h3 {
   }
   .land:hover .land-ic,
   .land-bar .blink,
-  .crew-btn.fly {
+  .crew-btn.fly,
+  .crew {
     animation: none;
   }
 }
