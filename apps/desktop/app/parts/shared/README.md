@@ -452,8 +452,38 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 로그인 읽기는 토큰을 요청당 한 번만 받고(시간 제한과 겨룸 — 멈춰도 `TIMEOUT`) 그 토큰으로 보낸다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
 - **길 없는 404 = 앱 버그**: 서버에 그 길 자체가 없는 404(`NOT_FOUND` · `DATA_ROUTE_NOT_FOUND` · code 없음)는 kind `noRoute` 다. 쉬기(30초 BACKOFF)에 넣지 않는다 — 같은 통로의 `GET /v2/config`(점검 판정)가 막히지 않게. 그 요청만 실패하고 `console.error` 가 남으며 `api-errors.js` 가 E-NET-09 로 알린다. 자원이 없다는 404(`USER_NOT_FOUND` 등)는 그대로 `request`. 앱이 부르는 길이 서버에 있는지는 `checks/sim-api-routes.js` 가 본다.
 - **멈춤 gate(로그인 통로만)**: `TwApi.authed` 는 서버가 답을 못 하면(5xx · 시간 초과 · 네트워크 · notReady · 봉투 아님) 다음 요청을 바로 보내지 않고 `GATE_MS`(1 · 2 · 4 · 8초 · 실제는 [base/2, base] 로 흩음(jitter) · 동시 실패는 한 번으로 셈)를 기다렸다 보낸다. 성공하면 풀린다. 429 + `Retry-After` 면 그 요청(method + path)만 그때까지 보내지 않고 곧장 429(`retryAfterMs` = 남은 시간 · 상한 `RETRY_AFTER_MAX_MS`)로 끝낸다 — 서버 요청 제한은 endpoint(method + path)마다라 다른 endpoint 는 막지 않는다. Retry-After 없는 429 는 1 · 2 · 4 · 8초 멈춤. 다시 묻는 쪽(로그인 흐름 `retryNow` · 기기 등록 등)은 따로 흩지 않는다(이 한 곳). 공용 읽기 `TwApi.client` 는 gate 없이 그대로 30초 쉬기. 남은 시간은 `gateLeftMs()`. 계정을 놓을 때 `forgetSession()` 이 멈춤 · 429 막힘도 비운다.
+- **닿는가(health)**: 서버가 답하지 못한 실패(네트워크 · 시간 초과 · 봉투가 아닌 응답 — 앞단 Caddy 502/503 페이지)는 `health.down()`, 성공은 `health.ok()` 로 알린다. 4xx · notReady · 기억 없는 304 · **우리 API 가 봉투로 답한 5xx**(`err.answered`)는 알리지 않는다 — 서버는 답했고 그 기능의 실패일 뿐이다. 봉투 5xx 를 세면 그 endpoint 만 계속 500 일 때 «확인 성공 → 복귀 → 다시 받기 → 500» 으로 10초마다 끝없이 돈다(검증 실측 30분 182번). 앱 한 벌은 두 통로가 `TwApi.health`(아래 `api-health.js`) 하나를 쓰고, 확인 요청은 `PROBE_PATH`(`GET /v2/config` — 이미 있는 공개 설정 읽기 · 새 endpoint 없음)를 로그인 통로로 보낸다. 계정을 놓으면(`forgetSession`) `health.reset()`.
 - **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 짧다 — 본문이 큰 읽기는 `timeoutMs` 를 넘긴다. 실패해도 다른 길로 넘어가지 않는다(부르는 쪽이 오류 번호로 드러낸다).
 - 검사: `checks/sim-api-client.js`.
+
+## `api-health.js` — 🩺 API 가 닿는가 한 곳 · 닿지 않는 동안 확인 요청 하나
+
+- **책임**: «API 닿지 않음» 을 한 곳에서 본다. 닿지 않는 동안만 가벼운 확인 요청 하나를 아래 간격으로 보내고, 그것이든 다른 아무 요청이든 하나가 성공하면 «API 복귀» 를 한 번 알리고 멈춘다.
+- **왜(설계 한 장 ④ «다시 하기» 의 까닭)**: API 배포로 서버가 30초~1분 내려간 사이에 앱을 켜면 켤 때 읽기가 실패하는데, 앱은 서버가 돌아온 때를 몰라 그 값이 «못 받음» 으로 남았다(B-1128-2 — 레벨 398 · 297 사용자가 레벨 1). 기능마다 재시도 타이머를 두면 요청만 늘고, 사용자 수백 명이 같은 때 켜면 서버가 돌아오자마자 몰린다 — 그래서 확인은 앱에 하나, 다시 받기는 «복귀를 본 기능이 못 받은 상태일 때만 한 번»(`load-state.js`).
+
+| 상태 | 하는 일 | 진단 줄 |
+|---|---|---|
+| 닿음 | 타이머 없음 · 성공은 아무것도 안 함 | — |
+| 닿지 않음이 됨(`down()` 첫 번 — 네트워크 · 시간 초과 · 봉투 아닌 응답만 · 봉투 5xx 는 아님) | 확인 타이머 하나(여러 기능이 실패해도 하나) | `[api] 닿지 않음` |
+| 확인 n번째 | 간격 10초 · 30초 · 1분 · 2분 · 5분, 그 뒤 5분마다(상한 5분 · `DELAYS`) | `[api] 확인 n번째 · 간격 N초` |
+| 아무 요청 하나 성공(`ok()`) | 타이머 멈춤 · `onRecover` 구독자를 한 번씩 · 다음 닿지 않음은 간격을 처음부터 | `[api] 복귀` |
+| 계정을 놓음(`reset()`) | 타이머 멈춤 · 닿지 않음을 잊음(구독자는 남음) | — |
+
+- **만드는 법**: `TwApiHealth.createApiHealth({ probe, setTimeout, clearTimeout, note, delays? })` — DOM · 전역 타이머 · 요청을 모른다(주입). 앱 한 벌은 `api-client.js` 가 만들어 `TwApi.health` 로 내놓는다(html · smoke 에서 `api-client.js` 보다 먼저).
+- **내놓는 것**: `down()` · `ok()` · `onRecover(fn)` → 떼는 함수 · `isDown()` · `reset()` · `DELAYS`.
+- **함정**: 확인이 4xx 로 끝나면(복귀도 내려감도 아님) 닿지 않음이 남아 다음 간격으로 이어 간다. 복귀 알림은 다시 받기 계기일 뿐 — 받는 쪽은 자기 상태(못 받음)를 보고 거른다.
+- 검사: `checks/sim-api-health.js`(가짜 시계 · 간격 경계 · mutation test).
+
+## `load-state.js` — 📦 서버 값 하나를 받는 틀
+
+- **책임**: 서버 값 하나의 받기 상태 `idle` · `loading` · `ready` · `failed` 와 그 값. CLAUDE.md «모르는 값을 그럴듯한 값으로 바꾸지 않는다» 를 코드로 지키는 자리다 — `value()` 는 `ready` 일 때만 값을, 그 밖엔 `null` 을 준다(기본값 · 옛 값을 돌려주지 않는다 — B-1128-2 의 «받기 전 레벨 1» 이 그 반대였다).
+- **만드는 법**: `TwLoadState.createLoadState({ fetch, onValue?, onChange?, health?, notifyOnce?, notifyRetry?, note? })` — DOM · 타이머 없음. 기능 모듈은 app.js 에서 `createLoadState` 를 deps 로 받는다.
+- **내놓는 것**: `state()` · `value()` · `load(why?)`(겹치면 같은 약속) · `retry()`(사용자 [다시 시도] — ready · loading 이면 요청 0) · `refresh()`(받은 뒤 한 번 더 — ready 일 때만 · 겹치면 하나 · 실패하면 failed · 번호 없음) · `reset()`(세션 끝 — 늦은 답 버림).
+- **다시 받기**: 못 받은 상태(`failed`)일 때만 `health.onRecover`(위 `api-health.js`) 에 한 번 다시 받는다(진단 «복귀로 다시 받음»). 한 번은 **실패 한 묶음에 한 번** — 복귀로 다시 받다 또 실패하면 다음 복귀엔 다시 받지 않고, [다시 시도] · 조용한 받기(`load`) · `refresh` 의 실패나 `reset` 뒤에만 다시 연다(그 endpoint 만 계속 실패하는데 다른 요청이 성공해 복귀가 이어지면 끝없이 돌기 때문 · 검사 `sim-api-recover.js` 가 세 모듈을 이어 30분 요청 수를 센다). 이 틀은 타이머를 두지 않는다. 복귀 구독은 처음 `load` 때 한 번 건다(만들 때 요청 · 구독 0).
+- **알림**: `notifyOnce(err)` — reset 뒤 처음 «번호를 띄울» 실패 한 번(`refresh` 실패는 번호 없이 세지 않는다 — 그래서 받은 뒤 새로 받기가 실패하고 그 다음 조용한 받기가 실패하면 그때 한 번 뜬다: 값을 모르게 된 첫 알림이라 뜻한 것). 그 뒤 조용한 실패(복귀 다시 받기 등)는 진단만, 사용자 [다시 시도] 실패만 `notifyRetry(err)`.
+- **진단**(note — 부르는 쪽이 머리를 붙인다): 받기 시작(why) · 받음(why) · 못 받음(why) code= name= · 복귀로 다시 받음 · 새로 받음 · 새로 못 받음. 오류 글 · 값은 적지 않는다.
+- **지금 쓰는 곳**: 포커스 진척(`focus/focus-progress.js`) 하나. 가챠 · 친구 · 프리미엄 · 원격 설정은 뒤 PR 에서 옮긴다.
+- 검사: `checks/sim-load-state.js`(실제로 돌림 · 경계값 · mutation test).
 
 ## `api-errors.js` — 🧭 서버 오류 봉투 → 할 일 · 오류 번호
 
@@ -465,7 +495,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `remote-config.js` — ⚙️ 원격 설정(`GET /v2/config` 하나)
 
-- **책임**: 운영 값(방 상한 · 정원 · 방 연결 시간 · 앱 · 방 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 서버 `GET /v2/config` 한 곳에서 받아 칸마다 씻어 둔다. 못 받으면 이 PC 저장값(2판) → 기본값. Firebase config 칸은 읽지 않는다.
+- **책임**: 운영 값(방 상한 · 정원 · 방 연결 시간 · 앱 · 방 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 서버 `GET /v2/config` 한 곳에서 받아 칸마다 씻어 둔다. 못 받으면 이 PC 저장값(2판) → 기본값. Firebase config 칸은 읽지 않는다. ⚠️ 저장값도 없을 때의 코드 기본값(DEFAULTS — 인원 10 등)은 CLAUDE.md «모르는 값을 그럴듯한 값으로 바꾸지 않는다» 에 어긋난다 — 0.14.0 에서 «모름» 으로 고친다(초대 게이트 · 최소 버전처럼 설계된 게이트는 그대로).
 - **쓰는 법**: `TwRemoteConfig.store` — `maxPeople()` · `roomLimitOf(채널)` · `inviteGate()` · `roomServerTiming()` · `minAppVer()` · `minRoomVer()` · `bugDailyMax()` · `bannedWords()` · `clapDailyMax()` · `giftDailySendMax()` · `onChange(fn)` · `ready(_, ms)` · `refresh({ maxAgeMs })`.
 - **다시 읽기**: 5분마다 · 창이 다시 보일 때(1분 넘었으면) · realtime 알림 `config`(rt-hub.js — 서버가 바꿨다 · 오래 끊겼다 붙음). 같은 값이면 API 통로가 ETag 304 로 받는다.
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.

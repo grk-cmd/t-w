@@ -62,7 +62,8 @@ function _cheatUnlocked(){ return _cheatOn; }
 const EVER_KEY = 'tw.animalEverUnlocked';
 function _everUnlocked(){ return _everOn; }
 function _unlockOk(){
-  if(myLevel() >= UNLOCK_LEVEL){
+  const lv = myLevel();
+  if(lv != null && lv >= UNLOCK_LEVEL){
     if(!_everOn){ _everOn=true; if(_localLoaded){ try{ accountStoreMod.set(EVER_KEY,'1'); }catch(_){} } }   // 조건 만족 시점에 표시를 남김(계정 칸이 열린 뒤에만 적는다)
     return true;
   }
@@ -131,7 +132,7 @@ let _zoom=1.0;      // 휠 줌 (0.5~2.6)
 let panX=0, panY=0; // 방향키 카메라 평행이동
 let scl={x:1, y:1, all:1};
 
-function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return 1; } }
+function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return null; } }   // 모르면 null — 레벨 1 로 치지 않는다(B-1128-2)
 /* 잠금 안내 — 서버 레벨을 못 받았으면(shown null) «현재 Lv» 를 적지 않는다(받기 전 1 을 보여 주지 않게) */
 function _lockMsg(unlockLv, shown){ return '🔒 동물 캐릭터는 Lv.'+unlockLv+' 달성 보상이에요' + (shown != null ? ' (현재 Lv.'+shown+')' : ''); }
 function admin(){ try{ return !!isAdmin(); }catch(_){ return false; } }
@@ -203,6 +204,7 @@ function initCard(){
         toast('🔓 '+_cheatCount+' / '+CHEAT_CLICKS);
         return;
       }
+      if(focusLevelMod.levelGate(UNLOCK_LEVEL) === 'unknown'){ focusLevelMod.tellLevelUnknown(); return; }   // 레벨을 모른다 — «Lv.N 보상» 이 아니다(B-1128-2)
       toast(_lockMsg(UNLOCK_LEVEL, focusLevelMod.shownFocusLevel()));
       return;
     }

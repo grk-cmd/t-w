@@ -7,6 +7,7 @@
    ・3절: 업데이트 확인을 통과 못 하면(강제) 등록 · 읽기 · realtime · 기능 0 · 등록 [취소] · 계정 칸 못 엶 · 빈 me
    ・4절: 두 번 부르면 무시 · 한 칸이 던져도 다음 칸 · 표와 starts 가 어긋나면 던짐
    ・5절: «접속 중…» — 첫 화면 뒤 LATER 읽기가 2초 안에 안 끝나면 띄우고 끝나면 내림 · 빨리 끝나면 안 띄움 · 첫 화면이 3초 넘게 안 그려져도 LATER 는 시작
+   ・5-2절: 진단 · 알림(B-1128-2) — 시작 들어옴 · 업데이트 확인 통과 · 등록 결과 · 칸이 던진 오류(이름만) · 계정 칸 못 엶 → E-ACC-07 한 번 + 레벨 «못 불러옴»(onNotStarted) + PC 코드 있음/없음 · 같음/다름 — 코드 값은 안 적는다(쓰기 실패는 app.js 가 [계정] 줄로)
    ・6절: 연결 — app.js 의 starts 가 표와 같은 이름 · 각 시작은 app.js 에서 한 번만 · html 순서 · smoke PRELOAD
    ・7절: mutation test */
 'use strict';
@@ -48,6 +49,7 @@ function build(src, o) {
   const starts = {};
   const names = o.names || ORDER;
   const given = [];
+  const notes = [], errs = [], blocked = [];
   names.forEach((n) => { starts[n] = (code, me, session) => { given.push(session); ev.push('start:' + n + ':' + code + ':' + (me && me.userCode)); if (o.throwAt === n) throw new Error('깨짐 ' + n); if (o.rejectAt === n) return Promise.reject(new Error('비동기 깨짐 ' + n)); }; });
   if (o.extra) starts[o.extra] = () => {};
   if (o.omit) delete starts[o.omit];
@@ -67,6 +69,10 @@ function build(src, o) {
     idle: () => { ev.push('idle?'); return new Promise((r) => { idleR = r; }); },
     holdToast: (msg) => { ev.push('toast:' + msg); return () => { ev.push('toast-off'); }; },
     starts,
+    note: (line) => { notes.push(line); },
+    notifyError: (code) => { errs.push(code); },
+    onNotStarted: (...a) => { blocked.push(a.length); },
+    localCode: () => (o.pcCode === undefined ? 'u1' : o.pcCode),
   };
   const warns = [];
   const w0 = console.warn; console.warn = (...a) => { warns.push(a.join(' ')); };
@@ -74,7 +80,7 @@ function build(src, o) {
   try { boot = win.TwAppBoot.createAppBoot(deps); } catch (e) { err = e; }
   console.warn = w0;
   const notify = (me) => navFns.accountEntered && navFns.accountEntered(me);
-  return { win, boot, err, ev, warns, deps, navFns, notify, made, given, clock, paint: () => paint(), idle: () => idleR && idleR(), gate: (v) => gateR && gateR(v) };
+  return { win, boot, err, ev, warns, deps, notes, errs, blocked, navFns, notify, made, given, clock, paint: () => paint(), idle: () => idleR && idleR(), gate: (v) => gateR && gateR(v) };
 }
 const ME = { userCode: 'u1', friendCode: 'MATE-AAAA' };
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -174,6 +180,39 @@ async function judge(src) {
   b = build(src);
   await quiet(async () => b.notify(ME)); b.paint(); await b.clock.run(1); b.made[0].dispose(); await b.clock.run(5000);
   t(startsOf(b.ev).filter((n) => LATER.includes(n)).length === 1, '  세션이 끝나면 남은 LATER 는 시작하지 않는다');
+  /* 5-2 진단 · 알림(B-1128-2) */
+  const noCode = (b) => b.notes.every((l) => !/u1|u9/.test(l) && l.length <= 200 && l.startsWith('[app-boot] '));
+  b = build(src);
+  await quiet(async () => b.notify(ME));
+  t(b.notes.join('|') === '[app-boot] 시작|[app-boot] 업데이트 확인 통과 — 이 PC 등록|[app-boot] 이 PC 등록 ok' && b.errs.length === 0 && b.blocked.length === 0 && noCode(b),
+    '★ 진단 — 시작 들어옴 · 업데이트 확인 통과 · 등록 결과 한 줄씩(번호 알림 0) — ' + b.notes.join(' | '));
+  b = build(src, { reg: 'failed' });
+  await quiet(async () => b.notify(ME));
+  t(b.notes.includes('[app-boot] 이 PC 등록 failed') && b.errs.length === 0, '  등록 실패는 진단 한 줄 · 번호는 등록 쪽(E-ACC-04)이 이미 알려 여기서 또 알리지 않는다');
+  b = build(src, { gateHold: true });
+  await quiet(async () => { b.notify(ME); await flushAll(); });
+  t(b.notes.join('|') === '[app-boot] 시작', '  업데이트 확인을 기다리다 멈추면 «시작» 줄만 남는다(멈춘 자리를 가른다)');
+  b = build(src, { gate: false });
+  await quiet(async () => b.notify(ME));
+  t(b.notes.includes('[app-boot] 시작 멈춤 — 업데이트 확인 통과 못 함'), '  업데이트 확인을 통과 못 하면 그 까닭 한 줄');
+  b = build(src, { throwAt: 'catalog' });
+  await quiet(async () => { await b.notify(ME); await flushAll(); });
+  t(b.notes.includes('[app-boot] catalog 실패 name=Error code=-') && noCode(b), '★ 칸이 던지면(guard) 진단 한 줄 — 칸 이름 · 오류 이름 · code 만(글 · 값 없음)');
+  b = build(src, { openFail: true, pcCode: 'u9' });
+  const ofd = await quiet(async () => b.notify(ME));
+  t(ofd[0] === false && b.errs.join() === 'E-ACC-07' && b.blocked.join() === '0' && startsOf(b.ev).length === 0 && !b.ev.includes('register'),
+    '★ 계정 칸을 못 열면 E-ACC-07 한 번 · 레벨 «못 불러옴»(onNotStarted 한 번) · 기능 · 등록 0 — 조용히 넘기지 않는다');
+  t(b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 있음 · 서버 코드와 다름') && noCode(b), '  진단 — PC 코드 있음 · 서버 코드와 다름(코드 값은 안 적는다)');
+  b = build(src, { openFail: true, pcCode: null });
+  await quiet(async () => b.notify(ME));
+  t(b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 없음 · 서버 코드와 다름'), '  PC 코드가 없으면 «없음»');
+  b = build(src, { openFail: true });
+  await quiet(async () => { await b.notify(ME); await b.notify(ME); });
+  t(b.errs.join() === 'E-ACC-07' && b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 있음 · 서버 코드와 같음') && b.notes.includes('[app-boot] 시작 건너뜀 — 이미 시작함'),
+    '  두 번 들어와도 번호는 한 번 · 두 번째는 «이미 시작함» 한 줄');
+  b = build(src);
+  await quiet(async () => b.notify({}));
+  t(b.notes.join() === '[app-boot] 시작 건너뜀 — 계정 없음', '  계정이 없는 me 는 «건너뜀 — 계정 없음» 한 줄');
   return r;
 }
 
@@ -240,10 +279,18 @@ async function judge(src) {
     ['못 열어도 기능을 시작', (m) => m.replace("      return false;\n    }\n    const s = session;", "    }\n    const s = session;")],
     ['시작에 세션을 안 넘김', (m) => m.replace('starts[name](code, myMe, session)', 'starts[name](code, myMe)')],
     ['알림에 begin 을 안 검', (m) => m.replace('twNav.on(twNav.NAV.ACCOUNT_ENTERED, begin);', '')],
-    ['두 번 불러도 또 시작', (m) => m.replace("if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '')],
-    ['한 칸이 던지면 다음 칸이 멈춤', (m) => m.replace("catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); return Promise.resolve(); }", 'catch(e){ throw e; }')],
+    ['두 번 불러도 또 시작', (m) => m.replace("if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); diag('시작 건너뜀 — 이미 시작함'); return false; }", '')],
+    ['한 칸이 던지면 다음 칸이 멈춤', (m) => m.replace("    catch(e){ failed(label, e); return Promise.resolve(); }", '    catch(e){ throw e; }')],
+    ['칸이 던져도 진단 줄이 없음', (m) => m.replace("diag(label + ' 실패 ' + errTag(e));", '')],
+    ['진단에 오류 글을 그대로 적음', (m) => m.replace("diag(label + ' 실패 ' + errTag(e));", "diag(label + ' 실패 ' + errTag(e) + ' ' + String(e && e.message) + ' ' + code);")],
+    ['계정 칸 못 엶을 조용히 넘김', (m) => m.replace("      notifyError('E-ACC-07');", '')],
+    ['계정 칸 못 엶에 레벨을 «못 불러옴» 으로 안 둠', (m) => m.replace("      guard('못 시작 알림', () => onNotStarted());\n", '')],
+    ['진단에 계정 코드를 적음', (m) => m.replace("' · 서버 코드와 ' + (pc === code ? '같음' : '다름')", "' · 서버 코드 ' + code + ' PC ' + pc")],
+    ['시작 진단 줄을 뺌', (m) => m.replace("    diag('시작');\n", '')],
+    ['등록 결과 진단 줄을 뺌', (m) => m.replace("    diag('이 PC 등록 ' + reg);", '')],
+    ['등록 실패에 번호를 또 알림', (m) => m.replace("    diag('이 PC 등록 ' + reg);", "    diag('이 PC 등록 ' + reg); if(reg === 'failed') notifyError('E-ACC-04');")],
     ['표에 있는 시작이 빠져도 통과', (m) => m.replace("    if(typeof starts[name] !== 'function') throw new Error('[app-boot] 시작 함수가 없어요: ' + name);", '')],
-    ['계정이 없는 me 로도 시작', (m) => m.replace('if(!me || !me.userCode) return false;', '')],
+    ['계정이 없는 me 로도 시작', (m) => m.replace("if(!me || !me.userCode){ diag('시작 건너뜀 — 계정 없음'); return false; }", '')],
     ['취소해도 그대로 시작', (m) => m.replace("    if(reg === 'canceled'){", "    if(reg === 'never'){")],
     ['실패면 로그인 화면으로 보냄', (m) => m.replace("    if(reg === 'canceled'){", "    if(reg !== 'ok'){")],
   ];

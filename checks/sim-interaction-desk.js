@@ -1,7 +1,7 @@
 /* ═══ 🪑 sim-interaction-desk.js — 🪑 상호작용 책상 카탈로그(INTERACTION_DESKS) 모듈 구조 (2026-10-14 신설 · 앱 FSD 43번) ═══════════════
    app.js 의 상호작용 책상 카탈로그 구역 본문 을 parts/room/interaction-desk.js 로 옮겼다(글자 그대로 · 바뀐 줄 10 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(상호작용 책상 카탈로그 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · setDanceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · setRideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · setActiveInteractionDeskId · startMyDance)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · setDanceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · setRideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · unlockGate · unlockLevelUnknown · tellUnlockLevelUnknown · setActiveInteractionDeskId · startMyDance)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 14줄 그대로 · 부르는 곳은 iDeskMod.이름 · html(app.js 앞)
    ・3절: mutation test — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · interaction-desk.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -21,7 +21,7 @@ const FN_DEPS = ["toast"];
 const VAL_DEPS = ["accountStore","CIRCUS_ARM_DROP","CIRCUS_LEG_LIFT","CIRCUS_LEG_STAND","RIDE_MAX_STACK","RIDE_SNAP_DIST","_rideTmp","_rideWP","rideBenchMod","seats","tricksMod"];
 const GET_DEPS = ["Presence","focusLevelMod","isAdmin"];
 const SET_DEPS = [];
-const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","applyUnlocks","levelText","lockedToast","setActiveInteractionDeskId","startMyDance"];
+const EXPORTS = ["DANCE_MOVES","IDESK_ENABLED","INTERACTION_DESKS","TRICK_IN_S","TRICK_SPIN_S","TRICK_TURBO_STYLE","_danceCmdCooldownAt","setDanceCmdCooldownAt","_deskDefById","_lowestDanceReq","_parseDanceCmdChain","_pickUnlockedDance","_rideDenyToastAt","setRideDenyToastAt","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_trickTurns","findRideTarget","getActiveInteractionDeskId","isDanceUnlocked","isDeskUnlocked","unlockGate","unlockLevelUnknown","tellUnlockLevelUnknown","applyUnlocks","levelText","lockedToast","setActiveInteractionDeskId","startMyDance"];
 const MOVED = ["INTERACTION_DESKS","IDESK_ENABLED","DANCE_MOVES","TRICK_IN_S","TRICK_SPIN_S","TRICK_OUT_S","TRICK_TURNS","TRICK_TURBO_STYLE","TRICK_TURBO_MULT","_trickTurns","TRICK_LEG_SIDE","TRICK_ARM_LIFT","TRICK_ARM_SPREAD","_trickArmBase","_trickArmSpread","_trickEaseIn","_trickLegPose","_danceByCmd","_parseDanceCmdChain","_danceCmdCooldownAt","isDanceUnlocked","_pickUnlockedDance","_lowestDanceReq","startMyDance","_deskDefById","isDeskUnlocked","ACTIVE_IDESK_KEY","getActiveInteractionDeskId","setActiveInteractionDeskId","_rideDenyToastAt","findRideTarget"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  accountStore: accountStoreMod,","  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,","  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,","  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,","  Presence: ()=>Presence,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_SNAP_DIST: RIDE_SNAP_DIST,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  focusLevelMod: ()=>focusLevelMod,","  isAdmin: ()=>isAdmin,","  rideBenchMod: rideBenchMod,","  seats: seats,","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
 
@@ -95,7 +95,8 @@ for(const [name, fm, fa, fh] of breaks){
 say('── 4. 해금 레벨 — 서버 해금 표(applyUnlocks)가 원본');
 function unlockBehave(mod){
   const st = { lv: 100, admin: false };
-  const d = build(mod, { isAdmin: () => st.admin, focusLevelMod: () => ({ getFocusLevel: () => st.lv }) });
+  /* focus-level.js 의 약속 그대로 — 모르면 null · levelGate 는 'unknown'(sim-focus-level 이 본다) */
+  const d = build(mod, { isAdmin: () => st.admin, focusLevelMod: () => ({ getFocusLevel: () => st.lv, levelGate: (min) => (st.lv == null ? 'unknown' : st.lv >= min ? 'ok' : 'low') }) });
   const dance = (cmd) => d.DANCE_MOVES.find((m) => m.cmd === cmd), desk = d.INTERACTION_DESKS[0];
   const txt = (v) => [d.lockedToast(v, '달성 시 사용할 수 있어요'), d.levelText(v)].join('|');
   const unknown = txt(null) === '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요|Lv.?' && d._lowestDanceReq() === null && !/Infinity|null|undefined|NaN/.test(txt(d._lowestDanceReq()) + txt(desk.reqLevel));
@@ -105,14 +106,23 @@ function unlockBehave(mod){
   const after = dance('80').reqLevel === 90 && dance('150').reqLevel === 200 && desk.reqLevel === 60 && d.isDanceUnlocked(dance('80')) === true && d.isDanceUnlocked(dance('150')) === false && d.isDeskUnlocked(desk) === true && d._lowestDanceReq() === 90 && d.lockedToast(90, '달성 시 해금돼요') === '🔒 Lv.90 달성 시 해금돼요' && d.levelText(60) === 'Lv.60';
   d.applyUnlocks({ DANCE: { '80': { level: 120 } }, INTERACTION_DESK: {} });
   const again = dance('80').reqLevel === 120 && d.isDanceUnlocked(dance('80')) === false && dance('150').reqLevel === 200 && desk.reqLevel === 60;
-  return { before, adm, after, again };
+  /* 내 레벨을 모름(B-1128-2) — 'unknown' 으로 가른다(«Lv.N 필요» 가 아니다) · 관리자는 그대로 열림 · 받으면 원래대로 */
+  st.lv = null;
+  const unk = d.unlockGate(dance('80')) === 'unknown' && d.unlockGate(desk) === 'unknown' && d.isDanceUnlocked(dance('80')) === false && d.isDeskUnlocked(desk) === false && d._pickUnlockedDance(() => 0) === null
+    && d.unlockGate({ reqLevel: null }) === 'unknown';
+  st.admin = true; const unkAdm = d.unlockGate(dance('80')) === 'ok'; st.admin = false;
+  st.lv = 100; const back = d.unlockGate(dance('80')) === 'low' && d.unlockGate(desk) === 'ok' && d.unlockGate({ reqLevel: null }) === 'low';
+  return { before, adm, after, again, unk: unk && unkAdm && back };
 }
 {
   const R = unlockBehave(MOD);
   chk(R.before && R.adm, '★ 서버 해금 표를 받기 전에는 춤 · 책상이 잠기고(관리자는 늘 열림) 안내 글에 Infinity · null 이 없다(«해금 정보를 받는 중») — 코드에 박힌 레벨이 없다');
   chk(R.after && R.again, '★ 서버 표의 레벨이 그대로 앉는다(웹 관리자가 고친 값) · 다시 받으면 다시 앉는다 · 표에 없는 줄은 앉히지 않는다');
   chk(!/reqLevel:\s*\d/.test(strip(MOD)), '  코드에 박힌 숫자 reqLevel 이 없다');
-  const bad = unlockBehave(MOD.replace("if(def.reqLevel == null) return false;   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다\n  const lv=(", "const lv=(").replace('return lv >= def.reqLevel;\n}\n/* 서버', 'return lv >= (def.reqLevel||1);\n}\n/* 서버'));
+  chk(R.unk, '★ 내 레벨을 모르면(B-1128-2) unlockGate 는 unknown — 잠금 안내(«Lv.N 필요») 대신 «불러오지 못함» 길로 · 관리자는 열림 · 레벨을 받으면 ok · low 그대로');
+  const badU = unlockBehave(MOD.replace("  return focusLevelMod().levelGate(def.reqLevel);", "  return focusLevelMod().levelGate(def.reqLevel) === 'ok' ? 'ok' : 'low';"));
+  chk(!badU.unk, 'mutation test — 레벨 모름을 low(잠김)로 뭉개면 빨강');
+  const bad = unlockBehave(MOD.replace("  if(def.reqLevel == null) return focusLevelMod().getFocusLevel() == null ? 'unknown' : 'low';   // 서버 해금 표를 아직 못 받았다 — 잠가 둔다\n", "").replace("levelGate(def.reqLevel);", "levelGate(def.reqLevel || 1);"));
   chk(!bad.before, 'mutation test — 받기 전에 열려 있으면 빨강');
   const bad2 = unlockBehave(MOD.replace("return (level == null) ? '🔒 해금 정보를 받는 중이에요 — 잠시 뒤 다시 해 주세요' : '🔒 Lv.' + level + ' ' + tail;", "return '🔒 Lv.' + level + ' ' + tail;"));
   chk(!bad2.before, 'mutation test — 모를 때 레벨 글자를 지어내면(Lv.null) 빨강');

@@ -24,15 +24,17 @@
 ## focus-progress.js — ⏱ 포커스 진척(서버 값 · 못 올린 초)
 
 **책임** — 레벨 · 회차 · 별 색은 서버가 준 값 그대로 들고(`load`: idle · loading · ready · failed), 이 PC 는 «아직 못 올린 초»(`pendingSec` · 계정 칸 `tw.focusPendingSec`)만 쌓아 정해진 때 한 번에 올린다. 앱이 누적에서 레벨을 다시 세지 않는다 — 레벨 막대만 `shownTotalSec()`(서버 누적 + 못 올린 몫).
-**deps** — `focusApi`(`createFocusApi`) · `focusStore`(계정 칸) · `notifyError` · `setServerDay`(서버 «오늘» → `focus-total.js`) · `addQuitListener`.
-**내놓는 것** — `startFocus(code, me, session)`(app-boot `focusLevel` 차례 — `session.onReset` 으로 reset) · `progress()` · `isReady()` · `getFocusLevel()` · `myFocusShow()` · `getStarColor()` · `setStarColor(hex)` · `shownTotalSec()` · `unsentSec()` · `addSeconds(sec)` · `focusEnded()` · `flushPending()`(로그아웃 올리기) · `reload(userOpened)` · `whenReady()`(폰 키 만들기 · 끊기가 먼저 부른다 — 받는 중이면 기다리고 못 받았으면 한 번 더 받아 true/false) · `refreshDay()`(하루가 바뀐 때 새 날 한 번) · `legacyAccrue(sec)`(첫 실행의 옛 누적) · `onChange(fn)`.
+**deps** — `focusApi`(`createFocusApi`) · `focusStore`(계정 칸) · `notifyError` · `setServerDay`(서버 «오늘» → `focus-total.js`) · `addQuitListener` · `health`(API 복귀 알림 `TwApi.health` — `shared/api-health.js`) · `createLoadState`(받기 틀 `shared/load-state.js`) · `note`(진단 한 줄 `[집중]` — 시작 · 받기 시작 · 받음 · 못 받음(오류 code · 이름만)).
+**내놓는 것** — `startFocus(code, me, session)`(app-boot `focusLevel` 차례 — `session.onReset` 으로 reset) · `blockStart(tell)`(app-boot 가 계정 기능을 못 시작함 — `failed` 로 두고 [다시 시도] 는 `tell()` 로 그 까닭(E-ACC-07)을 다시 알림 · 요청 0) · `progress()` · `isReady()` · `getFocusLevel()`(모르면 null) · `myFocusShow()` · `getStarColor()` · `setStarColor(hex)` · `shownTotalSec()` · `unsentSec()` · `addSeconds(sec)` · `focusEnded()` · `flushPending()`(로그아웃 올리기) · `reload(userOpened)` · `whenReady()`(폰 키 만들기 · 끊기가 먼저 부른다 — 받는 중이면 기다리고 못 받았으면 한 번 더 받아 true/false) · `refreshDay()`(하루가 바뀐 때 새 날 한 번) · `legacyAccrue(sec)`(첫 실행의 옛 누적) · `onChange(fn)`.
 **올리는 때** — 주기 · 재시도 타이머 없음. ① 미전송분이 600초 칸을 넘을 때 ② 더해서 3600초(다음 레벨) 경계를 넘을 때 ③ 집중이 끝날 때(60초 이상) ④ 켤 때 · 로그아웃 올리기 · 앱 끄기. 실패하면 다음 때까지 기다린다.
 **함정**
 - 한 줄: 올리는 중이면 `again` 만 켠다. `sent` 를 잡고 답이 오면 `pendingSec -= sent` — 서버가 덜 받아도(`acceptedSec < sent`) 보낸 만큼 뺀다(서버 상한이 원본). 보내는 동안 쌓인 몫은 남는다.
 - 늦은 답: `session.onReset` 이 `gen` 을 올려 옛 계정 답은 아무것도 못 바꾼다. 요청 순번(`reqSeq`)이 앞선 요청의 늦은 답이 진척을 덮는 것을 막는다 — 다만 늦게 온 답의 누적이 더 크면 그 몫은 받고(누적은 서버에서 줄지 않는다), 별 색 답의 색은 늘 받는다.
 - 새 날 받기(`refreshDay`): `ready` 일 때만, 겹치면 하나로, 실패하면 번호 없이 `failed` 로만 두고 되풀이하지 않는다(설계 7절 — 다음에 창을 열 때 다시 받는다).
-- 받기 전(idle · loading · failed)에는 레벨 배지 · 경험치 바를 그리지 않는다(`isReady()` · 막대 null). 해금 레벨은 받기 전 1.
-- 번호: `E-FOCUS-01`(사용자가 연 창에서 다시 받기 실패) · `-02`(올리기 실패 — 이어지면 한 번) · `-03`(별 색 실패 — 이전 색으로).
+- 받기 전(idle · loading · failed)에는 레벨 배지 · 경험치 바를 그리지 않는다(`isReady()` · 막대 null). **`getFocusLevel()` 도 null(모름)** — 레벨 1 로 치지 않는다(B-1128-2: 서버 레벨 297 인 사람이 받기 전 1 로 잠겨 💣 · 색 · 춤이 «레벨 N 필요» 로 막혔다). 기능 문은 `focus-level.js` `levelGate` 가 «모름» 을 따로 가른다.
+- 받기는 `shared/load-state.js` 틀 위에 있다(겹친 받기 하나 · 늦은 답 버림 · 받기 전 값 null). 첫 실패(켤 때 등)는 번호 `E-FOCUS-10` 한 번, 사용자가 연 창 · [다시 시도](`reload(true)`)의 실패는 `E-FOCUS-01`.
+- **API 복귀 때 한 번 다시 받기**(설계된 것): API 배포 중(30초~1분)에 켜면 켤 때 받기가 실패하고 앱은 서버가 돌아온 때를 몰라 레벨 1 로 남았다(B-1128-2 · 여러 사용자). 이 모듈은 타이머를 두지 않는다 — 닿지 않는 동안 확인 요청 하나를 간격(10초 · 30초 · 1분 · 2분 · 5분, 그 뒤 5분마다)으로 보내는 것은 `shared/api-health.js` 한 곳이고, 복귀 알림이 오면 `load === 'failed'` 일 때만 한 번 다시 받는다(진단 `[집중] 진척 복귀로 다시 받음` · 번호 없음 · 실패 한 묶음에 한 번 — 복귀로 다시 받다 또 실패하면 [다시 시도] 전까지 다시 안 받는다). 서버가 봉투로 500 을 주는 것은 «닿지 않음» 이 아니라서 확인 · 복귀가 생기지 않는다. ready · loading 이면 아무것도 안 한다. 새 날 받기(`refreshDay`) 실패도 failed 로 두고(번호 없음 — 설계 7절) 복귀 때 다시 받는다.
+- 번호: `E-FOCUS-10`(켤 때 받기 실패) · `E-FOCUS-01`(사용자가 연 창에서 다시 받기 실패) · `-02`(올리기 실패 — 이어지면 한 번) · `-03`(별 색 실패 — 이전 색으로).
 검사: `checks/sim-focus-progress.js`.
 
 ## chal-store.js — 👑 달성표 상태(서버 한 주 한 벌)
@@ -55,7 +57,8 @@
 
 ## focus-level.js — ⭐ 레벨 표시 이름 · 오늘치 쌓기 · 태블릿
 
-**책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` — 해금 판정용 · 받기 전 1 · `shownFocusLevel` — 화면에 그리는 레벨 · 받기 전 · 못 받으면 null · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(서버 경로 — 아래).
+**책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` · `shownFocusLevel` — 같은 값 · 받기 전 · 받는 중 · 못 받으면 null · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(서버 경로 — 아래).
+**🔓 레벨 문** — 레벨로 여는 기능(💣 날리기 · 날리기 색 · 춤 · 상호작용 책상 · 동물 캐릭터)은 `levelGate(min)` → `'ok'` · `'low'`(모자람 — 원래 «Lv.N 필요» 안내) · `'unknown'`(서버 레벨을 모름) 으로 가른다. `'unknown'` 이면 `tellLevelUnknown()` — 못 받았으면 «레벨을 불러오지 못했어요 [다시 시도]»(`reload(true)`), 받기 전 · 받는 중이면 «레벨을 불러오는 중이에요». 받은 뒤의 동작은 그대로다. 춤 · 책상은 `room/interaction-desk.js` `unlockGate(def)` 가 같은 세 값을 돌려준다.
 **📱 폰 연결** — 폰 상태는 realtime `mobileFocus{ on, app, at }` 그대로(`startMobile(code, me, session)` 이 `onMessage` 를 걸고 1분 표시 틱을 세션 타이머로 둔다 · `ready` 뒤 서버가 4시간 안의 마지막을 다시 보내 주므로 따로 묻지 않는다). 4시간 상한은 `at`(서버 시각) 기준. 키는 서버가 만들고(`POST /v2/me/focus/mobile-link` · 원문은 그 답에만) 계정 칸 `tw.mobileKey` 에 둔다(QR 다시 보기 · 0.12 의 `{ u, k }` 도 읽음). 만들기 · 끊기(`DELETE`)는 읽은 진척의 주인과 묶이므로 `progress.whenReady()` 뒤에 부르고, 못 받았으면 요청 없이 `E-FOCUS-08` · `-09`. 단추는 끝날 때까지 잠근다.
 **함정** — Firebase 프로필 · 마크 · 해금 안내 우편은 걷었다(해금 안내는 서버 알림). 계정 확인 전에는 쌓지 않는다(`_focusTotalStarted`).
 검사: `checks/sim-focus-level.js`(모양) · `checks/sim-mobile-focus.js`(폰 연결 동작).
