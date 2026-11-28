@@ -400,6 +400,10 @@ h3 {
   pointer-events: none;
 }
 /* 꼬리 — 꼭대기 줄이 몸통의 검은 아래 테두리에 겹쳐야 입이 뚫린다(앱과 같은 -18px) */
+/* 일본어는 띄어쓰기가 없어 keep-all 이면 줄이 안 바뀌고 말풍선 밖으로 나간다 — 일본어 페이지만 글자 사이에서 바꾼다 */
+.crew-say:lang(ja) {
+  word-break: normal;
+}
 .crew-say::after {
   content: '';
   position: absolute;
