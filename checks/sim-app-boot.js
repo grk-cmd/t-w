@@ -7,7 +7,7 @@
    ・3절: 업데이트 확인을 통과 못 하면(강제) 등록 · 읽기 · realtime · 기능 0 · 등록 [취소] · 계정 칸 못 엶 · 빈 me
    ・4절: 두 번 부르면 무시 · 한 칸이 던져도 다음 칸 · 표와 starts 가 어긋나면 던짐
    ・5절: «접속 중…» — 첫 화면 뒤 LATER 읽기가 2초 안에 안 끝나면 띄우고 끝나면 내림 · 빨리 끝나면 안 띄움 · 첫 화면이 3초 넘게 안 그려져도 LATER 는 시작
-   ・5-2절: 진단 · 알림(B-1128-2) — 시작 들어옴 · 업데이트 확인 통과 · 등록 결과 · 칸이 던진 오류(이름만) · 계정 칸 못 엶 → E-ACC-07 한 번 + 레벨 «못 불러옴»(onNotStarted) + PC 코드 있음/없음 · 같음/다름 · 쓰기 실패 — 코드 값은 안 적는다
+   ・5-2절: 진단 · 알림(B-1128-2) — 시작 들어옴 · 업데이트 확인 통과 · 등록 결과 · 칸이 던진 오류(이름만) · 계정 칸 못 엶 → E-ACC-07 한 번 + 레벨 «못 불러옴»(onNotStarted) + PC 코드 있음/없음 · 같음/다름 — 코드 값은 안 적는다(쓰기 실패는 app.js 가 [계정] 줄로)
    ・6절: 연결 — app.js 의 starts 가 표와 같은 이름 · 각 시작은 app.js 에서 한 번만 · html 순서 · smoke PRELOAD
    ・7절: mutation test */
 'use strict';
@@ -73,7 +73,6 @@ function build(src, o) {
     notifyError: (code) => { errs.push(code); },
     onNotStarted: (...a) => { blocked.push(a.length); },
     localCode: () => (o.pcCode === undefined ? 'u1' : o.pcCode),
-    codeWriteFailed: () => !!o.writeFail,
   };
   const warns = [];
   const w0 = console.warn; console.warn = (...a) => { warns.push(a.join(' ')); };
@@ -199,17 +198,17 @@ async function judge(src) {
   b = build(src, { throwAt: 'catalog' });
   await quiet(async () => { await b.notify(ME); await flushAll(); });
   t(b.notes.includes('[app-boot] catalog 실패 name=Error code=-') && noCode(b), '★ 칸이 던지면(guard) 진단 한 줄 — 칸 이름 · 오류 이름 · code 만(글 · 값 없음)');
-  b = build(src, { openFail: true, pcCode: 'u9', writeFail: true });
+  b = build(src, { openFail: true, pcCode: 'u9' });
   const ofd = await quiet(async () => b.notify(ME));
   t(ofd[0] === false && b.errs.join() === 'E-ACC-07' && b.blocked.join() === '0' && startsOf(b.ev).length === 0 && !b.ev.includes('register'),
     '★ 계정 칸을 못 열면 E-ACC-07 한 번 · 레벨 «못 불러옴»(onNotStarted 한 번) · 기능 · 등록 0 — 조용히 넘기지 않는다');
-  t(b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 있음 · 서버 코드와 다름 · 코드 쓰기 실패 있음') && noCode(b), '  진단 — PC 코드 있음 · 서버 코드와 다름 · 쓰기 실패 있음(코드 값은 안 적는다)');
+  t(b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 있음 · 서버 코드와 다름') && noCode(b), '  진단 — PC 코드 있음 · 서버 코드와 다름(코드 값은 안 적는다)');
   b = build(src, { openFail: true, pcCode: null });
   await quiet(async () => b.notify(ME));
-  t(b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 없음 · 서버 코드와 다름 · 코드 쓰기 실패 없음'), '  PC 코드가 없으면 «없음»');
+  t(b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 없음 · 서버 코드와 다름'), '  PC 코드가 없으면 «없음»');
   b = build(src, { openFail: true });
   await quiet(async () => { await b.notify(ME); await b.notify(ME); });
-  t(b.errs.join() === 'E-ACC-07' && b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 있음 · 서버 코드와 같음 · 코드 쓰기 실패 없음') && b.notes.includes('[app-boot] 시작 건너뜀 — 이미 시작함'),
+  t(b.errs.join() === 'E-ACC-07' && b.notes.includes('[app-boot] 계정 칸 못 엶 — PC 코드 있음 · 서버 코드와 같음') && b.notes.includes('[app-boot] 시작 건너뜀 — 이미 시작함'),
     '  두 번 들어와도 번호는 한 번 · 두 번째는 «이미 시작함» 한 줄');
   b = build(src);
   await quiet(async () => b.notify({}));

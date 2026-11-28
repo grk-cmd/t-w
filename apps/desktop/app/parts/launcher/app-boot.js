@@ -14,7 +14,7 @@
    ★ 이 모듈이 로그인 세션(shared/session.js)을 만들어 들고 있다(getSession) — 계정 칸 열기는 세션이 하고, 시작 함수는 세 번째 인자로 받는다. 받아 쓰는 기능: focusLevel(startFocus — onReset).
    ★ 시작 함수는 한 번만 부른다 — begin 을 두 번 부르면 두 번째는 아무것도 안 하고 false(콘솔 경고).
    ★ 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 account.js 에 한 곳으로 있다 — 이 모듈은 건드리지 않는다.
-   🩺 진단(note — `[app-boot]` 한 줄 · 200자 안): 시작 들어옴 · 건너뛴 까닭 · 계정 칸 열기 결과(PC 코드 있음/없음 · 서버 코드와 같음/다름 · 코드 쓰기 실패 기록 — 코드 값은 적지 않는다) ·
+   🩺 진단(note — `[app-boot]` 한 줄 · 200자 안): 시작 들어옴 · 건너뛴 까닭 · 계정 칸 열기 결과(PC 코드 있음/없음 · 서버 코드와 같음/다름 — 코드 값은 적지 않는다 · 코드 쓰기 실패는 app.js _setMyUserId 가 `[계정]` 줄로 따로 적는다) ·
      등록 결과 · 칸이 던진 오류(이름 · code 만). 레벨 요청이 아예 안 나간 PC 를 제보 때 가른다(B-1128-2).
    계정 칸을 못 열면 기능을 시작하지 않고 E-ACC-07 을 한 번 알린다(다시 켜기 · 다시 로그인 안내) — onNotStarted() 로 기능 쪽(레벨)이 «못 불러옴» 을 보이게 한다. 칸을 몰래 고쳐 쓰지 않는다. */
 (function(){
@@ -76,7 +76,6 @@ const CONNECTING_TEXT = '접속 중…';
  *   notifyError: (code: string, err?: any) => unknown,         // TwErrorCodes.notify
  *   onNotStarted: () => unknown,                               // 계정 기능을 시작하지 못했다(E-ACC-07) — 레벨이 «못 불러옴» 을 보이게(focus-progress.js blockStart)
  *   localCode: () => (string|null),                            // 이 PC 에 적힌 계정 코드(app.js getMyUserId) — 진단에 있음/없음 · 같음/다름만 적는다
- *   codeWriteFailed: () => boolean,                            // 이 실행에서 계정 코드 쓰기(_setMyUserId)가 실패한 적이 있나
  * }} deps */
 function createAppBoot(deps){
 const twNav = deps.twNav;
@@ -94,7 +93,6 @@ const note = deps.note;
 const notifyError = deps.notifyError;
 const onNotStarted = deps.onNotStarted;
 const localCode = deps.localCode;
-const codeWriteFailed = deps.codeWriteFailed;
 const NAMES = STEPS.map((s) => s[0]);
 const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
 
@@ -160,8 +158,7 @@ const of = (phase) => STEPS.filter((s) => s[1] === phase).map((s) => s[0]);
     if(!opened){
       console.warn('[app-boot] 계정 칸을 열지 못해 계정 기능을 시작하지 않아요');
       let pc = null; try{ pc = localCode(); }catch(_){}
-      let wf = false; try{ wf = codeWriteFailed() === true; }catch(_){}
-      diag('계정 칸 못 엶 — PC 코드 ' + (pc ? '있음' : '없음') + ' · 서버 코드와 ' + (pc === code ? '같음' : '다름') + ' · 코드 쓰기 실패 ' + (wf ? '있음' : '없음'));
+      diag('계정 칸 못 엶 — PC 코드 ' + (pc ? '있음' : '없음') + ' · 서버 코드와 ' + (pc === code ? '같음' : '다름'));
       if(session){ session.dispose(); session = null; }
       notifyError('E-ACC-07');   // 조용히 넘기지 않는다 — 한 번(begin 은 한 번만 돈다) · 칸을 몰래 고쳐 쓰지 않는다
       guard('못 시작 알림', () => onNotStarted());

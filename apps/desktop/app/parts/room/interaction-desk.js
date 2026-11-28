@@ -6,7 +6,7 @@
      Presence · focusLevelMod · isAdmin 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · unlockGate · levelUnknown · tellLevelUnknown · setActiveInteractionDeskId · startMyDance — app.js 는 iDeskMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: DANCE_MOVES · IDESK_ENABLED · INTERACTION_DESKS · TRICK_IN_S · TRICK_SPIN_S · TRICK_TURBO_STYLE · _danceCmdCooldownAt · _deskDefById · _lowestDanceReq · _parseDanceCmdChain · _pickUnlockedDance · _rideDenyToastAt · _trickArmBase · _trickArmSpread · _trickEaseIn · _trickLegPose · _trickTurns · findRideTarget · getActiveInteractionDeskId · isDanceUnlocked · isDeskUnlocked · unlockGate · unlockLevelUnknown · tellUnlockLevelUnknown · setActiveInteractionDeskId · startMyDance — app.js 는 iDeskMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwInteractionDesk — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-interaction-desk.js */
@@ -142,8 +142,8 @@ function unlockGate(def){
 }
 function isDanceUnlocked(def){ return unlockGate(def) === 'ok'; }
 /* 내 레벨을 모르나 · 그 안내 — 춤 · 책상을 쓰는 방 모듈(ride-bench · status-chip)이 레벨 모듈을 직접 받지 않게 여기서 잇는다(순환 없이 — sim-dep-cycles) */
-const levelUnknown = () => focusLevelMod().getFocusLevel() == null;
-const tellLevelUnknown = () => focusLevelMod().tellLevelUnknown();
+const unlockLevelUnknown = () => focusLevelMod().getFocusLevel() == null;   // 이름은 focus-level.js 와 겹치지 않게(검사가 모듈을 한 파일로 이어 읽는다)
+const tellUnlockLevelUnknown = () => focusLevelMod().tellLevelUnknown();
 /* 서버 해금 표({ 종류: { 열쇠: { level } } })를 춤 · 상호작용 책상의 reqLevel 에 앉힌다 — 코드에 박힌 레벨은 없다(원본은 서버 한 곳).
    표에 없는 줄은 앉히지 않고 알린다(그 항목은 잠긴 채다). 한 벌이 바뀔 때마다 다시 앉는다. */
 function applyUnlocks(unlocks){
@@ -269,8 +269,8 @@ return {
   isDanceUnlocked,
   isDeskUnlocked,
   unlockGate,
-  levelUnknown,
-  tellLevelUnknown,
+  unlockLevelUnknown,
+  tellUnlockLevelUnknown,
   applyUnlocks,
   levelText,
   lockedToast,
