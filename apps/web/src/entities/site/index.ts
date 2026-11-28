@@ -1,5 +1,6 @@
 export { fetchSite, SITE_PATH, type SiteResult } from './api/site';
 export {
+  NEWS_SHOWN,
   RELEASE_DOWNLOAD_PREFIX,
   downloadReady,
   newsFor,

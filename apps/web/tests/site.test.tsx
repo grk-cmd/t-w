@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  NEWS_SHOWN,
   RELEASE_DOWNLOAD_PREFIX,
   SITE_PATH,
   downloadReady,
@@ -105,6 +106,24 @@ describe('newsFor · downloadReady', () => {
     expect(newsFor(list, 'ko').map((x) => x.id)).toEqual(['pin', 'noJa', 'new', 'old']);
     expect(newsFor(list, 'ja').map((x) => x.id)).toEqual(['pin', 'new', 'old']);
     expect(list.map((x) => x.id)).toEqual(['old', 'pin', 'new', 'noJa']); // 받은 배열은 그대로
+  });
+
+  it('📌 고정은 모두 · 고정 아닌 글은 그 언어에서 최신 NEWS_SHOWN 개 — 다른 언어로만 쓴 글이 자리를 먹지 않는다', () => {
+    const koOnly = Array.from({ length: 8 }, (_, i) => n(`ko${i}`, false, `2026-10-${10 + i}`, ''));
+    const both = Array.from({ length: NEWS_SHOWN + 2 }, (_, i) => n(`b${i}`, false, `2026-09-${10 + i}`));
+    const pins = [n('p1', true, '2025-01-01'), n('p2', true, '2025-02-01')];
+    const list = [...koOnly, ...both, ...pins];
+    const ja = newsFor(list, 'ja').map((x) => x.id);
+    expect(ja.slice(0, 2)).toEqual(['p2', 'p1']);
+    expect(ja.slice(2)).toEqual(
+      both
+        .map((x) => x.id)
+        .reverse()
+        .slice(0, NEWS_SHOWN),
+    );
+    const ko = newsFor(list, 'ko');
+    expect(ko).toHaveLength(2 + NEWS_SHOWN);
+    expect(ko.slice(2).every((x) => x.id.startsWith('ko'))).toBe(true);
   });
 
   it('열려 있고 파일이 하나라도 있어야 단추를 연다', () => {

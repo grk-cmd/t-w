@@ -81,11 +81,17 @@ export function parseSite(raw: unknown): Site | null {
   return { news: raw.news.map(news).filter((n): n is SiteNews => n !== null), download: dl };
 }
 
-/** 이 언어 페이지에 보일 소식 — 그 언어 제목이 있는 글만 · 📌 고정 먼저 · 그다음 최신 순 */
+/** 한 언어 페이지에 보일 고정 아닌 글 수(📌 고정은 모두) */
+export const NEWS_SHOWN = 5;
+
+/** 이 언어 페이지에 보일 소식 — 그 언어 제목이 있는 글만 · 📌 고정 전부 먼저 · 그다음 최신 NEWS_SHOWN 개.
+    언어마다 센다 — 한국어로만 쓴 글이 이어져도 다른 언어 페이지의 글이 밀려나지 않게(서버는 넉넉히 준다) */
 export function newsFor(list: readonly SiteNews[], lang: Lang): SiteNews[] {
-  return list
-    .filter((n) => n.title[lang] !== '')
-    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.publishedAt - a.publishedAt);
+  const mine = list.filter((n) => n.title[lang] !== '');
+  const latest = (a: SiteNews, b: SiteNews) => b.publishedAt - a.publishedAt;
+  const pinned = mine.filter((n) => n.pinned).sort(latest);
+  const rest = mine.filter((n) => !n.pinned).sort(latest);
+  return [...pinned, ...rest.slice(0, NEWS_SHOWN)];
 }
 
 /** 단추를 보일지 — 열려 있고 파일이 하나라도 있어야 */
