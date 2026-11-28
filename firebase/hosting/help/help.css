@@ -103,8 +103,7 @@ details.faq > summary:focus-visible{outline:2px solid var(--focus);outline-offse
 details.faq .faq-n{flex:none;font-weight:bold;color:var(--ink-accent)}
 details.faq h2{font-size:15px;margin:0;padding:0;border:0;min-width:0}
 details.faq > p{margin-left:var(--space-6);margin-right:var(--space-2)}
-/* 펼친 답은 흰 바탕(입력칸 바탕 토큰) — 질문 줄은 올렸을 때와 같은 바탕으로 남겨 답과 가른다 */
-details.faq[open]{padding-bottom:var(--space-3);background:var(--bg-field)}
-details.faq[open] > summary{background:var(--bg-face-2)}
+/* 펼친 서랍(질문 줄 + 답)은 바탕보다 한 톤 밝게 — 질문 줄에 올렸을 때와 같은 바탕 */
+details.faq[open]{padding-bottom:var(--space-3);background:var(--bg-face-2)}
 [data-embed] details.faq{font-size:inherit}
 [data-embed] details.faq h2{font-size:13px;margin:0}
