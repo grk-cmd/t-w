@@ -1,2 +1,2 @@
 export { SiteNewsCard } from './ui/SiteNewsCard';
-export { useSiteNewsEdit } from './model/useSiteNewsEdit';
+export { endsEdit, isStaleNewsError, useSiteNewsEdit } from './model/useSiteNewsEdit';

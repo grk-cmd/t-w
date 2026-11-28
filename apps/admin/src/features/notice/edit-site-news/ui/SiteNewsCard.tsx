@@ -8,15 +8,14 @@ import {
   SITE_LANG_LABEL,
   SITE_LANGS,
   SITE_TITLE_MAX,
-  isSiteConflict,
   siteErrorMessage,
   useSiteNews,
   type SiteNews,
   type SiteNewsDraft,
 } from '@/entities/homepage/site';
-import { isPortError, useEnv, withProdMark } from '@/shared/api';
+import { useEnv, withProdMark } from '@/shared/api';
 import { formatDate } from '@/shared/lib';
-import { useSiteNewsEdit } from '../model/useSiteNewsEdit';
+import { endsEdit, isStaleNewsError, useSiteNewsEdit } from '../model/useSiteNewsEdit';
 import styles from './SiteNewsCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
@@ -38,11 +37,10 @@ export function SiteNewsCard() {
     setEditing(null);
     setDraft(emptyNewsDraft());
   };
-  /** 409 · 404 면 들고 있던 글(옛 판)로는 다시 저장할 수 없다 — 고치기를 끝내고 새로 열게 한다 */
-  const fail = (err: unknown, fallback: string) => {
-    const stale = isSiteConflict(err) || isPortError(err, 'notFound');
-    if (stale) reset();
-    setMessage({ text: stale ? CONFLICT : siteErrorMessage(err, fallback), error: true });
+  /** 실패 글 — 옛 판(409 · 404)이면 «다시 열어 주세요». 폼은 실패한 글이 지금 고치는 글일 때만 비운다(endsEdit) */
+  const fail = (err: unknown, fallback: string, failedId: string | null) => {
+    if (failedId !== null && endsEdit(editing?.id ?? null, failedId, err)) reset();
+    setMessage({ text: isStaleNewsError(err) ? CONFLICT : siteErrorMessage(err, fallback), error: true });
   };
 
   const submit = (e: FormEvent) => {
@@ -64,9 +62,9 @@ export function SiteNewsCard() {
     if (editing)
       edit.update.mutate(
         { from: editing, draft: r.next },
-        { ...done, onError: (err) => fail(err, '고치기 실패') },
+        { ...done, onError: (err) => fail(err, '고치기 실패', editing.id) },
       );
-    else edit.create.mutate(r.next, { ...done, onError: (err) => fail(err, '올리기 실패') });
+    else edit.create.mutate(r.next, { ...done, onError: (err) => fail(err, '올리기 실패', null) });
   };
 
   const remove = (n: SiteNews) => {
@@ -76,7 +74,7 @@ export function SiteNewsCard() {
         if (editing?.id === n.id) reset();
         setMessage({ text: '내렸어요', error: false });
       },
-      onError: (err) => fail(err, '내리기 실패'),
+      onError: (err) => fail(err, '내리기 실패', n.id),
     });
   };
 
