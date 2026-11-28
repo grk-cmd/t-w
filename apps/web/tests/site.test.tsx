@@ -86,6 +86,30 @@ describe('parseSite — 서버 data 모양 확인', () => {
   });
 });
 
+describe('설치 파일 주소 거르기 — 앞머리 뒤에 끼운 경로로 다른 저장소로 비켜 가지 못한다', () => {
+  const winOf = (url: string) =>
+    parseSite(raw({ download: { open: true, version: '0.14.0', files: { win: url } } }))?.download.files.win;
+  it('판 태그 / 파일 이름(.exe · .dmg) 두 조각만 받는다', () => {
+    expect(winOf(WIN)).toBe(WIN);
+    expect(winOf(ARM)).toBe(ARM);
+    expect(winOf(`${RELEASE_DOWNLOAD_PREFIX}v0.12.4/Together.Working-Setup-0.12.4.exe`)).not.toBeNull(); // 옛 이름(공백이 . 로)
+  });
+  it('.. · %2e · 역슬래시 · 더 깊은 경로 · 다른 확장자는 버린다', () => {
+    for (const bad of [
+      '../../../../attacker/x/releases/download/v1/a.exe',
+      '%2e%2e/%2e%2e/%2e%2e/%2e%2e/attacker/x/a.exe',
+      'v1/..\\..\\..\\..\\attacker\\a.exe',
+      'v1/../../a.exe',
+      'v1/sub/a.exe',
+      'v1/.exe',
+      'v1/a.exe?x=1',
+      'v1/a.zip',
+      'latest/a.exe',
+    ])
+      expect(winOf(RELEASE_DOWNLOAD_PREFIX + bad), bad).toBeNull();
+  });
+});
+
 describe('newsFor · downloadReady', () => {
   const at = (iso: string) => Date.parse(iso);
   const n = (id: string, pinned: boolean, iso: string, ja = 'x') => ({

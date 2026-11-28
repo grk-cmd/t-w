@@ -58,8 +58,12 @@ function news(v: unknown): SiteNews | null {
   return { id, pinned, publishedAt: ms, title, body };
 }
 
+/** 판 태그 · 파일 이름 두 조각만 — `..` · `%2e` · 역슬래시 · 더 깊은 경로를 끼워 다른 저장소로 비켜 가지 못하게 */
+const RELEASE_FILE = /^v\d[0-9A-Za-z.-]*\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:exe|dmg)$/;
+
 function fileUrl(v: unknown): string | null {
-  return typeof v === 'string' && v.startsWith(RELEASE_DOWNLOAD_PREFIX) ? v : null;
+  if (typeof v !== 'string' || !v.startsWith(RELEASE_DOWNLOAD_PREFIX)) return null;
+  return RELEASE_FILE.test(v.slice(RELEASE_DOWNLOAD_PREFIX.length)) ? v : null;
 }
 
 function download(v: unknown): SiteDownload | null {
