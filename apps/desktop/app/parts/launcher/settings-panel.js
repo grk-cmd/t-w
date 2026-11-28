@@ -844,7 +844,7 @@ function faceThumbCanvas(d){
   return cv;
 }
 function makeCharThumbEl(d){
-  const thumb = TwSlotThumb.snapshot(d, TwSafeHtml.safeUrl);
+  const thumb = TwSafeHtml.safeUrl(TwSlotThumb.snapshot(d, TwSafeHtml.safeUrl), 'image');
   if(!thumb) return faceThumbCanvas(d);
   const img=document.createElement('img');
   img.onerror=()=>{ img.onerror=null; img.replaceWith(faceThumbCanvas(d)); };   // 서버 섬네일을 못 받으면(오프라인 · 지워진 파일) 깨진 그림 대신 합성 아이콘

@@ -213,7 +213,7 @@ function _miCopyCode(){
     else toast('복사하지 못했어요');
   }catch(_){ toast('복사하지 못했어요'); }
 }
-function _miSlotThumb(def){ return TwSlotThumb.withFace(def, TwSafeHtml.safeUrl); }   // 고르는 순서는 shared/slot-thumb.js 한 규칙
+function _miSlotThumb(def){ return TwSafeHtml.safeUrl(TwSlotThumb.withFace(def, TwSafeHtml.safeUrl), 'image') || null; }   // 고르는 순서는 shared/slot-thumb.js 한 규칙
 /* 보관함에 든 항목 — 서버가 준 머리(섬네일)로 그린다. 최근 고친 것부터. 받기 전/못 받음이면 null(모름 — 빈 보관함과 다르다). */
 function _miBoxItems(){ return closetMod().boxItems(); }
 function _miRenderBox(){
