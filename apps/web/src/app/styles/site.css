@@ -324,6 +324,31 @@ h3 {
   height: 176px;
   width: auto;
   max-width: 100%;
+  /* 가만히 있을 때 숨쉬기 — 발밑을 축으로 살짝 커졌다 작아진다(위아래로 움직이지 않게) */
+  transform-origin: 50% 100%;
+  animation: crew-idle 2.8s ease-in-out infinite;
+}
+.crew-body {
+  display: block;
+  transform-origin: 50% 100%;
+}
+/* 두 사람은 박자를 엇갈린다 */
+.crew-mate + .crew-mate .crew {
+  animation-delay: -1.4s;
+}
+@keyframes crew-idle {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: scale(1.015, 1.03);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crew {
+    animation: none;
+  }
 }
 /* 사람 하나: 그림 단추 · 위 말풍선 · 아래 이름표 */
 .crew-mate {
@@ -604,9 +629,22 @@ h3 {
     transition: none;
   }
   .land:hover .land-ic,
-  .land-bar .blink,
-  .crew-btn.fly {
+  .land-bar .blink {
     animation: none;
+  }
+  /* 연타 반응은 남긴다 — 돌며 날아가는 대신 제자리에서 사라졌다 돌아온다(길이 · 속도는 위 .crew-btn.fly 그대로) */
+  .crew-btn.fly {
+    animation-name: crew-fade;
+  }
+}
+@keyframes crew-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  30%,
+  70% {
+    opacity: 0;
   }
 }
 .eyebrow {

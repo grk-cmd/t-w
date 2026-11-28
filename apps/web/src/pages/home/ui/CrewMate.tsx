@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { bubbleShift, nextTap } from '../model/crew';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { BOP_MS, bopFrames, bubbleShift, nextTap } from '../model/crew';
 
 /** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS 애니메이션 길이도 이 값 — --fly-ms) */
 const SAY_MS = 2500;
@@ -24,6 +24,14 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
   // 다음에 보일 대사 — 말풍선이 사라져도 이어진다(천천히 눌러도 다음 대사)
   const nextLine = useRef(0);
   const bubble = useRef<HTMLSpanElement>(null);
+  const live = useRef<HTMLSpanElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  // ⚠️ 홈페이지 CSP 는 style-src 'self' — 마크업의 style="" 속성은 막힌다(미리 그린 HTML · 하이드레이션 모두).
+  //    자리 · 날기 길이는 스크립트(CSSOM)로 넣는다 — 말풍선보다 먼저(아래 효과가 이 자리를 잰다)
+  useLayoutEffect(() => {
+    if (live.current) live.current.style.left = `${headX * 100}%`;
+    btn.current?.style.setProperty('--fly-ms', `${FLY_MS}ms`);
+  }, [headX]);
   // 도트 테두리(border-image 아홉 조각)는 반 픽셀에 앉으면 조각이 안 맞아 흐려진다 — 앱(_bubSnapTransform)처럼 정수 px 로 맞춘다
   useLayoutEffect(() => {
     const el = bubble.current;
@@ -50,6 +58,18 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     el.style.left = `${-Math.round(w / 2) + push + Math.round(r.left) - r.left}px`;
     el.style.bottom = `${r.top - Math.round(r.top)}px`;
   }, [say]);
+  const body = useRef<HTMLSpanElement>(null);
+  /** 돌던 통통을 멈춘다 — 다시 누를 때(처음부터) · 날아갈 때(날기와 겹치지 않게) */
+  const stopBop = () => {
+    for (const a of body.current?.getAnimations() ?? []) a.cancel();
+  };
+  /** 눌렀을 때 통통 — 누를 때마다 처음부터 · 애니메이션 줄이기 설정이면 안 튄다 */
+  const bop = () => {
+    const el = body.current;
+    stopBop();
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate(bopFrames(), { duration: BOP_MS, easing: 'linear' });
+  };
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -59,11 +79,13 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
     taps.current = r.taps;
     clearTimeout(timer.current);
     if (r.fly) {
+      stopBop();
       setSay(null);
       setFlying(true);
       timer.current = setTimeout(() => setFlying(false), FLY_MS);
       return;
     }
+    bop();
     setSay(nextLine.current);
     nextLine.current = (nextLine.current + 1) % lines.length;
     timer.current = setTimeout(() => setSay(null), SAY_MS);
@@ -72,7 +94,7 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
   return (
     <figure className="crew-mate">
       {/* 알리는 칸은 늘 있어야 화면 낭독기가 새 대사를 읽는다 — 말풍선 모양은 안쪽에만 */}
-      <span className="crew-live" aria-live="polite" style={{ left: `${headX * 100}%` }}>
+      <span ref={live} className="crew-live" aria-live="polite">
         {say !== null && (
           <span ref={bubble} className="crew-say">
             {lines[say]}
@@ -81,8 +103,8 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
       </span>
       <button
         type="button"
+        ref={btn}
         className={flying ? 'crew-btn fly' : 'crew-btn'}
-        style={{ '--fly-ms': `${FLY_MS}ms` } as CSSProperties}
         onClick={tap}
         aria-label={`${role} ${name}`}
       >
@@ -91,7 +113,10 @@ export function CrewMate({ name, role, lines, src, w, h, headX }: Props) {
             💣
           </span>
         )}
-        <img className="crew" src={src} width={w} height={h} alt="" />
+        {/* 튀기는 이 칸 · 숨쉬기는 그림 · 날기는 단추 — 셋이 다른 요소라 겹쳐도 덮어쓰지 않는다 */}
+        <span ref={body} className="crew-body">
+          <img className="crew" src={src} width={w} height={h} alt="" />
+        </span>
       </button>
       <figcaption className="crew-tag">
         <span className="crew-role">{role}</span> <span className="crew-name">{name}</span>
