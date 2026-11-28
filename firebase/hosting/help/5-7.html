@@ -8,14 +8,6 @@
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/fonts/nanum-gothic.css">
 <link rel="stylesheet" href="/help.css">
-<style>
-  main ol > li{margin:0 0 14px;line-height:1.7}
-  main li .sub{display:block;padding-left:14px}
-  main li .soft{display:block;margin-top:4px;font-size:13px;opacity:.8}
-  main code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--bg-face-2);border:1px solid var(--line);padding:0 4px;white-space:nowrap}
-  details.note summary{cursor:pointer;font-weight:bold}
-  details.note[open] summary{margin-bottom:6px}
-</style>
 <script src="/theme.js"></script>
 <script src="/embed.js" defer></script>
 <script src="/search.js" defer></script>
@@ -26,67 +18,106 @@
 <h1>5-7. 태블릿 · 폰 연결</h1>
 <p>아이패드 · 갤럭시 탭 같은 태블릿이나 폰에서 그림을 그릴 때도 캐릭터가 작업 중으로 반응하고 <b>포커스 시간</b>이 쌓이게 연결할 수 있어요.</p>
 <div class="note">폰의 <b>자동화 앱</b>이 «그림 앱이 열렸어요 · 닫혔어요» 신호를 PC 로 보내는 방식이에요. 그래서 <b>PC 의 투게더워킹이 켜져 있을 때만</b> 시간이 쌓여요. PC 를 끄면 폰 연결도 함께 멈춰요.</div>
+<!-- 그림 자리(figure.shot hidden) — 화면을 찍어 img/5-7/NN.webp 로 넣으면 hidden · data-img 를 지우고 다른 편처럼 img(그 파일 · loading="lazy" · alt) 와 figcaption 을 단다.
+     data-shot 은 «무엇을 찍을지» 메모(글로 안 보이고 검색에도 안 들어간다). 그림이 오기 전까지는 아무것도 안 보인다. -->
 
 <h2 id="s1">1. PC 에서 QR 열기</h2>
-<ol>
-  <li><span class="path">⚙️ 설정 › 포커싱</span> 탭 아래쪽 <b>📱 태블릿·폰</b> 칸에서 <b>[QR로 연결하기]</b>를 눌러요.</li>
-  <li>뜬 QR 을 폰 카메라로 찍으면 <b>설정 안내 페이지</b>가 열려요. 이 페이지에 내 연결 정보가 들어 있으니 다른 사람에게 보내지 마세요.</li>
+<ol class="steps">
+  <li><span class="path">⚙️ 설정 › 포커싱</span>
+    <span class="do">아래쪽 <b>📱 태블릿·폰</b> 칸에서 <b>[QR로 연결하기]</b>를 눌러요.</span>
+    <figure class="narrow shot" hidden data-img="img/5-7/01.webp" data-shot="PC 설정 › 포커싱 탭 아래 📱 태블릿·폰 칸과 [QR로 연결하기] 버튼"></figure></li>
+  <li>뜬 QR 을 폰 카메라로 찍으면 <b>설정 안내 페이지</b>가 열려요.
+    <span class="sub">이 페이지에 내 연결 정보가 들어 있으니 다른 사람에게 보내지 마세요.</span></li>
 </ol>
 <p>이미 연결했다면 버튼 이름이 <b>[QR 다시 보기]</b>로 바뀌어요. 폰을 바꿨거나 안내 페이지를 다시 열 때 써요.</p>
 
 <h2 id="s2">2. 폰에 자동화 앱 받기</h2>
-<ul>
-  <li><b>iPhone · iPad</b> — 기본 앱 <b>단축어</b>를 써요. 지웠다면 App Store 에서 «단축어» 를 다시 받아요.</li>
-  <li><b>안드로이드</b>(갤럭시 · 갤럭시 탭 등) — Play 스토어에서 <b>MacroDroid</b> 를 받아요(무료로 충분해요).</li>
-</ul>
+<table class="kv">
+  <tr><th>iPhone · iPad</th><td>기본 앱 <b>단축어</b>를 써요. 지웠다면 App Store 에서 «단축어» 를 다시 받아요.</td></tr>
+  <tr><th>안드로이드</th><td>갤럭시 · 갤럭시 탭 등 — Play 스토어에서 <b>MacroDroid</b> 를 받아요(무료로 충분해요).</td></tr>
+</table>
 
 <h2 id="s3">3. 자동화 만들기</h2>
-<div class="note warn"><b>⚠️ 예전 안내대로 만든 자동화는 지금 신호가 가지 않아요.</b> 예전 안내의 방법 <b>PUT</b> 을 지금 서버가 받지 않아요. 방법을 <b>POST</b> 로 바꾸고 헤더 <b>X-Mobile-Key</b> 를 넣어 아래처럼 다시 만들어요. iPhone · iPad 단축어는 «텍스트» 동작을 지우고 본문을 «JSON» 으로 바꿔요.</div>
-<p>안내 페이지의 <b>[주소 복사] · [키 복사]</b>로 필요한 글을 하나씩 복사해 붙여 넣어요. 그림 앱 이름(예: Procreate · 클립 스튜디오)은 <b>PC 에 보이는 이름</b>이에요.</p>
+<p class="warn"><b>⚠️ 예전 안내대로 만든 자동화는 지금 신호가 가지 않아요.</b> 예전 안내의 방법 <b>PUT</b> 을 지금 서버가 받지 않아요. 방법을 <b>POST</b> 로 바꾸고 헤더 <b>X-Mobile-Key</b> 를 넣어 아래처럼 다시 만들어요. iPhone · iPad 단축어는 «텍스트» 동작을 지우고 본문을 «JSON» 으로 바꿔요.</p>
+<p>안내 페이지의 <b>[주소 복사] · [키 복사]</b>로 하나씩 복사해 붙여 넣어요. 그림 앱 이름(예: Procreate · 클립 스튜디오)은 <b>PC 에 보이는 이름</b>이에요.</p>
 <ul>
   <li><b>iPhone · iPad</b> — 앱 이름은 아래 4번의 JSON 필드 <b>app</b> 값으로 직접 적어요.</li>
-  <li><b>안드로이드</b> — 안내 페이지의 <b>앱 이름</b> 칸에 적으면 <b>[열림 본문 복사] · [닫힘 본문 복사]</b>에 들어가요. 앱 이름을 바꾸면 복사 내용도 바뀌니 다시 복사해 주세요.</li>
+  <li><b>안드로이드</b> — 안내 페이지의 <b>앱 이름</b> 칸에 적으면 <b>[열림 본문 복사] · [닫힘 본문 복사]</b>에 들어가요. 앱 이름을 바꾸면 다시 복사해 주세요.</li>
 </ul>
-<p><b>iPhone · iPad (단축어)</b></p>
-<ol>
-  <li><span class="path">단축어 › 자동화 › ＋ › 앱</span> <span class="sub">→ 그림 앱 고르기</span><span class="sub">→ <b>«열릴 때»</b>만 체크</span><span class="sub">→ <b>즉시 실행</b> · <b>«실행 시 알림» 끄기</b></span></li>
-  <li><b>새로운 빈 자동화</b><span class="sub">→ 동작 <b>«URL 콘텐츠 가져오기»</b> 추가</span><span class="sub">→ URL 에 [주소 복사] 한 것 · 방법 <b>POST</b></span></li>
-  <li>같은 동작에서 <b>«표시» › «헤더»</b> 를 열고 <b>헤더 추가</b> 두 개 —<span class="sub">① <b>«키»</b> 칸에 <code>X-Mobile-Key</code> · <b>«텍스트»</b> 칸에 [키 복사] 한 것 /</span><span class="sub">② <b>«키»</b> 칸에 <code>Content-Type</code> · <b>«텍스트»</b> 칸에 <code>application/json</code></span><span class="soft">iOS 판에 따라 «키 · 텍스트» 가 «이름 · 값» 으로 보여요 — 왼쪽 칸이 이름(X-Mobile-Key), 오른쪽 칸이 값이에요.</span></li>
-  <li>같은 동작의 <b>«요청 본문»</b> 을 <b>JSON</b> 으로 고르고 <b>«새로운 필드 추가»</b> 두 개 —<span class="sub">① 종류 <b>불리언</b> · 키 <code>on</code> · 값 <b>참</b> /</span><span class="sub">② 종류 <b>텍스트</b> · 키 <code>app</code> · 값은 그림 앱 이름</span><span class="soft">on 은 종류를 꼭 «불리언» 으로 골라요(«텍스트» 로 «참» · «true» 를 적지 않아요).</span></li>
-  <li>같은 방법으로 <b>«닫힐 때»</b> 자동화를 하나 더 — 이번엔 <b>on</b> 값만 <b>거짓</b></li>
+
+<p class="os"><b>iPhone · iPad (단축어)</b></p>
+<ol class="steps">
+  <li><span class="path">단축어 › 자동화 › ＋ › 앱</span>
+    <span class="do">그림 앱 고르기 → <b>«열릴 때»</b>만 체크 → <b>즉시 실행</b> · <b>«실행 시 알림»</b> 끄기</span>
+    <figure class="narrow shot" hidden data-img="img/5-7/02.webp" data-shot="iPhone 단축어 › 자동화 › ＋ › 앱 — 그림 앱을 고르고 «열릴 때»만 체크 · «즉시 실행» · «실행 시 알림» 끈 화면"></figure></li>
+  <li><span class="path">새로운 빈 자동화</span>
+    <span class="do">동작 <b>«URL 콘텐츠 가져오기»</b> 추가</span>
+    <table class="kv"><tr><th>URL</th><td>[주소 복사] 한 것</td></tr><tr><th>방법</th><td><code>POST</code></td></tr></table>
+    <figure class="narrow shot" hidden data-img="img/5-7/03.webp" data-shot="iPhone «URL 콘텐츠 가져오기» 동작 — URL 칸에 주소가 들어가고 방법이 POST 인 화면"></figure></li>
+  <li><span class="path">같은 동작 › «표시» › «헤더»</span>
+    <span class="do"><b>헤더 추가</b> 두 개</span>
+    <table class="kv"><tr><th>«키» 칸</th><th>«텍스트» 칸</th></tr><tr><td><code>X-Mobile-Key</code></td><td>[키 복사] 한 것</td></tr><tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr></table>
+    <span class="sub">iOS 판에 따라 «키 · 텍스트» 가 «이름 · 값» 으로 보여요 — 왼쪽 칸이 이름, 오른쪽 칸이 값이에요.</span>
+    <figure class="narrow shot" hidden data-img="img/5-7/04.webp" data-shot="iPhone «표시» › «헤더»를 펼쳐 X-Mobile-Key · Content-Type 두 줄을 넣은 화면(키 값은 가려서)"></figure></li>
+  <li><span class="path">같은 동작 › «요청 본문» › JSON</span>
+    <span class="do"><b>«새로운 필드 추가»</b> 두 개</span>
+    <table class="kv"><tr><th>종류</th><th>키</th><th>값</th></tr><tr><td><b>불리언</b></td><td><code>on</code></td><td><b>참</b></td></tr><tr><td><b>텍스트</b></td><td><code>app</code></td><td>그림 앱 이름</td></tr></table>
+    <span class="sub">on 은 종류를 꼭 «불리언» 으로 골라요(«텍스트» 로 «참» · «true» 를 적지 않아요).</span>
+    <figure class="narrow shot" hidden data-img="img/5-7/05.webp" data-shot="iPhone «요청 본문» JSON — on(불리언 · 참) · app(텍스트 · 앱 이름) 두 필드가 보이는 화면"></figure></li>
+  <li>같은 방법으로 <b>«닫힐 때»</b> 자동화를 하나 더
+    <span class="do">이번엔 <code>on</code> 값만 <b>거짓</b></span></li>
 </ol>
-<div class="note">앱마다 «열릴 때 · 닫힐 때» 두 개씩 만들어요. 헤더 값은 직접 치지 말고 [키 복사] 한 것을 붙여 넣어요.</div>
-<p><b>안드로이드 (MacroDroid)</b></p>
-<ol>
-  <li>매크로 추가(<b>«새 매크로»</b>) › 트리거 › <span class="path">애플리케이션 › 앱 실행/종료</span><span class="sub">→ <b>실행됨</b></span><span class="sub">→ 그림 앱 고르기</span></li>
-  <li>액션 › <span class="path">연결(웹 접속) › HTTP 요청</span><span class="sub">→ 방법 <b>POST</b> · URL 에 [주소 복사] 한 것</span></li>
-  <li><b>헤더</b>에 이름 <code>X-Mobile-Key</code> · 값은 [키 복사] 한 것</li>
-  <li>콘텐츠 유형 <code>application/json</code><span class="sub">· 본문에 [열림 본문 복사] 한 것</span></li>
-  <li><b>새 매크로</b>를 하나 더 — 트리거 <b>종료됨</b> · 본문은 [닫힘 본문 복사]</li>
+<p class="tip">앱마다 «열릴 때 · 닫힐 때» 두 개씩 만들어요. 헤더 값은 직접 치지 말고 [키 복사] 한 것을 붙여 넣어요.</p>
+
+<p class="os"><b>안드로이드 (MacroDroid)</b></p>
+<ol class="steps">
+  <li><span class="path">매크로 추가(«새 매크로») › 트리거 › 애플리케이션 › 앱 실행/종료</span>
+    <span class="do"><b>실행됨</b> → 그림 앱 고르기</span>
+    <figure class="narrow shot" hidden data-img="img/5-7/06.webp" data-shot="MacroDroid 트리거 › 애플리케이션 › 앱 실행/종료 — «실행됨»을 고르고 그림 앱을 체크한 화면"></figure></li>
+  <li><span class="path">액션 › 연결(웹 접속) › HTTP 요청</span>
+    <table class="kv"><tr><th>방법</th><td><code>POST</code></td></tr><tr><th>URL</th><td>[주소 복사] 한 것</td></tr></table>
+    <figure class="narrow shot" hidden data-img="img/5-7/07.webp" data-shot="MacroDroid HTTP 요청 «설정» 탭 — 요청 종류 POST · URL 칸에 주소가 들어간 화면"></figure></li>
+  <li><span class="path">헤더</span>
+    <table class="kv"><tr><th>이름</th><th>값</th></tr><tr><td><code>X-Mobile-Key</code></td><td>[키 복사] 한 것</td></tr></table>
+    <figure class="narrow shot" hidden data-img="img/5-7/08.webp" data-shot="MacroDroid HTTP 요청 헤더 — 이름 X-Mobile-Key 를 넣은 화면(키 값은 가려서)"></figure></li>
+  <li><span class="path">본문</span>
+    <table class="kv"><tr><th>콘텐츠 유형</th><td><code>application/json</code></td></tr><tr><th>본문</th><td>[열림 본문 복사] 한 것</td></tr></table>
+    <figure class="narrow shot" hidden data-img="img/5-7/09.webp" data-shot="MacroDroid «Body 내용» 탭 — 컨텐츠 타입 application/json · 본문에 열림 본문을 붙여 넣은 화면"></figure></li>
+  <li><b>새 매크로</b>를 하나 더
+    <span class="do">트리거 <b>종료됨</b> · 본문은 [닫힘 본문 복사]</span></li>
 </ol>
-<details class="note warn" open><summary><b>⚠️ «열림» 과 «닫힘» 은 꼭 매크로를 따로 만들어요</b></summary>한 매크로에 <b>실행됨</b> · <b>종료됨</b> 트리거와 열림 · 닫힘 HTTP 요청을 함께 넣으면, 트리거가 하나만 일어나도 그 매크로의 액션이 <b>모두</b> 실행돼요. 그러면 앱을 열 때도 닫을 때도 «열림» 과 «닫힘» 이 함께 가서 기록이 뒤죽박죽이 돼요. 열림 매크로에는 <b>실행됨</b> 트리거와 열림 요청만, 닫힘 매크로에는 <b>종료됨</b> 트리거와 닫힘 요청만 둬요.</details>
-<details class="note"><summary>메뉴 이름이 다를 때</summary>MacroDroid 는 판에 따라 메뉴 이름이 조금 달라요 — 안내 페이지의 괄호 안이 한국어 화면의 이름이에요.</details>
+<p class="warn"><b>⚠️ «열림» 과 «닫힘» 은 꼭 매크로를 따로 만들어요.</b> 열림 매크로에는 <b>실행됨</b> 트리거와 열림 요청만, 닫힘 매크로에는 <b>종료됨</b> 트리거와 닫힘 요청만 둬요.</p>
+<details>
+  <summary>한 매크로에 같이 넣으면 왜 안 되나요?</summary>
+  <p>한 매크로에 <b>실행됨</b> · <b>종료됨</b> 트리거와 열림 · 닫힘 HTTP 요청을 함께 넣으면, 트리거가 하나만 일어나도 그 매크로의 액션이 <b>모두</b> 실행돼요. 그러면 앱을 열 때도 닫을 때도 «열림» 과 «닫힘» 이 함께 가서 기록이 뒤죽박죽이 돼요.</p>
+</details>
+<p class="tip">MacroDroid 는 판에 따라 메뉴 이름이 조금 달라요 — 안내 페이지의 괄호 안이 한국어 화면의 이름이에요.</p>
 
 <h2 id="s4">4. 연결 확인</h2>
 <p>PC 프로그램을 켠 채로 안내 페이지의 <b>[신호 보내 보기]</b>를 눌러요. PC 의 📱 태블릿·폰 칸이 3초 동안 초록으로 바뀌면 PC 연결은 된 거예요.</p>
 <div class="note"><b>이 버튼은 PC 연결만 확인해요.</b> 만든 자동화가 맞는지는 <b>그림 앱을 직접 열어서</b> PC 칸이 <b>«📱 (앱 이름) 사용 중»</b> 으로 바뀌는지로 확인해요. 테스트는 초록인데 앱을 열면 «쉬는 중» 이면, 자동화가 신호를 안 보냈거나 모양이 틀린 거예요 — 3번을 다시 봐 주세요.</div>
+<figure class="narrow shot" hidden data-img="img/5-7/10.webp" data-shot="PC 설정 › 포커싱 📱 태블릿·폰 칸이 «📱 Procreate 사용 중»(초록)으로 바뀐 화면"></figure>
 <p>📱 태블릿·폰 칸에는 지금 상태가 보여요.</p>
+<table class="kv">
+  <tr><th>📱 (앱 이름) 사용 중<span class="sub">초록</span></th><td>폰에서 그림 앱을 쓰는 중이에요. 포커스 시간이 쌓이고 있어요.</td></tr>
+  <tr><th>연결됨 · 폰에서 쉬는 중<span class="sub">노랑</span></th><td>연결은 됐고, 지금은 그림 앱이 닫혀 있어요.</td></tr>
+  <tr><th>연결 안 됨<span class="sub">회색</span></th><td>아직 연결하지 않았거나 신호를 기다리는 중이에요. «폰에서 [신호 보내 보기]를 눌러 보세요» 가 보이면 4번부터 다시 해 주세요.</td></tr>
+</table>
 <ul>
-  <li><b>📱 (앱 이름) 사용 중</b> (초록) — 폰에서 그림 앱을 쓰는 중이에요. 포커스 시간이 쌓이고 있어요.</li>
-  <li><b>연결됨 · 폰에서 쉬는 중</b> (노랑) — 연결은 됐고, 지금은 그림 앱이 닫혀 있어요.</li>
-  <li><b>연결 안 됨</b> (회색) — 아직 연결하지 않았거나 신호를 기다리는 중이에요. «폰에서 [신호 보내 보기]를 눌러 보세요» 가 보이면 4번부터 다시 해 주세요.</li>
+  <li>그만 쓰려면 <b>[연결 끊기]</b>를 눌러요.</li>
+  <li>QR 창의 <b>[키 새로 만들기]</b>를 누르면 예전 폰 연결이 끊기고 폰에서 다시 설정해야 해요. 폰을 잃어버렸거나 남에게 줬을 때만 써 주세요(새 폰으로 옮길 땐 [QR 다시 보기]면 돼요).</li>
+  <li>두 버튼 모두 실수로 눌리지 않게 <b>한 번 더 눌러야</b> 실행돼요.</li>
 </ul>
-<p>그만 쓰려면 <b>[연결 끊기]</b>를 눌러요. QR 창의 <b>[키 새로 만들기]</b>를 누르면 예전 폰 연결이 끊기고 폰에서 다시 설정해야 해요 — 폰을 잃어버렸거나 남에게 줬을 때만 써 주세요(새 폰으로 옮길 땐 [QR 다시 보기]면 돼요). 두 버튼 모두 실수로 눌리지 않게 <b>한 번 더 눌러야</b> 실행돼요.</p>
 <div class="note">폰에서 그린 시간은 <b>포커스 시간 · 레벨</b>에 쌓여요. 👑 달성표의 🎯 집중 시간에는 들어가지 않아요(PC 에서 고른 프로그램만 재요). <b>피규어 모드</b>가 켜져 있으면 폰 시간도 쌓이지 않아요. «닫힐 때» 신호가 오지 않은 채 4시간이 지나면 «사용 중» 은 저절로 풀려요.</div>
 
 <h2 id="s5">손으로 누르면 되는데 자동으로는 안 될 때</h2>
-<p><b>iPhone · iPad</b></p>
+<p class="os"><b>iPhone · iPad</b></p>
 <ul>
   <li>자동화 편집 화면에서 <b>«즉시 실행»</b>이 켜져 있는지 확인해요(iOS 16 이하는 <b>«실행 전에 묻기»</b>를 꺼요).</li>
   <li>단축어 안에는 <b>«URL 콘텐츠 가져오기»</b> 동작 하나만 둬요. «메뉴에서 선택» · «입력 요청» · «결과 보기»처럼 눌러야 하는 동작이 있으면 자동으로는 멈춰요.</li>
   <li>«닫힐 때» 자동화가 «열릴 때»와 같은 앱인지 확인해요. 다른 앱을 고르면 열자마자 «닫힘»이 가서 꺼진 것처럼 보여요.</li>
 </ul>
-<p><b>안드로이드</b></p>
+<p class="os"><b>안드로이드</b></p>
 <ul>
   <li>처음 고를 때 권한을 달라는 창이 뜨면 허용해요.</li>
   <li>신호가 가끔 안 가면 <span class="path">설정 › 애플리케이션 › MacroDroid › 배터리</span> 에서 <b>«제한 없음»</b>으로 바꿔요.</li>

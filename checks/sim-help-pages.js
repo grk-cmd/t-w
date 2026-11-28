@@ -102,13 +102,13 @@ say('── 2-1. 폰 연결 안내 — 예전(PUT) 단계가 «예전 …» 문�
 const OLD_LINK_STEPS = ['방법 <b>PUT</b>', '요청 본문 <b>파일</b>', '«텍스트» · «URL 콘텐츠 가져오기»'];
 /* OS 묶음 — 5-7 은 소제목 문단으로, /link 는 data-os 블록으로 나뉜다. [시작, 끝] 글자 */
 const OS_BLOCKS = {
-  '5-7.html': { ios: ['<p><b>iPhone · iPad (단축어)</b></p>', '<p><b>안드로이드 (MacroDroid)</b></p>'], and: ['<p><b>안드로이드 (MacroDroid)</b></p>', '<h2 id="s4">'] },
+  '5-7.html': { ios: ['<p class="os"><b>iPhone · iPad (단축어)</b></p>', '<p class="os"><b>안드로이드 (MacroDroid)</b></p>'], and: ['<p class="os"><b>안드로이드 (MacroDroid)</b></p>', '<h2 id="s4">'] },
   'link.html': { ios: ['<div data-os="ios">', '<div data-os="and" class="hide">'], and: ['<div data-os="and" class="hide">', '<h2><i>3</i>'] },
 };
 const noComment = (s) => s.replace(/<!--[\s\S]*?-->/g, '');
 function osBlock(s, [a, b]){ const i = s.indexOf(a); const j = i < 0 ? -1 : s.indexOf(b, i + a.length); return i < 0 || j < 0 ? null : s.slice(i, j); }
-/* 단계 글 — 첫 <ol> 의 <li> 하나씩, 태그 · 괄호 안(화면 이름) · 빈칸을 뺀 글 */
-const stepsOf = (block) => { const ol = (block.match(/<ol>([\s\S]*?)<\/ol>/) || [])[1]; return ol == null ? null : ol.split(/<li>/).slice(1).map(li => li.replace(/<[^>]+>/g, '').replace(/\([^()]*\)/g, '').replace(/\s+/g, '')); };
+/* 단계 글 — 첫 <ol>(class 가 붙어도) 의 <li> 하나씩, 태그 · 괄호 안(화면 이름) · 빈칸을 뺀 글. 표(칸 → 넣을 값) · 그림 자리도 태그를 빼고 글만 본다 */
+const stepsOf = (block) => { const ol = (block.match(/<ol\b[^>]*>([\s\S]*?)<\/ol>/) || [])[1]; return ol == null ? null : ol.split(/<li>/).slice(1).map(li => li.replace(/<[^>]+>/g, '').replace(/\([^()]*\)/g, '').replace(/\s+/g, '')); };
 /* 찾은 자리가 든 문장(앞의 «요.» · «다.» · 태그 시작 뒤부터)에 «예전» 이 있으면 «예전 방식이면 바꿔요» 안내라서 둔다 */
 function linkDrift(all){
   const errs = [];
@@ -143,17 +143,21 @@ for (const f of fs.readdirSync(DIR)) if (f.endsWith('.html')) allPages[f] = fs.r
 const drift = linkDrift(allPages);
 chk(drift.length === 0, '모든 페이지 ' + Object.keys(allPages).length + '개 — 예전 단계 없음 · 5-7 · /link 의 iOS · 안드로이드 묶음마다 X-Mobile-Key · 두 페이지 OS 별 단계가 같다' + (drift.length ? '\n      ' + drift.slice(0, 8).join('\n      ') : ''));
 const driftBreaks = [
-  ['5-7 에 방법 PUT 이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('방법 <b>POST</b></span></li>', '방법 <b>PUT</b></span></li>'); }],
+  ['5-7 에 방법 PUT 이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('<th>방법</th><td><code>POST</code>', '<th>URL</th><td>방법 <b>PUT</b>'); }],
   ['5-7 에 요청 본문 파일이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('</ol>', '<li>요청 본문 <b>파일</b> → 위 «텍스트»</li></ol>'); }],
   ['FAQ 에 «텍스트» · «URL 콘텐츠 가져오기» 두 개가 되살아남', (a) => { a['faq.html'] += '<p>동작이 «텍스트» · «URL 콘텐츠 가져오기» 두 개뿐인지 봐 주세요.</p>'; }],
   ['/link 에서 X-Mobile-Key 가 빠짐', (a) => { a['link.html'] = a['link.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
   ['5-7 에서 X-Mobile-Key 가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace(/X-Mobile-Key/g, 'X-Key'); }],
-  ['5-7 안드로이드 헤더 단계를 지움', (a) => { a['5-7.html'] = a['5-7.html'].replace(/\s*<li><b>헤더<\/b>에 이름[^\n]*<\/li>/, ''); }],
+  ['5-7 안드로이드 헤더 단계를 지움', (a) => { a['5-7.html'] = a['5-7.html'].replace(/\s*<li><span class="path">헤더<\/span>[\s\S]*?<\/li>/, ''); }],
   ['/link 안드로이드에서만 X-Mobile-Key 가 빠짐(iOS 에는 남음)', (a) => { const s = a['link.html'], i = s.indexOf('<div data-os="and" class="hide">'); a['link.html'] = s.slice(0, i) + s.slice(i).replace(/X-Mobile-Key/g, 'X-Key'); }],
-  ['5-7 iOS 에 태그 없는 «방법 PUT»', (a) => { a['5-7.html'] = a['5-7.html'].replace('· 방법 <b>POST</b></span></li>', '· 방법 PUT</span></li>'); }],
-  ['5-7 iOS 에 «텍스트» 동작이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('<li><b>새로운 빈 자동화</b>', '<li>동작 «텍스트» 추가 → [열림 본문 복사] 한 것</li>\n  <li><b>새로운 빈 자동화</b>'); }],
-  ['5-7 iOS 에서 불리언 안내가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace('종류 <b>불리언</b> · 키 <code>on</code>', '키 <code>on</code>'); }],
+  ['5-7 iOS 방법 칸이 PUT(태그 없이)', (a) => { a['5-7.html'] = a['5-7.html'].replace('<tr><th>방법</th><td><code>POST</code></td></tr></table>', '<tr><th>방법</th><td>PUT</td></tr></table>'); }],
+  ['5-7 iOS 에 «텍스트» 동작이 되살아남', (a) => { a['5-7.html'] = a['5-7.html'].replace('<li><span class="path">새로운 빈 자동화</span>', '<li>동작 «텍스트» 추가 → [열림 본문 복사] 한 것</li>\n  <li><span class="path">새로운 빈 자동화</span>'); }],
+  ['5-7 iOS 에서 불리언 안내가 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace('<td><b>불리언</b></td><td><code>on</code></td>', '<td><b>텍스트</b></td><td><code>on</code></td>'); }],
+  ['5-7 iOS 헤더 표에서 Content-Type 줄이 빠짐', (a) => { a['5-7.html'] = a['5-7.html'].replace(/<tr><td><code>Content-Type<\/code><\/td><td><code>application\/json<\/code><\/td><\/tr>/, ''); }],
+  ['/link 안드로이드 본문 칸이 닫힘 본문', (a) => { const s = a['link.html'], i = s.indexOf('<div data-os="and" class="hide">'); a['link.html'] = s.slice(0, i) + s.slice(i).replace('<td>[열림 본문 복사] 한 것</td>', '<td>[닫힘 본문 복사] 한 것</td>'); }],
 ];
+/* 고친 글이 실제로 바뀌었는가 — 마크업이 바뀌어 replace 가 헛돌면 mutation test 가 «잡았다» 가 아니라 «아무것도 안 바꿨다» 가 된다 */
+for (const [name, f] of driftBreaks){ const a = Object.assign({}, allPages); f(a); chk(Object.keys(a).some(k => a[k] !== allPages[k]), '  mutation test 가 실제로 글을 바꾼다 — ' + name); }
 for (const [name, f] of driftBreaks){ const a = Object.assign({}, allPages); f(a); chk(linkDrift(a).length > 0, '  mutation test — ' + name); }
 chk(linkDrift(Object.assign({}, allPages, { 'x.html': '<p>예전 방식(방법 <b>PUT</b>)이면 POST 로 바꿔요.</p>' })).length === 0, '  «예전 …» 문장 안의 PUT 은 둔다(바꾸라는 안내)');
 chk(linkDrift(Object.assign({}, allPages, { 'link.html': allPages['link.html'].replace('(«설정» 탭 › 요청 종류)', '') })).length === 0, '  괄호 안 화면 이름만 다른 것은 같다고 본다(/link 만 괄호를 단다)');
