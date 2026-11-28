@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { nextTap } from '../model/crew';
 
 /** 말풍선이 떠 있는 시간 · 날아갔다 돌아오는 시간(CSS 애니메이션 길이도 이 값 — --fly-ms) */
@@ -21,6 +21,19 @@ export function CrewMate({ name, role, lines, src, w, h }: Props) {
   const taps = useRef<number[]>([]);
   // 다음에 보일 대사 — 말풍선이 사라져도 이어진다(천천히 눌러도 다음 대사)
   const nextLine = useRef(0);
+  const bubble = useRef<HTMLSpanElement>(null);
+  // 도트 테두리(border-image 아홉 조각)는 반 픽셀에 앉으면 조각이 안 맞아 흐려진다 — 앱(_bubSnapTransform)처럼 정수 px 로 맞춘다
+  useLayoutEffect(() => {
+    const el = bubble.current;
+    if (!el) return;
+    el.style.width = '';
+    el.style.transform = '';
+    const w = Math.ceil(el.getBoundingClientRect().width);
+    el.style.width = `${w}px`;
+    el.style.transform = `translateX(${-Math.round(w / 2)}px)`;
+    const r = el.getBoundingClientRect();
+    el.style.transform = `translate(${-Math.round(w / 2) + Math.round(r.left) - r.left}px, ${Math.round(r.top) - r.top}px)`;
+  }, [say]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -44,7 +57,11 @@ export function CrewMate({ name, role, lines, src, w, h }: Props) {
     <figure className="crew-mate">
       {/* 알리는 칸은 늘 있어야 화면 낭독기가 새 대사를 읽는다 — 말풍선 모양은 안쪽에만 */}
       <span className="crew-live" aria-live="polite">
-        {say !== null && <span className="crew-say">{lines[say]}</span>}
+        {say !== null && (
+          <span ref={bubble} className="crew-say">
+            {lines[say]}
+          </span>
+        )}
       </span>
       <button
         type="button"

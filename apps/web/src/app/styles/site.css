@@ -8,9 +8,16 @@
   src: url('galmuri/dist/Galmuri11-Bold.woff2') format('woff2');
   font-display: swap;
 }
+/* 같은 글꼴의 보통 굵기 — 제목(굵은 파일을 400 으로 쓴다)에 끼지 않게 이름을 따로 둔다. 첫 화면 사람 말풍선 · 이름표만 */
+@font-face {
+  font-family: 'Galmuri11 Regular';
+  src: url('galmuri/dist/Galmuri11.woff2') format('woff2');
+  font-display: swap;
+}
 
 :root {
   --font-cute: 'Galmuri11', 'DotGothic16', var(--font-pixel);
+  --font-cute-thin: 'Galmuri11 Regular', 'DotGothic16', var(--font-pixel);
   --raised:
     inset -1px -1px var(--bevel-dark), inset 1px 1px var(--bg-face-2), inset -2px -2px var(--bevel-lo),
     inset 2px 2px var(--bevel-hi);
@@ -339,21 +346,21 @@ h3 {
   outline: 1px dotted var(--on-desk);
   outline-offset: 2px;
 }
-/* 이름표 — 앱 좌석 이름표(.seat-nameplate)와 같은 모양: 바탕 없이 흰 굵은 글자 + 8방향 검은 외곽선 */
+/* 이름표 — 앱 좌석 이름표(.seat-nameplate)와 같은 모양(바탕 없이 흰 글자 + 8방향 검은 외곽선) · 글꼴만 사이트 도트 글꼴 */
 .crew-tag {
-  color: #ffffff;
-  font: bold 15px var(--font-classic);
+  color: var(--plate-ink);
+  font: 15px var(--font-cute-thin);
   letter-spacing: 0.3px;
   white-space: nowrap;
   text-shadow:
-    -1.5px 0 rgba(0, 0, 0, 0.8),
-    1.5px 0 rgba(0, 0, 0, 0.8),
-    0 -1.5px rgba(0, 0, 0, 0.8),
-    0 1.5px rgba(0, 0, 0, 0.8),
-    -1.5px -1.5px rgba(0, 0, 0, 0.8),
-    1.5px -1.5px rgba(0, 0, 0, 0.8),
-    -1.5px 1.5px rgba(0, 0, 0, 0.8),
-    1.5px 1.5px rgba(0, 0, 0, 0.8);
+    -1.5px 0 var(--plate-outline),
+    1.5px 0 var(--plate-outline),
+    0 -1.5px var(--plate-outline),
+    0 1.5px var(--plate-outline),
+    -1.5px -1.5px var(--plate-outline),
+    1.5px -1.5px var(--plate-outline),
+    -1.5px 1.5px var(--plate-outline),
+    1.5px 1.5px var(--plate-outline);
 }
 .crew-tag b {
   font-weight: inherit;
@@ -366,12 +373,14 @@ h3 {
 }
 /* 말풍선 — 앱 머리 위 말풍선(.seat-bubble-dom)과 같은 도트 아트: 크림 바탕 · 계단 모서리 테두리(9×9 · 조각 3) · 도트 꼬리.
    ⚠️ 테두리 9px 와 아트는 짝이다(줄이면 계단이 잘린다) · background-clip 을 빼면 깎은 모서리가 크림으로 메워진다.
-   폭은 앱(200px)보다 좁게 — 관리자 그림이 좁아 폰에서 첫 화면 밖으로 나가지 않게 */
+   폭은 앱(200px)보다 좁게 — 관리자 그림이 좁아 폰에서 첫 화면 밖으로 나가지 않게.
+   ⚠️ 아트 · 크림색은 앱 desk-companion-prototype.html .seat-bubble-dom 과 짝 — 한쪽을 바꾸면 같이(SVG 안 %23FFFFCC 와 background 도 짝) */
 .crew-say {
   position: absolute;
   bottom: 0;
   left: 0;
   transform: translateX(-50%);
+  box-sizing: border-box;
   width: max-content;
   max-width: 150px;
   padding: 0 3px;
@@ -381,7 +390,7 @@ h3 {
   background: #ffffcc;
   background-clip: padding-box;
   color: #000000;
-  font: bold 15px var(--font-classic);
+  font: 15px var(--font-cute-thin);
   line-height: 1.4;
   text-align: center;
   word-break: keep-all;
