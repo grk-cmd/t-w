@@ -27,7 +27,7 @@ export function Hero() {
         </div>
         <div className="hero-side">
           <NewsSlot />
-          <img className="crew" src="/crew/dev.png" width={96} height={81} alt={m.crewDevAlt} />
+          <img className="crew" src="/crew/dev.png" width={96} height={84} alt={m.crewDevAlt} />
         </div>
       </div>
     </section>

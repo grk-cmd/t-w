@@ -43,7 +43,7 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(m.newsEmpty);
       // 소식 창 아래 개발자 도트 그림 — 파일 크기 그대로(두 배는 CSS) · 언어별 대체 글
       expect(html).toContain(
-        `<img class="crew" src="/crew/dev.png" width="96" height="81" alt="${m.crewDevAlt}"/>`,
+        `<img class="crew" src="/crew/dev.png" width="96" height="84" alt="${m.crewDevAlt}"/>`,
       );
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
       expect(html).not.toMatch(/%TW_LANG%|<!--tw-head-->|<!--tw-body-->/);
@@ -96,6 +96,11 @@ describe('미리 그린 페이지', () => {
       `<img class="feat-shot" src="${first.src}" width="${first.w}" height="${first.h}"`,
     );
     expect(body.match(/class="feat-shot"/g)).toHaveLength(1);
+  });
+
+  it('개발자 도트 그림 — 태그의 width · height 가 실제 PNG 크기', () => {
+    const png = readFileSync(new URL('../public/crew/dev.png', import.meta.url));
+    expect({ w: png.readUInt32BE(16), h: png.readUInt32BE(20) }).toEqual({ w: 96, h: 84 });
   });
 
   it('내려받기 단추는 주소가 생기기 전까지 눌리지 않는다', () => {
