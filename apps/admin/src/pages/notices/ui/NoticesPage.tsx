@@ -1,5 +1,6 @@
 import { AnnounceCard } from '@/features/notice/announce';
 import { BugReportCard } from '@/features/notice/bug-report';
+import { SiteNewsCard } from '@/features/notice/edit-site-news';
 import { SendBroadcastCard } from '@/features/notice/send-broadcast';
 import { UpdateNoticeCard } from '@/features/notice/update-notice';
 import { BroadcastList } from '@/widgets/broadcast-list';
@@ -13,6 +14,7 @@ export function NoticesPage() {
         <BugReportCard />
       </div>
       <SendBroadcastCard />
+      <SiteNewsCard />
       <BroadcastList />
     </>
   );
